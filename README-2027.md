@@ -1,8 +1,8 @@
-# Revit 2027 AI 建模桥接器 v0.3.17
+# Revit 2027 AI 建模桥接器 v0.3.20
 
 ## 当前状态
 
-2026-10-04：v0.3.17已编译并通过57项核心/140项MCP测试，增加确定性连接器条件解析、严格兼容性校验和非有限参数安全处理；已安装供下次Revit启动加载，当前运行实例仍为v0.3.16。泵房连接尚未执行，必须先重启加载v0.3.17并重新读取方向/直径/系统分类。官方MCP按用户决定暂不接入。新版连接说明见docs/connector-criteria-connections.md。
+2026-10-04：v0.3.20已编译并通过77项核心/149项MCP测试，修复执行阶段端口状态误报、系统分类证据和重复端口预检；已安排下次Revit启动加载。当前运行实例仍为v0.3.18，上一份连接计划已完整回滚，必须重启加载v0.3.20后基于新identity/revision重新预览。官方MCP按用户决定暂不接入。连接说明见docs/piping-connection-compatibility.md。
 
 已编译独立 .NET 10 / Revit 2027 插件，并提供可被 Claude、Codex 发现的本机 stdio MCP 服务。Claude Desktop 和 Codex 的 `revit-custom` 已注册，原配置已备份。旧 Revit 2025 模型、族、脚本和程序集保留；旧项目只增加排除新目录的编译项。
 
@@ -107,4 +107,3 @@ node D:\Desktop\revitt\revit-auto\mcp\acceptance.mjs --lighting D:\Desktop\revit
 ## v0.3.4 新增与未完成项
 
 新增事务变更历史、类型解析、房间布灯预览、PNG 视图证据导出。当前源码已编译并通过自动化测试，实机需重启后核验。完整目标进度和未完成边界见 docs/goal-progress.md；Claude Code 的自然语言行为约定见 CLAUDE.md。
-

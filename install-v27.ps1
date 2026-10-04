@@ -1,7 +1,7 @@
 param([switch]$RegisterCodex,[switch]$RegisterClaudeDesktop,[switch]$DisableLegacyClaudeRevit)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
-$dll=Join-Path $root 'v27\bin\Release\net10.0-windows-v27-chat-0318\RevitAutoV27.dll'
+$dll=Join-Path $root 'v27\bin\Release\net10.0-windows-v27-chat-0320\RevitAutoV27.dll'
 if(-not(Test-Path -LiteralPath $dll)){throw 'Build-v27.ps1 must succeed before installation.'}
 $runtime=Join-Path $root 'runtime'
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
@@ -70,5 +70,3 @@ if($RegisterClaudeDesktop){
 }
 Write-Output 'RevitAutoV27 manifest and private bridge settings installed. Existing 2025 files are unchanged.'
 Write-Output 'Restart Revit 2027 manually after saving your work. Restart Claude/Codex to discover new MCP tools.'
-
-

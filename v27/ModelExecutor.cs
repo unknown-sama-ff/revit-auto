@@ -18,8 +18,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private Document Doc => app.ActiveUIDocument!.Document;
     private readonly Dictionary<string, Type> predicted = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonElement> predictedOperations = new(StringComparer.Ordinal);
-    private readonly ConnectionPortClaims connectionPorts = new();
-    private int operationOrdinal;
+    private readonly Dictionary<long, JsonElement> materializedOperations = new();
     private static BridgeException Invalid(string message) => new("invalid_operation", message);
     private static bool Deferred(JsonElement value) => value.ValueKind == JsonValueKind.String && value.GetString()!.StartsWith('@');
     private ElementId Id(JsonElement value)
@@ -72,7 +71,6 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     }
     public void Validate(JsonElement op)
     {
-        operationOrdinal++;
         var kind = JsonDefaults.String(op, "operationType")!;
         switch (kind)
         {
@@ -310,7 +308,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                     Doc.Regenerate(); if(!a.IsConnectedTo(b))throw Invalid("Revit did not connect the reviewed pair; the whole plan rolls back.");
                     return new([], [a.Owner.Id.Value, b.Owner.Id.Value]);
                 }
-                if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(PipingCompatibilityService.Evidence(a),PipingCompatibilityService.Evidence(b));
+                if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(EvidenceForSelection(a,op,"first"),EvidenceForSelection(b,op,"second"));
                 if(a.IsConnected || b.IsConnected)throw Invalid("A fitting endpoint is already occupied.");
                 created = JsonDefaults.StringOr(op, "fittingType", "elbow") switch
                 {
@@ -329,6 +327,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             var clashes = new FilteredElementCollector(Doc).OfCategory(BuiltInCategory.OST_MechanicalEquipment).WhereElementIsNotElementType().WherePasses(filter).Where(e => e.Id != created.Id).Select(e => e.Id.Value).ToArray();
             if (clashes.Length > 0) throw Invalid($"Equipment clearance/bounding-box overlap with {string.Join(",", clashes)}; adjust the layout.");
         }
+        materializedOperations[created.Id.Value] = op.Clone();
         return OperationReceipt.New(created);
     }
     private CurveLoop FloorLoop(JsonElement op)
@@ -371,6 +370,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private long? ExpectedSystemTypeId(JsonElement op,string prefix)
     {
         var value=JsonDefaults.Get(op,prefix+"ElementId");
+        if(!Deferred(value) && value.ValueKind==JsonValueKind.Number && value.TryGetInt64(out var materializedId) && materializedOperations.TryGetValue(materializedId,out var materializedOwner) && JsonDefaults.String(materializedOwner,"operationType")=="create_pipe") return JsonDefaults.Int64(materializedOwner,"systemTypeId");
         if(!Deferred(value))return null;
         var reference=value.GetString()![1..];
         if(predictedOperations.TryGetValue(reference,out var owner)&&JsonDefaults.String(owner,"operationType")=="create_pipe")return JsonDefaults.Int64(owner,"systemTypeId");
@@ -382,7 +382,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         if(existing is not null)
         {
             var connector=SelectConnector(existing,op,prefix);
-            connectionPorts.Reserve(existing.Id.Value+":port:"+connector.Id,operationOrdinal);
+
             return connector.Domain==Domain.DomainPiping?PipingCompatibilityService.Evidence(connector,ExpectedSystemTypeId(op,prefix)):null;
         }
         var reference=JsonDefaults.String(op,prefix+"ElementId")![1..];
@@ -390,7 +390,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         var owner=predictedOperations[reference];
         if(JsonDefaults.String(owner,"operationType") is not ("create_pipe" or "create_duct"))throw Invalid("Deferred connector criteria support explicitly created straight pipes/ducts only.");
         var endpoint=ConnectionPortReservationRules.NewCurveEndpoint(owner,criteria);
-        connectionPorts.Reserve("@"+reference+":endpoint:"+endpoint,operationOrdinal);
+
         if(JsonDefaults.String(owner,"operationType")!="create_pipe")return null;
         var system=Check<PipingSystemType>(owner,"systemTypeId")??throw Invalid("New pipe must use an inspected native system type.");
         return new PipingClassEvidence(-1,-1,null,system.Id.Value,system.SystemClassification.ToString());
