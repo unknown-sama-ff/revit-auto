@@ -1,0 +1,9 @@
+# Merge this section with your existing Codex configuration; do not replace the whole file.
+[mcp_servers.revit-custom]
+command = "node"
+args = ["D:\\Desktop\\revitt\\revit-auto\\mcp\\revit-custom.mjs"]
+startup_timeout_sec = 15
+tool_timeout_sec = 180
+# Bridge credentials remain in the private runtime/bridge.json, not in assistant configuration.
+# Optional official read proxy must not be enabled until Autodesk supplies the actual installed command,
+# Read profile and tool names. See docs/official-mcp.md.

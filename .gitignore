@@ -1,0 +1,43 @@
+# New package build artifacts and private local connection settings
+v27/bin/
+v27/obj/
+v27/build.log
+tests/**/bin/
+tests/**/obj/
+mcp/node_modules/
+runtime/
+imports/
+mcp/*generated*
+
+# Acceptance copies and local test records
+acceptance/
+v27/build-*.log
+mcp/tests-*.log
+tests/core-*.log
+
+# Proprietary Revit models and source drawings
+*.rvt
+*.rfa
+*.rte
+*.dwg
+*.bak
+*.slog
+
+# Generated exports, local logs and machine-specific manifests
+exports/
+*.log
+*.addin
+
+# Local IDE and OS files
+.vscode/
+.vs/
+.DS_Store
+Thumbs.db
+
+# Root build artifacts
+/bin/
+/obj/
+
+# Generated preview images at repository root
+/*.png
+/*.jpg

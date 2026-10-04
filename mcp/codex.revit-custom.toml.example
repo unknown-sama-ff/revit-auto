@@ -1,0 +1,8 @@
+# RevitAuto 2027 community/custom MCP for Codex CLI/IDE.
+# Merge only this block into the existing user config.toml.
+# Do not register Autodesk Write/Experimental, old WebSocket MCP, or send_code_to_revit.
+
+[mcp_servers.revit-custom]
+command = "C:\\Program Files\\nodejs\\node.exe"
+args = ["D:\\Desktop\\revitt\\revit-auto\\mcp\\revit-custom.mjs"]
+startup_timeout_sec = 120

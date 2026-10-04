@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>RevitAutoV27</AssemblyName>
+    <Version>0.3.16</Version>
+    <RootNamespace>RevitAutoV27</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <OutputPath>bin\Release\net10.0-windows-v27-chat-0316\</OutputPath>
+    <IntermediateOutputPath>obj\Release\net10.0-windows-v27\</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>D:\revit 2027\Autodesk\Revit 2027\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+      <ExternallyResolved>true</ExternallyResolved>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>D:\revit 2027\Autodesk\Revit 2027\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+      <ExternallyResolved>true</ExternallyResolved>
+    </Reference>
+  </ItemGroup>
+</Project>
+
+
+
+
+

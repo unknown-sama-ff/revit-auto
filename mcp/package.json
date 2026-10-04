@@ -1,0 +1,18 @@
+{
+  "name": "revit-custom-mcp",
+  "version": "0.3.16",
+  "private": true,
+  "description": "Local MCP stdio bridge for the RevitAuto 2027 add-in",
+  "type": "module",
+  "scripts": {
+    "start": "node revit-custom.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "smoke": "npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "fast-xml-parser": "5.11.2",
+    "fflate": "0.8.3",
+    "zod": "4.6.5"
+  }
+}

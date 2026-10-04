@@ -1,0 +1,845 @@
+{
+  "title": "\u6837\u677F",
+  "path": "D:\\Desktop\\revitt\\\u7D20\u6750\\\u6837\u677F.rvt",
+  "isWorkshared": false,
+  "counts": {
+    "OST_Levels": 3,
+    "OST_Grids": 0,
+    "OST_Walls": 0,
+    "OST_StructuralColumns": 0,
+    "OST_Columns": 0,
+    "OST_Doors": 0,
+    "OST_Windows": 0,
+    "OST_Floors": 0,
+    "OST_Stairs": 0,
+    "OST_LightingFixtures": 0,
+    "OST_LightingDevices": 0,
+    "OST_ElectricalEquipment": 0,
+    "OST_ElectricalCircuit": 0,
+    "OST_Wire": 0,
+    "OST_Rooms": 0,
+    "OST_Sheets": 1,
+    "OST_TitleBlocks": 1
+  },
+  "symbols": [
+    {
+      "id": 2093409,
+      "category": "\u706F\u5177",
+      "family": "THS_\u5F00\u5173_\u5355\u7EA7\u5F00\u5173",
+      "name": "\u5355\u63A7",
+      "active": true,
+      "placement": "WorkPlaneBased"
+    },
+    {
+      "id": 2093411,
+      "category": "\u706F\u5177",
+      "family": "THS_\u5F00\u5173_\u5355\u7EA7\u5F00\u5173",
+      "name": "\u53CC\u63A7",
+      "active": false,
+      "placement": "WorkPlaneBased"
+    },
+    {
+      "id": 2067837,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u4F4E\u538B\u52A8\u529B\u914D\u7535\u53CA\u63A7\u5236\u7BB1",
+      "name": "\u6807\u51C6",
+      "active": true,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071168,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "YL-1APE2",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071170,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "YL-1APE1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071172,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1ZAP2",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071174,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "BX-1ZTAP1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071176,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1ZAP1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071178,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAA1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071180,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAP",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071182,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAA6",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071184,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAA5",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071186,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAA4",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071188,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAA3",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071190,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LDAA2",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071192,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-LJSAP",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071194,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "PSAP3",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071196,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "PSAP4",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071198,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "CS-LJAP",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071200,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "CS-XHAP",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071202,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "YL-B1APE2",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071204,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "YL-B1APE1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071206,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE24",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071208,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE23",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071210,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE22",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071212,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE21",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071214,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "XFBAP",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071216,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "PSAP5",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071218,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "LJAP1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071220,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "PSAP2",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071222,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE12",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071224,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE11",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071226,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "PSAP1",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2071228,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u52A8\u529B\u914D\u7535\u7BB1",
+      "name": "WY-B1APE13",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2073887,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u63A7\u5236\u7BB1",
+      "name": "\u6807\u51C6",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 1851320,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "\u914D\u7535\u7BB1",
+      "name": "\u914D\u7535\u7BB1",
+      "active": true,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2063460,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "PB801\u7CFB\u5217\u52A8\u529B\u914D\u7535\u67DC",
+      "name": "PB8011",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2063462,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "PB801\u7CFB\u5217\u52A8\u529B\u914D\u7535\u67DC",
+      "name": "PB8012",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2063464,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "PB801\u7CFB\u5217\u52A8\u529B\u914D\u7535\u67DC",
+      "name": "PB8013",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2063466,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "PB801\u7CFB\u5217\u52A8\u529B\u914D\u7535\u67DC",
+      "name": "PB8014",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2063468,
+      "category": "\u7535\u6C14\u8BBE\u5907",
+      "family": "PB801\u7CFB\u5217\u52A8\u529B\u914D\u7535\u67DC",
+      "name": "PB8015",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 764827,
+      "category": "\u7ED3\u6784\u67F1",
+      "family": "\u94A2\u7BA1\u6DF7\u51DD\u571F\u67F1-\u77E9\u5F62",
+      "name": "\u6807\u51C6",
+      "active": true,
+      "placement": "TwoLevelsBased"
+    },
+    {
+      "id": 765512,
+      "category": "\u7ED3\u6784\u67F1",
+      "family": "\u6DF7\u51DD\u571F-\u77E9\u5F62-\u67F1",
+      "name": "300 x 450 mm",
+      "active": true,
+      "placement": "TwoLevelsBased"
+    },
+    {
+      "id": 765514,
+      "category": "\u7ED3\u6784\u67F1",
+      "family": "\u6DF7\u51DD\u571F-\u77E9\u5F62-\u67F1",
+      "name": "450 x 600 mm",
+      "active": false,
+      "placement": "TwoLevelsBased"
+    },
+    {
+      "id": 765516,
+      "category": "\u7ED3\u6784\u67F1",
+      "family": "\u6DF7\u51DD\u571F-\u77E9\u5F62-\u67F1",
+      "name": "600 x 750 mm",
+      "active": true,
+      "placement": "TwoLevelsBased"
+    },
+    {
+      "id": 765549,
+      "category": "\u7ED3\u6784\u67F1",
+      "family": "\u6DF7\u51DD\u571F-\u77E9\u5F62-\u67F1",
+      "name": "F1_GBZ1_C30_600x750mm",
+      "active": true,
+      "placement": "TwoLevelsBased"
+    },
+    {
+      "id": 12190,
+      "category": "\u7ED3\u6784\u67F1",
+      "family": "UC-\u901A\u7528\u67F1 - \u67F1",
+      "name": "305x305x97UC",
+      "active": true,
+      "placement": "TwoLevelsBased"
+    },
+    {
+      "id": 2222795,
+      "category": "\u95E8",
+      "family": "\u5355\u5D4C\u677F\u73BB\u7483\u95E8 1",
+      "name": "M0921",
+      "active": true,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 2222797,
+      "category": "\u95E8",
+      "family": "\u5355\u5D4C\u677F\u73BB\u7483\u95E8 1",
+      "name": "800 x 2100mm",
+      "active": false,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 2222799,
+      "category": "\u95E8",
+      "family": "\u5355\u5D4C\u677F\u73BB\u7483\u95E8 1",
+      "name": "700 x 2100mm",
+      "active": false,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 2222822,
+      "category": "\u95E8",
+      "family": "\u5355\u5D4C\u677F\u73BB\u7483\u95E8 1",
+      "name": "M0521",
+      "active": true,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 763589,
+      "category": "\u95E8",
+      "family": "\u5355\u6247\u6728\u8D28\u5185\u95E8",
+      "name": "F37_NM2",
+      "active": true,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 1018076,
+      "category": "\u56FE\u6846",
+      "family": "THS-A1",
+      "name": "THS-A1",
+      "active": true,
+      "placement": "ViewBased"
+    },
+    {
+      "id": 1018426,
+      "category": "\u56FE\u6846",
+      "family": "THS-A3",
+      "name": "A3",
+      "active": true,
+      "placement": "ViewBased"
+    },
+    {
+      "id": 2184362,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u5B89\u5168\u51FA\u53E3\u6307\u793A\u706F",
+      "name": "2W",
+      "active": false,
+      "placement": "WorkPlaneBased"
+    },
+    {
+      "id": 2185415,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u697C\u68AF\u95F4\u5E94\u6025\u5438\u9876\u706F",
+      "name": "1x18W",
+      "active": false,
+      "placement": "WorkPlaneBased"
+    },
+    {
+      "id": 2161880,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u666E\u901A\u5355\u7BA1\u8367\u5149\u706F",
+      "name": "2\u00D728\u74E6(T5\u7BA1)",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2161882,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u666E\u901A\u5355\u7BA1\u8367\u5149\u706F",
+      "name": "56W",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2163189,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u666E\u901A\u53CC\u7BA1\u8367\u5149\u706F",
+      "name": "THS_\u706F\u5177_\u666E\u901A\u53CC\u7BA1\u8367\u5149\u706F",
+      "active": false,
+      "placement": "WorkPlaneBased"
+    },
+    {
+      "id": 2173538,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u5438\u9876\u706F-\u683C\u6805\u5F0F001",
+      "name": "0600 x 1200mm (2 \u76CF\u706F)",
+      "active": false,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 2173540,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u5438\u9876\u706F-\u683C\u6805\u5F0F001",
+      "name": "0600 x 1200mm (4 \u76CF\u706F)",
+      "active": false,
+      "placement": "OneLevelBasedHosted"
+    },
+    {
+      "id": 2190308,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u5E94\u6025\u706F",
+      "name": "THS_\u706F\u5177_\u5E94\u6025\u706F",
+      "active": false,
+      "placement": "OneLevelBased"
+    },
+    {
+      "id": 2183478,
+      "category": "\u7167\u660E\u8BBE\u5907",
+      "family": "THS_\u706F\u5177_\u5E94\u6025\u53CC\u7BA1\u8367\u5149\u706F",
+      "name": "2\u00D728\u74E6(T5\u7BA1)",
+      "active": false,
+      "placement": "WorkPlaneBased"
+    }
+  ],
+  "wallTypes": [
+    {
+      "id": 397,
+      "name": "\u5916\u90E8 - \u5E26\u7816\u4E0E\u91D1\u5C5E\u7ACB\u7B4B\u9F99\u9AA8\u590D\u5408\u5899",
+      "widthMm": 350
+    },
+    {
+      "id": 398,
+      "name": "\u5E38\u89C4 - 200mm",
+      "widthMm": 200
+    },
+    {
+      "id": 401,
+      "name": "\u5E38\u89C4 - 90mm \u7816",
+      "widthMm": 90
+    },
+    {
+      "id": 6291,
+      "name": "\u5E38\u89C4 - 300mm",
+      "widthMm": 300
+    },
+    {
+      "id": 29096,
+      "name": "\u5916\u90E8\u73BB\u7483",
+      "widthMm": 25
+    },
+    {
+      "id": 54537,
+      "name": "\u5916\u90E8 - \u780C\u5757\u52D2\u811A\u7816\u5899",
+      "widthMm": 460
+    },
+    {
+      "id": 54538,
+      "name": "\u5916\u90E8 - \u5E26\u780C\u5757\u4E0E\u91D1\u5C5E\u7ACB\u7B4B\u9F99\u9AA8\u590D\u5408\u5899",
+      "widthMm": 460
+    },
+    {
+      "id": 761943,
+      "name": "F1_\u526A\u529B\u5899_Q1_C30_200mm",
+      "widthMm": 200
+    },
+    {
+      "id": 761972,
+      "name": "F1_\u52A0\u6C14\u6DF7\u51DD\u571F\u780C\u5757\u5899_200mm",
+      "widthMm": 200
+    },
+    {
+      "id": 763588,
+      "name": "F37_\u52A0\u6C14\u6DF7\u51DD\u571F\u780C\u5757\u5899_100mm",
+      "widthMm": 100
+    },
+    {
+      "id": 1577802,
+      "name": "THS_\u783C\u5899_\u9ED8\u8BA4",
+      "widthMm": 300
+    },
+    {
+      "id": 1577803,
+      "name": "THS_\u780C\u4F53\u5899_\u9ED8\u8BA4",
+      "widthMm": 225
+    },
+    {
+      "id": 2219271,
+      "name": "F37_\u52A0\u6C14\u6DF7\u51DD\u571F\u780C\u5757\u5899_30mm",
+      "widthMm": 30
+    }
+  ],
+  "floorTypes": [
+    {
+      "id": 759,
+      "name": "\u5E38\u89C4 - 300mm"
+    },
+    {
+      "id": 86313,
+      "name": "150mm \u57FA\u7840\u5E95\u677F"
+    },
+    {
+      "id": 763936,
+      "name": "F1_\u5EFA\u7B51\u697C\u677F_\u7D20\u783C_100mm"
+    },
+    {
+      "id": 764041,
+      "name": "-1F_\u5E95\u697C\u677F_\u6807\u9AD8-4.35_50mm"
+    },
+    {
+      "id": 764133,
+      "name": "F1_\u7ED3\u6784\u697C\u677F_C30_200mm"
+    },
+    {
+      "id": 1577766,
+      "name": "THS_\u60AC\u6311\u677F_\u9ED8\u8BA4"
+    },
+    {
+      "id": 1577767,
+      "name": "THS_\u9884\u5236\u677F_\u9ED8\u8BA4"
+    },
+    {
+      "id": 1577768,
+      "name": "THS_\u677F_\u9ED8\u8BA4"
+    },
+    {
+      "id": 1577785,
+      "name": "THS_\u7B4F\u677F_\u9ED8\u8BA4"
+    }
+  ],
+  "levels": [
+    {
+      "id": 311,
+      "name": "1F_ARC(0.000)",
+      "elevationMm": 0
+    },
+    {
+      "id": 694,
+      "name": "2F_ARC(4.000)",
+      "elevationMm": 4000
+    },
+    {
+      "id": 770339,
+      "name": "3F_ARC(8.000)",
+      "elevationMm": 8000
+    }
+  ],
+  "grids": [],
+  "views": [
+    {
+      "id": 230,
+      "name": "\u9879\u76EE\u89C6\u56FE",
+      "type": "ProjectBrowser"
+    },
+    {
+      "id": 69851,
+      "name": "\u7CFB\u7EDF\u6D4F\u89C8\u5668",
+      "type": "SystemBrowser"
+    },
+    {
+      "id": 665814,
+      "name": "\u7ED9\u6392\u6C34_3D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 665897,
+      "name": "\u98CE\u7BA1\u7BA1\u4EF6\u660E\u7EC6\u8868",
+      "type": "Schedule"
+    },
+    {
+      "id": 770309,
+      "name": "2F_\u6696\u901A\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770350,
+      "name": "1F_\u6696\u901A\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770370,
+      "name": "3F_\u6696\u901A\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770410,
+      "name": "2F_\u7ED9\u6392\u6C34\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770420,
+      "name": "3F_\u7ED9\u6392\u6C34\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770443,
+      "name": "\u6696\u901A_3D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 770491,
+      "name": "1F_\u55B7\u6DCB\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770501,
+      "name": "2F_\u55B7\u6DCB\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770511,
+      "name": "3F_\u55B7\u6DCB\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770523,
+      "name": "\u55B7\u6DCB_3D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 770796,
+      "name": "1F_\u7535\u6C14\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770806,
+      "name": "2F_\u7535\u6C14\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770816,
+      "name": "3F_\u7535\u6C14\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770828,
+      "name": "\u7535\u6C14_3D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 770896,
+      "name": "2F_\u7EFC\u5408\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770906,
+      "name": "3F_\u7EFC\u5408\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 770918,
+      "name": "1F_\u7EFC\u54083D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 867337,
+      "name": "1F_\u6D88\u706B\u6813\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 867347,
+      "name": "2F_\u6D88\u706B\u6813\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 867357,
+      "name": "3F_\u6D88\u706B\u6813\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 867369,
+      "name": "\u6D88\u706B\u6813_3D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 911279,
+      "name": "\u673A\u7535\u9879\u76EE\u6A21\u677F\u4F7F\u7528\u8BF4\u660E",
+      "type": "DraftingView"
+    },
+    {
+      "id": 1017384,
+      "name": "2F_\u7EFC\u54083D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 1017394,
+      "name": "3F_\u7EFC\u54083D",
+      "type": "ThreeD"
+    },
+    {
+      "id": 1042869,
+      "name": "\u672A\u547D\u540D",
+      "type": "DrawingSheet"
+    },
+    {
+      "id": 1054338,
+      "name": "{3D}",
+      "type": "ThreeD"
+    },
+    {
+      "id": 1847485,
+      "name": "{\u4E09\u7EF4}",
+      "type": "ThreeD"
+    },
+    {
+      "id": 1847493,
+      "name": "\u56FE\u4F8B 1",
+      "type": "Legend"
+    },
+    {
+      "id": 1850054,
+      "name": "1F_\u7ED9\u6392\u6C34\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 2039766,
+      "name": "1F_\u7EFC\u5408\u5E73\u9762\u56FE",
+      "type": "FloorPlan"
+    },
+    {
+      "id": 2039891,
+      "name": "\u4E1C\u7ACB\u9762",
+      "type": "Elevation"
+    },
+    {
+      "id": 2039917,
+      "name": "\u897F\u7ACB\u9762",
+      "type": "Elevation"
+    },
+    {
+      "id": 2039933,
+      "name": "\u5317\u7ACB\u9762",
+      "type": "Elevation"
+    },
+    {
+      "id": 2039945,
+      "name": "\u5357\u7ACB\u9762",
+      "type": "Elevation"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "description": "这是模板，必须用当前项目的真实 id、族类型和核对后的坐标替换 null。不要直接确认未核对示例。",
+  "typeCopies": [],
+  "panels": [
+    {
+      "id": "panel1",
+      "symbolId": null,
+      "hostElementId": null,
+      "levelId": null,
+      "xMm": 6000,
+      "yMm": 0,
+      "zMm": 1400,
+      "mark": "AI-AL1"
+    }
+  ],
+  "lights": [
+    {
+      "id": "light1",
+      "symbolId": null,
+      "levelId": null,
+      "xMm": 3000,
+      "yMm": 2000,
+      "zMm": 3000,
+      "mark": "AI-L01"
+    }
+  ],
+  "switches": [
+    {
+      "id": "switch1",
+      "symbolId": null,
+      "hostElementId": null,
+      "levelId": null,
+      "xMm": 500,
+      "yMm": 0,
+      "zMm": 1400,
+      "mark": "AI-S01"
+    }
+  ],
+  "parameterChanges": [],
+  "circuits": [
+    {
+      "id": "circuit1",
+      "elementIds": [
+        "@light1"
+      ],
+      "switchIds": [
+        "@switch1"
+      ],
+      "panelId": "@panel1",
+      "name": "AI照明回路"
+    }
+  ],
+  "views": [
+    {
+      "id": "view1",
+      "viewFamilyTypeId": null,
+      "levelId": null,
+      "name": "AI照明平面",
+      "scale": 100
+    }
+  ],
+  "wires": [
+    {
+      "firstElementId": "@switch1",
+      "secondElementId": "@light1",
+      "viewId": "@view1",
+      "wireTypeId": null
+    }
+  ],
+  "panelSchedules": [
+    {
+      "id": "panelSchedule1",
+      "panelId": "@panel1"
+    }
+  ],
+  "sheets": [
+    {
+      "id": "sheet1",
+      "titleBlockId": null,
+      "number": "AI-E101",
+      "name": "AI照明平面"
+    }
+  ],
+  "viewports": [
+    {
+      "sheetId": "@sheet1",
+      "viewId": "@view1",
+      "xMm": 250,
+      "yMm": 200,
+      "zMm": 0
+    },
+    {
+      "sheetId": "@sheet1",
+      "viewId": "@panelSchedule1",
+      "xMm": 600,
+      "yMm": 200,
+      "zMm": 0
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {stableContext,assertTestDocument,caseOperations,assertRollback,assertWrite} from '../acceptance-helpers.mjs';
+const context={active:true,document:{identity:'session',revision:0,path:'D:/workspace/test-copy.rvt',isReadOnly:false},counts:{lights:2}};
+const fixture=id=>({summary:{id,uniqueId:'uid'+id},parameters:[{id:-1001203,value:id===2290242?'OFF1-01':'OFF1-02'},{id:-1010106,storageType:'String',readOnly:false,hasValue:false,value:null}],connectors:[],electrical:{systemIds:[3]}});
+test('five read-only context queries must have stable identity',()=>assert.throws(()=>stableContext([context,context,context,context,{...context,document:{...context.document,identity:'different'}}]),/changed/));
+test('stable identity probe accepts unchanged native session',()=>assert.equal(stableContext(Array(5).fill(context)),context));
+test('acceptance refuses writes to the original RVT',()=>assert.throws(()=>assertTestDocument(context,'D:/workspace/test-copy.rvt','D:/workspace/test-copy.rvt'),/forbidden/));
+test('rollback fixture uses existing operations in the required sequence',()=>assert.deepEqual(caseOperations('rollback',fixture(2290243)).map(op=>op.operationType),['set_parameter','delete_element','set_parameter']));
+test('fixture refuses stale element ids/marks',()=>assert.throws(()=>caseOperations('write',fixture(2290243)),/does not match/));
+test('preview rejection is not accepted as evidence of rollback',()=>{const b={counts:{},categoryIds:{},items:[]};assert.throws(()=>assertRollback(b,b,{status:'failed',rolledBack:true,completedOperationCount:0}),/proof/);});
+test('rollback requires an execution failure after two completed operations',()=>{const b={counts:{},categoryIds:{},items:[fixture(2290243)]};assert.doesNotThrow(()=>assertRollback(b,b,{status:'failed',code:'execution_failed',rolledBack:true,completedOperationCount:2,failedOperationIndex:3}));});
+test('rollback checks exact baseline, not just model counts',()=>{const b={counts:{},categoryIds:{},items:[fixture(2290243)]};const a=structuredClone(b);a.items[0].parameters[1].value='not-restored';assert.throws(()=>assertRollback(b,a,{status:'failed',code:'execution_failed',rolledBack:true,completedOperationCount:2,failedOperationIndex:3}),/restore/);});
+test('one approved comment write preserves unrelated elements',()=>{const b={counts:{lights:2},categoryIds:{lights:[2290242,2290243]},items:[fixture(2290242),fixture(2290243)]};const a=structuredClone(b);a.items[0].parameters[1].value='AI_WRITE_TEST';a.items[0].parameters[1].hasValue=true;assert.doesNotThrow(()=>assertWrite(b,a,{status:'committed',completedOperationCount:1}));});
+test('acceptance tool contains no automatic confirm or commit call',async()=>{const source=await fs.readFile(path.resolve(import.meta.dirname,'../identity-acceptance.mjs'),'utf8');assert.doesNotMatch(source,/call\(['"]revit_(plan_confirm|import_commit)/);});
+test('router and app consistently use native document equality and successful-close cleanup',async()=>{const dir=path.resolve(import.meta.dirname,'../../v27');const router=await fs.readFile(path.join(dir,'RevitCommandRouter.cs'),'utf8');const app=await fs.readFile(path.join(dir,'App.cs'),'utf8');assert.doesNotMatch(router,/ActiveUIDocument\?\.Document != doc/);assert.match(router,/Documents\.Same/);assert.doesNotMatch(app,/DocumentClosing/);assert.match(app,/RevitAPIEventStatus\.Succeeded/);});

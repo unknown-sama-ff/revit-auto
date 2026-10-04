@@ -1,0 +1,7 @@
+{
+  "profile": "Read",
+  "command": "REPLACE_WITH_ABSOLUTE_AUTODESK_INSTALLED_EXECUTABLE_PATH",
+  "args": [],
+  "env": {},
+  "allowedReadTools": []
+}

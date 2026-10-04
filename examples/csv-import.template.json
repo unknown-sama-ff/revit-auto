@@ -1,0 +1,17 @@
+{
+  "format": "csv",
+  "filePath": "D:\\Desktop\\revitt\\revit-auto\\examples\\lights.csv",
+  "documentIdentity": "从当前context取得",
+  "mapping": {
+    "mark": "编号",
+    "family": "族",
+    "type": "类型",
+    "levelId": "标高id",
+    "xMm": "X毫米",
+    "yMm": "Y毫米",
+    "zMm": "Z毫米"
+  },
+  "defaults": {
+    "operationType": "create_family_instance"
+  }
+}
