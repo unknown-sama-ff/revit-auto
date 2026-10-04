@@ -32,3 +32,6 @@
 - 执行回滚验收后，即使全部模型恢复且isModified=false，Revit仍可能产生TransactionRolledBack并递增revision。后续写入预览必须在回滚核验后生成，不能并列预览或跳过revision校验。
 
 - 新建照明视图不能仅凭create_view_plan或PNG存在判定出图成功。先读revit_view_get；使用明确referenceViewId配置范围/类别/裁剪，并检查导出图。configure_view仅改目标视图/视口，必须先预览、聊天批准。
+- 管道/风管连接使用 `connect_elements` 或 `create_fitting` 时，每一侧必须使用当前模型已核验的 connectorId，或使用完整 Connector criteria（domain、shape、项目 XYZ、toleranceMm），不能两者同时提供；零匹配和多匹配都停止。
+- 新建管道/风管引用只能使用条件解析，不能预测新元素连接器 ID。执行前会再次解析；直接连接还要核对系统分类、截面、直径、方向、占用状态和点位容差。
+- 如果原生参数出现 NaN/Infinity，返回未知/不可用诊断，不把它转换成 0，也不绕过 JSON 序列化错误。

@@ -22,6 +22,17 @@ function validateCropBounds(op) {
   point(b.min); point(b.max);
   if (b.max.xMm-b.min.xMm<1 || b.max.yMm-b.min.yMm<1) throw new Error('cropBounds must be ordered and at least 1 mm wide and high.');
 }
+export function validateConnectorSelection(op,prefix){
+ const id=prefix+'ConnectorId',selection=prefix+'Connector';
+ if(Object.hasOwn(op,id)===Object.hasOwn(op,selection))throw new Error(prefix+' requires exactly one connector ID or criteria.');
+ if(Object.hasOwn(op,id)){if(!Number.isSafeInteger(op[id])||op[id]<0||op[id]>2147483647)throw new Error('Connector IDs must be nonnegative 32-bit integers.');return;}
+ const c=op[selection];
+ if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).length!==4||Object.keys(c).some(k=>!['domain','shape','point','toleranceMm'].includes(k)))throw new Error('Connector criteria require exactly domain, shape, point and toleranceMm.');
+ if(!['DomainPiping','DomainHvac','DomainElectrical'].includes(c.domain)||!['Round','Rectangular','Oval','Invalid'].includes(c.shape))throw new Error('Unknown connector domain or shape.');
+ if(!c.point||typeof c.point!=='object'||Array.isArray(c.point)||Object.keys(c.point).length!==3||Object.keys(c.point).some(k=>!['xMm','yMm','zMm'].includes(k)))throw new Error('Connector point requires full XYZ in millimeters.');
+ point(c.point);number(c.point,'zMm');
+ if(typeof c.toleranceMm!=='number'||!Number.isFinite(c.toleranceMm)||c.toleranceMm<=0||c.toleranceMm>10000)throw new Error('Connector tolerance must be finite in (0,10000] mm.');
+}
 export function validateOperations(operations) {
   if (!Array.isArray(operations) || operations.length < 1 || operations.length > 1000) throw new Error('A plan needs 1..1000 operations.');
   const known = new Set();
@@ -82,7 +93,7 @@ export function validateOperations(operations) {
       case 'create_tag': requireField(op,'elementId'); requireField(op,'viewId'); point(op); break;
       case 'create_dimension': requireField(op,'viewId'); requireField(op,'references'); point(op.start); point(op.end); break;
       case 'place_viewport': ['sheetId','viewId'].forEach(f => requireField(op,f)); point(op); break;
-      case 'create_fitting': case 'connect_elements': ['firstElementId','secondElementId'].forEach(f => requireField(op,f)); break;
+      case 'create_fitting': case 'connect_elements': ['firstElementId','secondElementId'].forEach(f => requireField(op,f)); validateConnectorSelection(op,'first'); validateConnectorSelection(op,'second'); break;
     }
   }
   return operations;

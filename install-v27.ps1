@@ -1,7 +1,7 @@
 param([switch]$RegisterCodex,[switch]$RegisterClaudeDesktop,[switch]$DisableLegacyClaudeRevit)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
-$dll=Join-Path $root 'v27\bin\Release\net10.0-windows-v27-chat-0316\RevitAutoV27.dll'
+$dll=Join-Path $root 'v27\bin\Release\net10.0-windows-v27-chat-0317\RevitAutoV27.dll'
 if(-not(Test-Path -LiteralPath $dll)){throw 'Build-v27.ps1 must succeed before installation.'}
 $runtime=Join-Path $root 'runtime'
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null

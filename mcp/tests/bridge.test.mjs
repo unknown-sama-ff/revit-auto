@@ -133,3 +133,17 @@ test('explicit crop traverses the real MCP SDK to native preview only; malformed
  const result=await client.callTool({name:'revit_plan_create',arguments:{documentIdentity:'test-copy',expectedRevision:2,summary:'explicit crop preview',operations:[op]}});assert.ok(!result.isError);assert.deepEqual(calls[0].params.operations,[op]);assert.equal(calls[0].params.expectedRevision,2);assert.equal(JSON.parse(result.content[0].text).status,'pending');
  const invalid=await client.callTool({name:'revit_plan_create',arguments:{documentIdentity:'test-copy',summary:'invalid crop',operations:[{...op,cropBounds:{...op.cropBounds,rotation:90}}]}});assert.equal(invalid.isError,true);assert.equal(calls.length,1);
 });
+
+test('criteria plan refuses a resolver-only old plugin before forwarding any preview',async t=>{
+ let forwarded=0;const f=await fixture((_,socket)=>{forwarded++;send(socket,{});},{features:['connector-resolution']});t.after(f.close);
+ const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+ const op={operationType:'connect_elements',firstElementId:1,firstConnectorId:3,secondElementId:2,secondConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:1,yMm:2,zMm:3},toleranceMm:1}};
+ await assert.rejects(callRevit('revit.plan.create',{operations:[op]}),e=>e.code==='feature_not_loaded'&&e.details.requiredFeatures.includes('connector-criteria-connections'));assert.equal(forwarded,0);
+});
+test('criteria selectors survive SDK planning without generated port IDs or writes',async t=>{
+ const calls=[];const f=await fixture((request,socket)=>{calls.push(request);send(socket,{planId:'criteria-only-preview',status:'pending',operations:request.params.operations});},{features:['connector-criteria-connections']});t.after(f.close);
+ const client=new Client({name:'criteria-preview-test',version:'1.0'});t.after(()=>client.close());await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve(import.meta.dirname,'../revit-custom.mjs')],env:{REVIT_AI_CONFIG:f.config},stderr:'pipe'}));
+ const point={xMm:34000,yMm:18772,zMm:495.312};const ops=[{operationType:'create_pipe',id:'stub',pipeTypeId:1887580,systemTypeId:1887577,levelId:311,start:point,end:{...point,yMm:19772},diameterMm:100},{operationType:'connect_elements',firstElementId:2295837,firstConnectorId:3,secondElementId:'@stub',secondConnector:{domain:'DomainPiping',shape:'Round',point,toleranceMm:1}}];
+ const result=await client.callTool({name:'revit_plan_create',arguments:{documentIdentity:'copy-session',expectedRevision:0,summary:'criteria connection preview',operations:ops}});assert.ok(!result.isError,result.content[0].text);assert.deepEqual(calls[0].params.operations,ops);assert.equal(calls[0].method,'revit.plan.create');assert.equal(calls.length,1);
+ const invalid=await client.callTool({name:'revit_plan_create',arguments:{documentIdentity:'copy-session',summary:'invalid',operations:[{...ops[1],secondElementId:2,secondConnectorId:0}]}});assert.equal(invalid.isError,true);assert.equal(calls.length,1);
+});

@@ -62,18 +62,6 @@ internal static class RevitQueryService
             if (id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var n)) throw new BridgeException("invalid_id", "elementIds must be integer ids.");
             var e = doc.GetElement(new ElementId(n));
             if (e is null) return (object)new { id = n, exists = false };
-            if (e is Pipe safePipe)
-            {
-                var endpointEvidence = SafePipeEndpoints(safePipe);
-                return new
-                {
-                    summary = new { id = n, uniqueId = SafeUniqueId(safePipe), name = "Pipe", category = "管道", categoryId = (long)BuiltInCategory.OST_PipeCurves, className = "Pipe", levelId = safePipe.LevelId.Value, typeId = safePipe.GetTypeId().Value, ownerViewId = safePipe.OwnerViewId.Value },
-                    parameters = Array.Empty<object>(),
-                    connectors = new object[] { new { elementId = n, connectorsSupported = false, connectorsError = "Pipe full inspection is disabled in safe query mode; connector IDs remain unknown.", connectorReadStatus = "pipe-safe-minimal", endpointEvidence } },
-                    electrical = (object?)null,
-                    drawing = (object?)null
-                };
-            }
             return new
             {
                 summary = Summary(e),
@@ -150,17 +138,6 @@ internal static class RevitQueryService
         LocationCurve lc when lc.Curve is { IsBound: true } curve => new { kind = "curve", curveType = curve.GetType().Name, start = Point(curve.GetEndPoint(0)), end = Point(curve.GetEndPoint(1)) },
         _ => null
     };
-    private static string? SafeUniqueId(Element element) { try { return element.UniqueId; } catch { return null; } }
-    private static object? SafePipeEndpoints(Pipe pipe)
-    {
-        try
-        {
-            return pipe.Location is LocationCurve location && location.Curve is { IsBound: true } curve
-                ? new { start = Point(curve.GetEndPoint(0)), end = Point(curve.GetEndPoint(1)) }
-                : null;
-        }
-        catch { return null; }
-    }
     private static object Point(XYZ point) => new { xMm = JsonDefaults.InternalToMm(point.X), yMm = JsonDefaults.InternalToMm(point.Y), zMm = JsonDefaults.InternalToMm(point.Z) };
     private static object[] Parameters(Element e)
     {
@@ -177,7 +154,8 @@ internal static class RevitQueryService
             {
                 try
                 {
-                    result.Add(new { name = parameter.Definition.Name, id = parameter.Id.Value, storageType = parameter.StorageType.ToString(), readOnly = parameter.IsReadOnly, hasValue = parameter.HasValue, value = ParameterValue(parameter), formattedValue = parameter.AsValueString() });
+                    var read = ParameterReadPolicy.Normalize(ParameterValue(parameter));
+                    result.Add(new { name = parameter.Definition.Name, id = parameter.Id.Value, storageType = parameter.StorageType.ToString(), readOnly = parameter.IsReadOnly, hasValue = parameter.HasValue, value = read.Value, valueSupported = read.Supported, valueError = read.Error, formattedValue = parameter.AsValueString() });
                 }
                 catch (Exception exception)
                 {
@@ -195,24 +173,6 @@ internal static class RevitQueryService
     private static object[] Connectors(Element e)
     {
         var result = new List<object>();
-        // Revit 2027.3 can terminate the API bridge while enumerating a Pipe's
-        // connector set in this project. Return safe endpoint evidence and mark
-        // connector IDs unknown instead of risking the whole read channel.
-        if (e is Pipe pipe)
-        {
-            try
-            {
-                var location = pipe.Location as LocationCurve;
-                var endpoints = location?.Curve is { IsBound: true } curve
-                    ? new { start = Point(curve.GetEndPoint(0)), end = Point(curve.GetEndPoint(1)) }
-                    : null;
-                return [new { elementId = e.Id.Value, connectorsSupported = false, connectorsError = "Pipe connector enumeration is unavailable in safe query mode; connector IDs remain unknown.", connectorReadStatus = "pipe-safe-fallback", endpointEvidence = endpoints, connectors = Array.Empty<object>() }];
-            }
-            catch (Exception exception)
-            {
-                return [new { elementId = e.Id.Value, connectorsSupported = false, connectorsError = exception.Message, connectorReadStatus = "pipe-safe-fallback", connectors = Array.Empty<object>() }];
-            }
-        }
         ConnectorSet? connectorSet = null;
         try
         {

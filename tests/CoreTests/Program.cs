@@ -158,6 +158,28 @@ Test("explicit crop rejects Z and unknown fields",()=>{foreach(var bounds in new
 Test("explicit crop rejects empty inverted and tiny rectangles",()=>{foreach(var maxX in new[]{-1,0,0.5})Throws("invalid_crop_bounds",()=>ViewConfigurationRules.Settings(Json("{\"settings\":[\"crop\"],\"cropBounds\":{\"min\":{\"xMm\":0,\"yMm\":0},\"max\":{\"xMm\":"+maxX.ToString(System.Globalization.CultureInfo.InvariantCulture)+",\"yMm\":100}}}")));});
 Test("explicit crop rejects string and oversized coordinates",()=>{foreach(var x in new[]{"\"0\"","100000001"})Throws("invalid_number",()=>ViewConfigurationRules.Settings(Json("{\"settings\":[\"crop\"],\"cropBounds\":{\"min\":{\"xMm\":"+x+",\"yMm\":0},\"max\":{\"xMm\":100,\"yMm\":100}}}")));});
 
+
+Test("nonfinite wire response returns a usable error envelope", () => {
+    foreach (var value in new[]{double.NaN,double.PositiveInfinity,double.NegativeInfinity}) {
+        var envelope=Json(CommandResult.Success(new {parameters=new[]{new{value}}}).Serialize());
+        if(envelope.GetProperty("ok").GetBoolean() || envelope.GetProperty("error").GetProperty("code").GetString()!="response_serialization_failed")throw new Exception("Nonfinite response is not safe.");
+    }
+});
+Test("criterion connection accepts exact id plus XYZ and never predicts port id",()=>PlanRules.Validate(Json("""[{"operationType":"connect_elements","firstElementId":1,"firstConnectorId":0,"secondElementId":2,"secondConnector":{"domain":"DomainPiping","shape":"Round","point":{"xMm":34000,"yMm":18000,"zMm":500},"toleranceMm":1}}]""")));
+Test("criterion connection rejects missing selection and conflicting selectors",()=>{
+    foreach(var selectors in new[]{"","\"firstConnectorId\":0,\"firstConnector\":{\"domain\":\"DomainPiping\",\"shape\":\"Round\",\"point\":{\"xMm\":1,\"yMm\":2,\"zMm\":3},\"toleranceMm\":1},"})
+        Throws("invalid_connector",()=>PlanRules.Validate(Json("[{\"operationType\":\"connect_elements\",\"firstElementId\":1,\"secondElementId\":2,"+selectors+"\"secondConnectorId\":1}]")));
+});
+Test("criterion connection requires Z and rejects unknown enums/fields",()=>{
+    foreach(var c in new[]{"null","{\"domain\":\"DomainPiping\",\"shape\":\"Round\",\"point\":{\"xMm\":1,\"yMm\":2},\"toleranceMm\":1}","{\"domain\":\"Unknown\",\"shape\":\"Round\",\"point\":{\"xMm\":1,\"yMm\":2,\"zMm\":3},\"toleranceMm\":1}","{\"domain\":\"DomainPiping\",\"shape\":\"Round\",\"point\":{\"xMm\":1,\"yMm\":2,\"zMm\":3},\"toleranceMm\":1,\"connected\":false}"})
+        Throws("invalid_connector",()=>PlanRules.Validate(Json("[{\"operationType\":\"connect_elements\",\"firstElementId\":1,\"secondElementId\":2,\"firstConnectorId\":0,\"secondConnector\":"+c+"}]")));
+});
+
+Test("parameter NaN/infinity is unknown with diagnostic, never zero",()=>{foreach(var v in new[]{double.NaN,double.PositiveInfinity,double.NegativeInfinity}){var r=ParameterReadPolicy.Normalize(v);if(r.Supported||r.Value is not null||string.IsNullOrEmpty(r.Error))throw new Exception("Bad native numeric policy");Json(CommandResult.Success(r).Serialize());}});
+Test("finite parameter values retain zero negative values and text",()=>{foreach(var v in new object?[]{0.0,-1.0,100.0,"Infinity",null}){var r=ParameterReadPolicy.Normalize(v);if(!r.Supported||!Equals(r.Value,v))throw new Exception("Finite data changed");}});
+Test("complete candidate set returns actual zero ID uniquely",()=>{var c=new ConnectorCriteria("DomainPiping","Round",1,2,3,1);if(ConnectorSelectionRules.Unique(new[]{new ConnectorMatch(0,"DomainPiping","Round",1,2,3),new ConnectorMatch(31,"DomainPiping","Round",50,2,3)},c)!=0)throw new Exception("ID zero lost");});
+Test("complete matching rejects missing ambiguous and distant Z",()=>{var c=new ConnectorCriteria("DomainPiping","Round",1,2,3,1);Throws("connector_missing",()=>ConnectorSelectionRules.Unique(new[]{new ConnectorMatch(0,"DomainPiping","Round",1,2,5)},c));Throws("connector_ambiguous",()=>ConnectorSelectionRules.Unique(new[]{new ConnectorMatch(0,"DomainPiping","Round",1,2,3),new ConnectorMatch(32,"DomainPiping","Round",1,2,3)},c));});
+Test("connector criteria uses Euclidean inclusive tolerance",()=>{var c=new ConnectorCriteria("DomainPiping","Round",0,0,0,5);if(!ConnectorSelectionRules.Matches(new ConnectorMatch(0,"DomainPiping","Round",3,4,0),c)||ConnectorSelectionRules.Matches(new ConnectorMatch(0,"DomainPiping","Round",3,4,1),c))throw new Exception("Wrong tolerance");});
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }

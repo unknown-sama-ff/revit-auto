@@ -34,7 +34,16 @@ internal sealed record CommandResult(bool Ok, object? Result, ApiError? Error)
 {
     public static CommandResult Success(object? result = null) => new(true, result, null);
     public static CommandResult Failure(string code, string message, object? details = null) => new(false, null, new(code, message, details));
-    public string Serialize() => JsonSerializer.Serialize(new { protocol = "revit-auto-2027-v2", ok = Ok, result = Result, error = Error }, JsonDefaults.Options);
+    public string Serialize()
+    {
+        try { return JsonSerializer.Serialize(new { protocol = "revit-auto-2027-v2", ok = Ok, result = Result, error = Error }, JsonDefaults.Options); }
+        catch (Exception exception) when (exception is ArgumentException or JsonException or NotSupportedException)
+        {
+            // Return a valid envelope before the stream is disposed. The result/receipt
+            // remains in native memory: a client must query its same plan ID, never retry writes.
+            return JsonSerializer.Serialize(new { protocol="revit-auto-2027-v2", ok=false, error=new ApiError("response_serialization_failed", "The response could not be encoded as JSON. For a write, query the same planId; do not recreate or retry the write.", new { exceptionType=exception.GetType().Name }) }, JsonDefaults.Options);
+        }
+    }
 }
 internal sealed record BridgeSettings(int Port, string Token)
 {
@@ -166,7 +175,7 @@ internal static class PlanRules
                 case "create_tag": Require(op, "viewId"); Require(op, "elementId"); Point(op); break;
                 case "create_dimension": Require(op, "viewId"); Require(op, "references"); Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end")); break;
                 case "place_viewport": Require(op, "sheetId"); Require(op, "viewId"); Point(op); break;
-                case "connect_elements": case "create_fitting": Require(op, "firstElementId"); Require(op, "secondElementId"); break;
+                case "connect_elements": case "create_fitting": Require(op, "firstElementId"); Require(op, "secondElementId"); ConnectorSelectionRules.ValidateSelection(op,"first"); ConnectorSelectionRules.ValidateSelection(op,"second"); break;
             }
         }
         return operations;

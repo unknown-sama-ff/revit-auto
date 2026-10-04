@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateOperations} from '../workflows.mjs';
+const criteria=()=>({domain:'DomainPiping',shape:'Round',point:{xMm:34000,yMm:18772,zMm:495.312},toleranceMm:1});
+const op=()=>({operationType:'connect_elements',firstElementId:2295837,firstConnectorId:3,secondElementId:2295838,secondConnector:criteria()});
+test('exact id and XYZ criteria survive plan validation without inventing an id',()=>{const value=op();assert.equal(validateOperations([value])[0],value);assert.ok(!Object.hasOwn(value,'secondConnectorId'));});
+test('mixed id and criteria or missing selection are rejected',()=>{for(const value of [{...op(),secondConnectorId:0},{...op(),secondConnector:undefined},{...op(),firstConnector:criteria()}])assert.throws(()=>validateOperations([value]),/connector/i);});
+test('criteria require full XYZ and reject invalid enums, nulls and unknown fields',()=>{for(const c of [null,{}, {...criteria(),domain:'Unknown'},{...criteria(),shape:'Triangle'}, {...criteria(),point:{xMm:34000,yMm:18000}}, {...criteria(),point:{...criteria().point,zMm:NaN}}, {...criteria(),connected:true}, {...criteria(),point:{...criteria().point,unit:'mm'}}])assert.throws(()=>validateOperations([{...op(),secondConnector:c}]),/connector|finite/i);});
+test('criteria tolerance is explicit bounded finite millimeters',()=>{for(const toleranceMm of [0,-1,NaN,Infinity,10001,'1',undefined])assert.throws(()=>validateOperations([{...op(),secondConnector:{...criteria(),toleranceMm}}]),/connector|tolerance/i);});
+test('new pipe criteria reference earlier creations, not predicted connector ids',()=>{const value=op();value.secondElementId='@stub';const pipe={operationType:'create_pipe',id:'stub',levelId:311,pipeTypeId:1887580,systemTypeId:1887577,start:{xMm:34000,yMm:18772,zMm:495.312},end:{xMm:34000,yMm:19772,zMm:495.312},diameterMm:100};assert.equal(validateOperations([pipe,value]).length,2);assert.throws(()=>validateOperations([value,pipe]),/reference|Id/);});

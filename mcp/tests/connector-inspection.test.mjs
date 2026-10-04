@@ -20,17 +20,11 @@ test('connector manager failures are returned as read-only diagnostics instead o
   assert.match(source,/TryConnectorId/);
   assert.match(source,/catch \(Exception exception\)/);
 });
-test('pipe inspection has a safe endpoint fallback and keeps connector ids unknown',async()=>{
-  const source=await fs.readFile(path.resolve(import.meta.dirname,'../../v27/RevitQueryService.cs'),'utf8');
-  assert.match(source,/e is Pipe pipe/);
-  assert.match(source,/pipe-safe-fallback/);
-  assert.match(source,/connector IDs remain unknown/);
-});
-test('pipe inspect uses a minimal safe result before touching full parameters',async()=>{
-  const source=await fs.readFile(path.resolve(import.meta.dirname,'../../v27/RevitQueryService.cs'),'utf8');
-  assert.match(source,/if \(e is Pipe safePipe\)/);
-  assert.match(source,/pipe-safe-minimal/);
-  assert.match(source,/parameters = Array\.Empty<object>\(\)/);
+test('full pipe inspection uses nonfinite parameter diagnostics instead of suppressing connectors',async()=>{
+ const source=await fs.readFile(path.resolve(import.meta.dirname,'../../v27/RevitQueryService.cs'),'utf8');
+ assert.match(source,/ParameterReadPolicy\.Normalize/);
+ assert.match(source,/valueSupported = read\.Supported/);
+ assert.doesNotMatch(source,/pipe-safe-minimal|pipe-safe-fallback/);
 });
 test('acceptance preserves unsupported connector fields instead of dropping the panel',()=>{
   const item={summary:{id:2290301,uniqueId:'panel'},parameters:[{id:1,value:'AL1'}],connectors:[{connectorId:1,connectorType:'Reference',connectionStatusSupported:false,connected:null,connectionStatusError:'Not supported',originSupported:false,originError:'Origin is not available'}],electrical:{systemIds:[7]}};
@@ -49,3 +43,5 @@ test('connector resolution is guarded as a read-only native capability',async()=
  const server=await fs.readFile(path.resolve(import.meta.dirname,'../revit-custom.mjs'),'utf8');
  assert.match(server,/revit\.connector\.resolve/);
 });
+
+test('connector resolver uses bounded Pipe lookup rather than unstable ConnectorSet enumeration',async()=>{const source=await fs.readFile(path.resolve(import.meta.dirname,'../../v27/ConnectorResolutionService.cs'),'utf8');assert.match(source,/element is Pipe/);assert.match(source,/manager\.Lookup\(id\)/);assert.doesNotMatch(source,/if\(element is Pipe\)\s*\{\s*\/\/ Revit 2027.3[\\s\\S]*?manager\.Connectors/);});
