@@ -1,6 +1,6 @@
 {
   "name": "revit-custom-mcp",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "private": true,
   "description": "Local MCP stdio bridge for the RevitAuto 2027 add-in",
   "type": "module",

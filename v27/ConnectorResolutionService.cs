@@ -74,6 +74,7 @@ internal static class ConnectorResolutionService
             direction=direction.Value,directionSupported=direction.Supported,axis=axis.Value,axisSupported=axis.Supported,
             diameterMm=diameter.Value?.Value,diameterSupported=diameter.Supported&&diameter.Value?.Supported==true,
             pipeSystemType=system.Value,pipeSystemTypeSupported=system.Supported,
+            pipingSystemEvidence=c.Domain==Domain.DomainPiping?PipingCompatibilityService.Evidence(c):null,
             peers=peers?.Value,peerReferencesSupported=peers?.Supported??false,peerReferencesError=peers?.Error };
     }
     public static object Resolve(UIApplication app,JsonElement parameters)

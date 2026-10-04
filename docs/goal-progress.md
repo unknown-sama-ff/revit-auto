@@ -251,3 +251,19 @@
 - 修复非有限原生数值导致JSON响应崩溃：NaN/Infinity变为未知参数诊断，序列化失败返回有效错误封套；新增57核心/140 MCP测试全通过。
 - v0.3.17已编译并清单指向下次加载；当前运行仍为v0.3.16，没有生成连接计划、没有模型写入。重启后先读取四个连接器的方向/直径/系统分类，再按兼容性决定是否生成100毫米循环供水路线预览。
 - 当前水泵供回水原生100毫米/循环供水，旧管道预览80毫米/K_CHWS；不会直接连接这两个不兼容对象。
+
+## 2026-10-04 泵管连接计划执行失败并完整回滚（v0.3.17）
+- 用户在聊天中明确批准计划 ed0438ffe69c44e19f5bef1dd5768e84，提交同一未变更计划一次。完成第1项创建管道，第2项 connect_elements 被执行期系统分类校验拒绝：Direct piping system classifications differ. 没有自动重试、替换计划或绕过校验。
+- 原生收据：status=failed、rolledBack=true、completedOperationCount=1、failedOperationIndex=2、createdElementIds为空。完整基线核验恢复：水泵/原管道所有返回参数、真实连接器状态与点位、管道搜索几何、管件列表、全部类别计数、当前视图和保存状态；比较采用现有normalizedItem消除无语义的ConnectorSet返回顺序变化，没有删除真实字段差异。
+- 当前identity=2dd8ffa513f2479082b0d86124f73759、revision=1、isModified=false；TransactionRolledBack触发revision从0到1，任何后续计划都须重新基于当前版本生成，不复用旧批准。
+- 泵房连接目标尚未完成。只读检查1887577和665532类型均显示“循环供水”分类；因此不能把执行期差异直接断言为类型名字不兼容，应增加双方实际分类/元素ID的可读诊断并核对新建管道状态，保留安全拒绝。
+- 另发现原路线第8项弯头与第9项变径都使用pumpRoute4同一终点(34500,18000,500)，且第8项会消耗/移动该端口。下一份路线必须消除此端口重复占用，而不是按原几何继续重试。
+- 本轮没有提交其他模型写入，没有自动保存/关闭Revit。证据：acceptance/pump-connection-v0317-ed0438ffe69c44e19f5bef1dd5768e84.baseline.json.verified.json，状态PASS_FULL_ROLLBACK_CONNECTION_NOT_PASSED。
+
+## 2026-10-04 v0.3.18 泵管连接失败修复（待重启加载）
+- 复现并定位上一次失败：执行期比较了新建管道连接器的即时 `Connector.PipeSystemType`，未优先采用计划指定的原生 `systemTypeId`；新管道尚未加入系统时该即时值可能为Undefined，导致错误拒绝。v0.3.18在执行期使用计划指定的PipingSystemType/SystemClassification作为新建管道证据，并保留冲突时拒绝。
+- 新增原生PipingCompatibilityService/Rules：连接器即时分类、元素原生分配系统类型和计划系统类型分层取证；错误收据带causeCode/causeDetails，便于定位双方元素/端口。
+- 新增ConnectionPortClaims和MCP validatePortReservations：同一原生端口、同一新曲线端点不能被多个弯头/变径/连接操作重复消费；原失败路线的route4终点重复使用会在预览阶段拒绝。
+- 预览/执行均保留域、形状、直径、方向、占用和执行后连接状态检查；不绕过Revit约束，不自动重试旧计划。
+- v0.3.18编译0警告0错误，77项核心测试、149项Node/MCP测试通过；已安装供下次加载，当前运行仍为v0.3.17。模型未新增写入。
+- 修正后的下一条路线应删除route4重复端口设计：route1垂直、route2水平、route3垂直、route4水平到既有管道端点；弯头只使用各段不同端点，末端再做变径。必须重新预览和聊天确认。

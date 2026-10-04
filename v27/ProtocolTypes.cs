@@ -25,9 +25,10 @@ internal static class JsonDefaults
     public static double SquareMeters(double value) => value * 0.09290304;
 }
 
-internal sealed class BridgeException(string code, string message) : Exception(message)
+internal sealed class BridgeException(string code, string message, object? details = null) : Exception(message)
 {
     public string Code { get; } = code;
+    public object? Details { get; } = details;
 }
 internal sealed record ApiError(string Code, string Message, object? Details = null);
 internal sealed record CommandResult(bool Ok, object? Result, ApiError? Error)
@@ -178,6 +179,7 @@ internal static class PlanRules
                 case "connect_elements": case "create_fitting": Require(op, "firstElementId"); Require(op, "secondElementId"); ConnectorSelectionRules.ValidateSelection(op,"first"); ConnectorSelectionRules.ValidateSelection(op,"second"); break;
             }
         }
+        ConnectionPortReservationRules.ValidatePlan(operations);
         return operations;
     }
     private static void CheckReferences(JsonElement op, HashSet<string> known)

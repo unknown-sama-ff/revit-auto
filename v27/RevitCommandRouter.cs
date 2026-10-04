@@ -33,7 +33,7 @@ internal static class RevitCommandRouter
         {
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.3.17", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.3.18", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
                 "revit.type.resolve" => CommandResult.Success(TypeService.Resolve(app,parameters)),
@@ -53,7 +53,7 @@ internal static class RevitCommandRouter
                 _ => CommandResult.Failure("unknown_method", $"Unknown method '{method}'.")
             };
         }
-        catch (BridgeException ex) { return CommandResult.Failure(ex.Code, ex.Message); }
+        catch (BridgeException ex) { return CommandResult.Failure(ex.Code, ex.Message, ex.Details); }
         catch (Exception ex) { Log.Write(ex.ToString()); return CommandResult.Failure("revit_error", ex.Message); }
     }
     private static CommandResult GetChanges(UIApplication app,JsonElement parameters)
@@ -182,7 +182,7 @@ internal static class RevitCommandRouter
             catch { rolledBack = false; }
             plan.Status = "failed";
             Log.Write($"Failed plan={plan.PlanId}; rolledBack={rolledBack}; error={ex}");
-            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack, completedOperationCount = progress.CompletedOperationCount, failedOperationIndex = progress.FailedOperationIndex, failedOperationType, failedElementId, createdElementIds = Array.Empty<long>(), warnings = failureCapture.Messages, code = "execution_failed", message = ex.Message };
+            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack, completedOperationCount = progress.CompletedOperationCount, failedOperationIndex = progress.FailedOperationIndex, failedOperationType, failedElementId, createdElementIds = Array.Empty<long>(), warnings = failureCapture.Messages, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message };
             Log.Write($"Plan={plan.PlanId}; completed={progress.CompletedOperationCount}; failedOperationIndex={progress.FailedOperationIndex}");
             return CommandResult.Failure("execution_failed", ex.Message, plan.Receipt);
         }

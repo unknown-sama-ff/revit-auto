@@ -18,6 +18,8 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private Document Doc => app.ActiveUIDocument!.Document;
     private readonly Dictionary<string, Type> predicted = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonElement> predictedOperations = new(StringComparer.Ordinal);
+    private readonly ConnectionPortClaims connectionPorts = new();
+    private int operationOrdinal;
     private static BridgeException Invalid(string message) => new("invalid_operation", message);
     private static bool Deferred(JsonElement value) => value.ValueKind == JsonValueKind.String && value.GetString()!.StartsWith('@');
     private ElementId Id(JsonElement value)
@@ -70,6 +72,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     }
     public void Validate(JsonElement op)
     {
+        operationOrdinal++;
         var kind = JsonDefaults.String(op, "operationType")!;
         switch (kind)
         {
@@ -151,7 +154,8 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 if (!JsonDefaults.Has(op, "diameterMm") && (!JsonDefaults.Has(op, "widthMm") || !JsonDefaults.Has(op, "heightMm"))) throw Invalid("Duct requires diameterMm or widthMm + heightMm."); break;
             case "connect_elements": case "create_fitting":
                 ConnectorSelectionRules.ValidateSelection(op,"first"); ConnectorSelectionRules.ValidateSelection(op,"second");
-                ValidateConnectorSelection(op,"first"); ValidateConnectorSelection(op,"second");
+                var firstClass=ValidateConnectorSelection(op,"first"); var secondClass=ValidateConnectorSelection(op,"second");
+                if(firstClass is not null && secondClass is not null)PipingCompatibilityRules.RequireCompatible(firstClass,secondClass);
                 break;
         }
         if (JsonDefaults.Has(op, "parameters"))
@@ -298,7 +302,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 {
                     if (a.Origin.DistanceTo(b.Origin) > Mm(JsonDefaults.Double(op, "toleranceMm") ?? 1)) throw Invalid("Direct connectors must be coincident. Create a pipe or fitting explicitly.");
                     if(a.Shape!=b.Shape)throw Invalid("Direct connector shapes differ; create an explicit transition.");
-                    if(a.Domain==Domain.DomainPiping && a.PipeSystemType!=b.PipeSystemType)throw Invalid("Direct piping system classifications differ.");
+                    if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(EvidenceForSelection(a,op,"first"),EvidenceForSelection(b,op,"second"));
                     if(a.Shape==ConnectorProfileType.Round && Math.Abs(a.Radius-b.Radius)>Mm(0.01))throw Invalid("Direct connector diameters differ; preview a transition fitting.");
                     if(a.CoordinateSystem.BasisZ.DotProduct(b.CoordinateSystem.BasisZ)>-0.9999)throw Invalid("Direct connector axes must oppose; preview a fitting or correctly aligned pipe.");
                     if((a.IsConnected && !a.IsConnectedTo(b)) || (b.IsConnected && !b.IsConnectedTo(a)))throw Invalid("A selected connector is already occupied.");
@@ -306,6 +310,8 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                     Doc.Regenerate(); if(!a.IsConnectedTo(b))throw Invalid("Revit did not connect the reviewed pair; the whole plan rolls back.");
                     return new([], [a.Owner.Id.Value, b.Owner.Id.Value]);
                 }
+                if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(PipingCompatibilityService.Evidence(a),PipingCompatibilityService.Evidence(b));
+                if(a.IsConnected || b.IsConnected)throw Invalid("A fitting endpoint is already occupied.");
                 created = JsonDefaults.StringOr(op, "fittingType", "elbow") switch
                 {
                     "elbow" => Doc.Create.NewElbowFitting(a, b), "union" => Doc.Create.NewUnionFitting(a, b), "transition" => Doc.Create.NewTransitionFitting(a, b), _ => throw Invalid("Supported fittings: elbow, union, transition.")
@@ -358,23 +364,36 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             ? ConnectorResolutionService.ResolveForExecution(element,criteria)
             : ConnectorResolutionService.ById(element,JsonDefaults.Int64(op,prefix+"ConnectorId")??throw Invalid("Connector ID is missing."));
     }
-    private void ValidateConnectorSelection(JsonElement op,string prefix)
+    private PipingClassEvidence EvidenceForSelection(Connector connector,JsonElement op,string prefix)
+    {
+        return PipingCompatibilityService.Evidence(connector,ExpectedSystemTypeId(op,prefix));
+    }
+    private long? ExpectedSystemTypeId(JsonElement op,string prefix)
+    {
+        var value=JsonDefaults.Get(op,prefix+"ElementId");
+        if(!Deferred(value))return null;
+        var reference=value.GetString()![1..];
+        if(predictedOperations.TryGetValue(reference,out var owner)&&JsonDefaults.String(owner,"operationType")=="create_pipe")return JsonDefaults.Int64(owner,"systemTypeId");
+        return null;
+    }
+    private PipingClassEvidence? ValidateConnectorSelection(JsonElement op,string prefix)
     {
         var existing=Check<Element>(op,prefix+"ElementId");
-        if(existing is not null){SelectConnector(existing,op,prefix);return;}
+        if(existing is not null)
+        {
+            var connector=SelectConnector(existing,op,prefix);
+            connectionPorts.Reserve(existing.Id.Value+":port:"+connector.Id,operationOrdinal);
+            return connector.Domain==Domain.DomainPiping?PipingCompatibilityService.Evidence(connector,ExpectedSystemTypeId(op,prefix)):null;
+        }
         var reference=JsonDefaults.String(op,prefix+"ElementId")![1..];
         if(!op.TryGetProperty(prefix+"Connector",out var criteria))throw Invalid("New elements require connector criteria, not predicted connector IDs.");
         var owner=predictedOperations[reference];
-        if(JsonDefaults.String(owner,"operationType") is not ("create_pipe" or "create_duct"))throw Invalid("Deferred connector criteria currently support explicitly created straight pipes/ducts only.");
-        var selected=ConnectorSelectionRules.Criteria(criteria);
-        var domain=JsonDefaults.String(owner,"operationType")=="create_pipe"?"DomainPiping":"DomainHvac";
-        var shape=JsonDefaults.Has(owner,"diameterMm")?"Round":"Rectangular";
-        var matched=new[]{"start","end"}.Count(key=>{
-            var pt=JsonDefaults.Get(owner,key);
-            // Synthetic candidate ID is used only for geometry matching; never published or executed.
-            return ConnectorSelectionRules.Matches(new ConnectorMatch(-1,domain,shape,PlanRules.Number(pt,"xMm"),PlanRules.Number(pt,"yMm"),JsonDefaults.Double(pt,"zMm")??0),selected);
-        });
-        if(matched!=1)throw Invalid("Connector criteria must uniquely identify an endpoint of the reviewed new pipe/duct.");
+        if(JsonDefaults.String(owner,"operationType") is not ("create_pipe" or "create_duct"))throw Invalid("Deferred connector criteria support explicitly created straight pipes/ducts only.");
+        var endpoint=ConnectionPortReservationRules.NewCurveEndpoint(owner,criteria);
+        connectionPorts.Reserve("@"+reference+":endpoint:"+endpoint,operationOrdinal);
+        if(JsonDefaults.String(owner,"operationType")!="create_pipe")return null;
+        var system=Check<PipingSystemType>(owner,"systemTypeId")??throw Invalid("New pipe must use an inspected native system type.");
+        return new PipingClassEvidence(-1,-1,null,system.Id.Value,system.SystemClassification.ToString());
     }
     private static Connector Electrical(FamilyInstance instance, long? id)
     {

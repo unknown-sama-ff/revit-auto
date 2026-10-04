@@ -68,6 +68,7 @@ internal static class RevitQueryService
                 parameters = Parameters(e),
                 connectors = Connectors(e).ToList(),
                 electrical = ElectricalRelations(e),
+                piping = PipingCompatibilityService.Snapshot(e),
                 drawing = DrawingRelations(e)
             };
         }).ToList() };

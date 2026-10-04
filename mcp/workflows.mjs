@@ -33,6 +33,29 @@ export function validateConnectorSelection(op,prefix){
  point(c.point);number(c.point,'zMm');
  if(typeof c.toleranceMm!=='number'||!Number.isFinite(c.toleranceMm)||c.toleranceMm<=0||c.toleranceMm>10000)throw new Error('Connector tolerance must be finite in (0,10000] mm.');
 }
+function validatePortReservations(operations){
+ const created=new Map(),claimed=new Map();
+ for(const [i,op] of operations.entries()){
+  if(['connect_elements','create_fitting'].includes(op.operationType))for(const prefix of ['first','second']){
+   const owner=op[prefix+'ElementId'],selector=op[prefix+'Connector'];let key;
+   const curve=typeof owner==='string'&&owner.startsWith('@')?created.get(owner.slice(1)):null;
+   if(curve&&['create_pipe','create_duct'].includes(curve.operationType)){
+    if(!selector)throw new Error('New pipe/duct endpoint requires criteria; never predict port IDs.');
+    const domain=curve.operationType==='create_pipe'?'DomainPiping':'DomainHvac',shape=Object.hasOwn(curve,'diameterMm')?'Round':'Rectangular';
+    const endpoints=['start','end'].filter(end=>{
+     const p=curve[end],q=selector.point;const distance=(p.xMm-q.xMm)**2+(p.yMm-q.yMm)**2+((p.zMm??0)-q.zMm)**2;
+     return selector.domain===domain&&selector.shape===shape&&distance<=selector.toleranceMm**2;
+    });
+    if(endpoints.length!==1)throw new Error('New curve endpoint selector is missing or ambiguous; '+endpoints.length+' endpoints match.');
+    key=owner+':endpoint:'+endpoints[0];
+   }else if(Object.hasOwn(op,prefix+'ConnectorId'))key=owner+':port:'+op[prefix+'ConnectorId'];
+   else key=owner+':point:'+JSON.stringify([selector.domain,selector.shape,selector.point.xMm,selector.point.yMm,selector.point.zMm]);
+   if(claimed.has(key))throw new Error('Endpoint '+key+' is occupied by operation '+claimed.get(key)+'; operation '+(i+1)+' cannot consume the same port again.');
+   claimed.set(key,i+1);
+  }
+  if(op.id!==undefined)created.set(op.id,op);
+ }
+}
 export function validateOperations(operations) {
   if (!Array.isArray(operations) || operations.length < 1 || operations.length > 1000) throw new Error('A plan needs 1..1000 operations.');
   const known = new Set();
@@ -96,6 +119,7 @@ export function validateOperations(operations) {
       case 'create_fitting': case 'connect_elements': ['firstElementId','secondElementId'].forEach(f => requireField(op,f)); validateConnectorSelection(op,'first'); validateConnectorSelection(op,'second'); break;
     }
   }
+  validatePortReservations(operations);
   return operations;
 }
 

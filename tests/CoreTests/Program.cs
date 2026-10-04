@@ -180,6 +180,24 @@ Test("finite parameter values retain zero negative values and text",()=>{foreach
 Test("complete candidate set returns actual zero ID uniquely",()=>{var c=new ConnectorCriteria("DomainPiping","Round",1,2,3,1);if(ConnectorSelectionRules.Unique(new[]{new ConnectorMatch(0,"DomainPiping","Round",1,2,3),new ConnectorMatch(31,"DomainPiping","Round",50,2,3)},c)!=0)throw new Exception("ID zero lost");});
 Test("complete matching rejects missing ambiguous and distant Z",()=>{var c=new ConnectorCriteria("DomainPiping","Round",1,2,3,1);Throws("connector_missing",()=>ConnectorSelectionRules.Unique(new[]{new ConnectorMatch(0,"DomainPiping","Round",1,2,5)},c));Throws("connector_ambiguous",()=>ConnectorSelectionRules.Unique(new[]{new ConnectorMatch(0,"DomainPiping","Round",1,2,3),new ConnectorMatch(32,"DomainPiping","Round",1,2,3)},c));});
 Test("connector criteria uses Euclidean inclusive tolerance",()=>{var c=new ConnectorCriteria("DomainPiping","Round",0,0,0,5);if(!ConnectorSelectionRules.Matches(new ConnectorMatch(0,"DomainPiping","Round",3,4,0),c)||ConnectorSelectionRules.Matches(new ConnectorMatch(0,"DomainPiping","Round",3,4,1),c))throw new Exception("Wrong tolerance");});
+
+Test("uninitialized new pipe inherits only its verified native assigned classification",()=>{
+    var pump=new PipingClassEvidence(1,3,"SupplyHydronic",null,null);
+    var pipe=new PipingClassEvidence(2,0,"UndefinedSystemType",1887577,"SupplyHydronic");
+    PipingCompatibilityRules.RequireCompatible(pump,pipe);
+    if(PipingCompatibilityRules.Resolve(pipe)!="SupplyHydronic")throw new Exception("Native assigned class was lost");
+});
+Test("true supply return mismatch is never bypassed",()=>Throws("piping_classification_mismatch",()=>PipingCompatibilityRules.RequireCompatible(new(1,3,"SupplyHydronic",null,null),new(2,0,"UndefinedSystemType",3,"ReturnHydronic"))));
+Test("unknown without native assigned system refuses connection",()=>Throws("piping_classification_unknown",()=>PipingCompatibilityRules.Resolve(new(1,0,"UndefinedSystemType",null,null))));
+Test("known contradictory connector and owner classes refuse connection",()=>Throws("piping_classification_conflict",()=>PipingCompatibilityRules.Resolve(new(1,0,"SupplyHydronic",3,"ReturnHydronic"))));
+Test("system display names are not evidence",()=>Throws("piping_classification_unknown",()=>PipingCompatibilityRules.Resolve(new(1,0,null,3,"循环供水"))));
+Test("equal native class with different type ids is compatible",()=>PipingCompatibilityRules.RequireCompatible(new(1,0,"SupplyHydronic",665532,"SupplyHydronic"),new(2,0,"UndefinedSystemType",1887577,"SupplyHydronic")));
+
+Test("repeated native port claims rejected before writes",()=>{var ports=new ConnectionPortClaims();ports.Reserve("2295838:port:0",2);Throws("connector_already_reserved",()=>ports.Reserve("2295838:port:0",9));});
+Test("two endpoints of same pipe are independent claims",()=>{var ports=new ConnectionPortClaims();ports.Reserve("@p4:endpoint:0",8);ports.Reserve("@p4:endpoint:1",9);});
+Test("native plan rejects repeated elbow/reducer endpoint",()=>Throws("connector_already_reserved",()=>PlanRules.Validate(Json("""[{"operationType":"create_pipe","id":"p","pipeTypeId":1,"systemTypeId":2,"levelId":311,"start":{"xMm":0,"yMm":0,"zMm":500},"end":{"xMm":500,"yMm":0,"zMm":500},"diameterMm":200},{"operationType":"create_fitting","firstElementId":3,"firstConnectorId":1,"secondElementId":"@p","secondConnector":{"domain":"DomainPiping","shape":"Round","point":{"xMm":500,"yMm":0,"zMm":500},"toleranceMm":1}},{"operationType":"create_fitting","firstElementId":"@p","firstConnector":{"domain":"DomainPiping","shape":"Round","point":{"xMm":500,"yMm":0,"zMm":500},"toleranceMm":1},"secondElementId":4,"secondConnectorId":0}]"""))));
+Test("native new curve criteria rejects two endpoints in tolerance",()=>Throws("invalid_connector",()=>ConnectionPortReservationRules.NewCurveEndpoint(Json("""{"operationType":"create_pipe","diameterMm":200,"start":{"xMm":0,"yMm":0,"zMm":500},"end":{"xMm":10,"yMm":0,"zMm":500}}"""),Json("""{"domain":"DomainPiping","shape":"Round","point":{"xMm":5,"yMm":0,"zMm":500},"toleranceMm":20}"""))));
+Test("classification failure exposes both real sides in valid JSON",()=>{try{PipingCompatibilityRules.RequireCompatible(new(2295837,3,"SupplyHydronic",null,null),new(5,0,"UndefinedSystemType",6,"ReturnHydronic"));throw new Exception("Expected mismatch");}catch(BridgeException e)when(e.Code=="piping_classification_mismatch"){var text=CommandResult.Failure(e.Code,e.Message,e.Details).Serialize();if(!text.Contains("2295837")||!text.Contains("ReturnHydronic"))throw new Exception("Native evidence missing");Json(text);}});
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }
