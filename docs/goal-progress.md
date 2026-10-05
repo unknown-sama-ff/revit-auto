@@ -316,6 +316,12 @@
 - 修复 `revit.audit.run` 的设备端口审计语义：`unconnectedMechanicalPorts` 现在只包含原生连接状态明确为 false 的端口；新增 `connectedMechanicalPorts` 和 `unknownMechanicalPorts`，分别表示明确已连接和无法可靠读取的端口。
 - 新增 `mechanicalPortAudit` 元数据：返回总端口数、实际扫描数、是否因 300 条安全上限截断以及 `connected|unconnected|unknown` 分类协议。未知状态不再被猜测成未连接。
 - bridge.info 新增能力 `mechanical-port-audit-tristate`；旧版 DLL 调用审计时会在发送模型请求前返回 `feature_not_loaded`，要求保存并重启加载 v0.3.21。
-- v0.3.21构建0警告、0错误；核心测试80项、Node/MCP测试151项全部通过。输出目录为 `v27/bin/Release/net10.0-windows-v27-chat-0321`。
-- 当前Revit仍运行v0.3.20，本轮只修改代码/测试/文档，没有修改模型，也没有自动重启Revit。安装清单已准备指向0321，保存后需手动重启并重新读取当前文档 identity/revision。
+- v0.3.21构建0警告、0错误；核心测试81项、Node/MCP测试153项全部通过。输出目录为 `v27/bin/Release/net10.0-windows-v27-chat-0321`。
+- 当前Revit仍运行v0.3.20，本轮只修改代码/测试/文档，没有修改模型，也没有自动重启Revit。已核对本机安装清单和目标DLL版本，清单指向0321，保存后需手动重启并重新读取当前文档 identity/revision。
 - 碰撞、维护净距和CHWS 1流向警告仍未自动修复；必须先通过新版只读审计重新确认三态结果，再设计独立的三维几何核查。
+
+### v0.3.21 安装核验与兼容契约补测
+- 已只读检查 `%APPDATA%/Autodesk/Revit/Addins/2027/RevitAutoV27.addin`，目标程序集存在且 FileVersion=0.3.21.0；未关闭或重启当前 Revit，实际运行版本仍为0.3.20。
+- 在当前旧插件上运行新 bridge 的只读审计试探，收到 feature_not_loaded，且审计调用前后 identity、revision、保存状态、类别数量保持一致；isModified=false。此结果只证明旧插件能力拦截正常，不表示新版原生三态审计已经实机验收。
+- 新增核心测试覆盖 `supported=true` 但连接值为空的未知状态；补充模拟 stdio MCP 往返测试，验证三态原生证据、警告与截断元数据完整保留、审计只读注解及旧插件响应被阻止。完整回归最终为81项核心/153项Node-MCP测试通过。
+- 下一步只需用户手动重启Revit加载v0.3.21，读取新identity/revision和三态审计，核对当前水泵已连接端口归入connected、未使用端口归入unconnected，未知诊断独立保留，且查询不修改模型。通过后再进入只读三维碰撞和净距检查开发，不复用之前的写入确认。
