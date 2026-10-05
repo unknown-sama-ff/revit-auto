@@ -311,3 +311,11 @@
 - 复现了现有审计返回的语义问题：unconnectedMechanicalPorts 实际输出全部设备端口，包含 7 个明确已连接端口。源码 RevitQueryService.Audit 直接 SelectMany(Connectors) 而未按可用状态过滤，属于审计结果缺陷；尚未修复、尚未要求用户重新加载 DLL。
 - 下一阶段建议首先补齐只读泵房核查：修复“未连接/已连接/未知”三态分类，再按明确元素范围做三维实体碰撞取证。包围盒仅用于候选筛选或明确标为保守维护包络候选，不能冒充精确间距；未知/缺失几何不判通过，净距由用户提供，不擅自套用规范数值。
 - 路线避让、设备流向或参数修改仍须单独形成新建模预览并获聊天批准；当前保存成功不构成任何新模型修改授权。
+
+## 2026-10-05 v0.3.21 审计三态修复（待重启加载）
+- 修复 `revit.audit.run` 的设备端口审计语义：`unconnectedMechanicalPorts` 现在只包含原生连接状态明确为 false 的端口；新增 `connectedMechanicalPorts` 和 `unknownMechanicalPorts`，分别表示明确已连接和无法可靠读取的端口。
+- 新增 `mechanicalPortAudit` 元数据：返回总端口数、实际扫描数、是否因 300 条安全上限截断以及 `connected|unconnected|unknown` 分类协议。未知状态不再被猜测成未连接。
+- bridge.info 新增能力 `mechanical-port-audit-tristate`；旧版 DLL 调用审计时会在发送模型请求前返回 `feature_not_loaded`，要求保存并重启加载 v0.3.21。
+- v0.3.21构建0警告、0错误；核心测试80项、Node/MCP测试151项全部通过。输出目录为 `v27/bin/Release/net10.0-windows-v27-chat-0321`。
+- 当前Revit仍运行v0.3.20，本轮只修改代码/测试/文档，没有修改模型，也没有自动重启Revit。安装清单已准备指向0321，保存后需手动重启并重新读取当前文档 identity/revision。
+- 碰撞、维护净距和CHWS 1流向警告仍未自动修复；必须先通过新版只读审计重新确认三态结果，再设计独立的三维几何核查。

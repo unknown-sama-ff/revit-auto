@@ -8,9 +8,9 @@ const runtime = path.resolve(import.meta.dirname,'..','runtime','bridge.json');
 export async function callRevit(method,params = {},signal) {
   const info = await exchange('revit.bridge.info',{},signal);
   if (info.protocol !== 'revit-auto-2027-v2') throw new Error('An old or incompatible Revit add-in is still running. Save your project and restart Revit. Writes are blocked before sending any model operation.');
-  const requiredFeature = {'revit.changes.get':'document-change-history','revit.room.get':'room-boundaries','revit.type.resolve':'native-type-resolver','revit.view.export_image':'view-image-export','revit.view.get':'view-settings','revit.connector.resolve':'connector-resolution'}[method];
+  const requiredFeature = {'revit.changes.get':'document-change-history','revit.room.get':'room-boundaries','revit.type.resolve':'native-type-resolver','revit.view.export_image':'view-image-export','revit.view.get':'view-settings','revit.connector.resolve':'connector-resolution','revit.audit.run':'mechanical-port-audit-tristate'}[method];
   if (requiredFeature && !info.features?.includes(requiredFeature)) {
-    const error=new Error('The running Revit plugin does not yet expose '+method+'. Save your work and restart Revit to load v0.3.20. No model write was requested.');
+    const error=new Error('The running Revit plugin does not yet expose '+method+'. Save your work and restart Revit to load v0.3.21. No model write was requested.');
     error.code='feature_not_loaded';throw error;
   }
   if (['revit.plan.confirm','revit.import.commit'].includes(method) && info.confirmationMode !== 'chat') {

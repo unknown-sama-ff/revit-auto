@@ -5,12 +5,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>RevitAutoV27</AssemblyName>
-    <Version>0.3.20</Version>
+    <Version>0.3.21</Version>
     <RootNamespace>RevitAutoV27</RootNamespace>
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
-    <OutputPath>bin\Release\net10.0-windows-v27-chat-0320\</OutputPath>
+    <OutputPath>bin\Release\net10.0-windows-v27-chat-0321\</OutputPath>
     <IntermediateOutputPath>obj\Release\net10.0-windows-v27\</IntermediateOutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>

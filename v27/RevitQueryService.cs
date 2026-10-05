@@ -77,6 +77,22 @@ internal static class RevitQueryService
     {
         var doc = app.ActiveUIDocument?.Document ?? throw new BridgeException("no_active_document", "Open a project first.");
         var instances = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().Where(f => f.Category?.Id.Value is (long)BuiltInCategory.OST_LightingFixtures or (long)BuiltInCategory.OST_LightingDevices or (long)BuiltInCategory.OST_ElectricalEquipment).ToList();
+        var mechanicalPortRows = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
+            .Where(f => f.Category?.Id.Value == (long)BuiltInCategory.OST_MechanicalEquipment)
+            .SelectMany(f => Connectors(f)).ToArray();
+        var mechanicalPortSample = mechanicalPortRows.Take(300).ToArray();
+        var unconnected = new List<object>();
+        var connected = new List<object>();
+        var unknown = new List<object>();
+        foreach (var row in mechanicalPortSample)
+        {
+            switch (MechanicalPortState(row))
+            {
+                case MechanicalPortAuditState.Unconnected: unconnected.Add(row); break;
+                case MechanicalPortAuditState.Connected: connected.Add(row); break;
+                default: unknown.Add(row); break;
+            }
+        }
         return new
         {
             documentIdentity = RevitCommandRouter.Identity(doc), counts = Counts(doc),
@@ -84,8 +100,20 @@ internal static class RevitQueryService
             warningCount = doc.GetWarnings().Count,
             unmarkedElectricalElementIds = instances.Where(f => string.IsNullOrEmpty(f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString())).Select(f => f.Id.Value),
             duplicateMarks = instances.GroupBy(f => f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString()).Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1).Select(g => new { mark = g.Key, elementIds = g.Select(f => f.Id.Value) }),
-            unconnectedMechanicalPorts = new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().Where(f => f.Category?.Id.Value == (long)BuiltInCategory.OST_MechanicalEquipment).SelectMany(f => Connectors(f)).Take(300)
+            unconnectedMechanicalPorts = unconnected,
+            connectedMechanicalPorts = connected,
+            unknownMechanicalPorts = unknown,
+            mechanicalPortAudit = new { totalCount = mechanicalPortRows.Length, scannedCount = mechanicalPortSample.Length, truncated = mechanicalPortRows.Length > mechanicalPortSample.Length, classification = "connected|unconnected|unknown" }
         };
+    }
+    private static MechanicalPortAuditState MechanicalPortState(object row)
+    {
+        var json = JsonSerializer.SerializeToElement(row);
+        var supported = json.TryGetProperty("connectionStatusSupported", out var supportedValue) && supportedValue.ValueKind == JsonValueKind.True;
+        bool? connected = null;
+        if (json.TryGetProperty("connected", out var connectedValue) && (connectedValue.ValueKind == JsonValueKind.True || connectedValue.ValueKind == JsonValueKind.False))
+            connected = connectedValue.GetBoolean();
+        return MechanicalPortAuditClassification.Classify(supported, connected);
     }
     private static object? ElectricalRelations(Element element)
     {
@@ -242,5 +270,3 @@ internal static class RevitQueryService
         try { return connector.Id; } catch { return null; }
     }
 }
-
-

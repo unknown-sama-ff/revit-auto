@@ -30,7 +30,7 @@ public sealed class App : IExternalApplication
             handler.Attach(externalEvent);
             server = new TcpCommandServer(handler);
             server.Start();
-            ConnectionMessage = "安全执行引擎 v0.3.20 已启动。localhost + 私有令牌；模型写入只需聊天确认，不再弹 Revit 二次确认窗口。";
+            ConnectionMessage = "安全执行引擎 v0.3.21 已启动。localhost + 私有令牌；模型写入只需聊天确认，不再弹 Revit 二次确认窗口。";
         }
         catch (Exception ex) { ConnectionMessage = "插件连接失败：" + ex.Message; handler?.Dispose(); server?.Dispose(); externalEvent?.Dispose(); Log.Write("Initialization failed: " + ex); }
     }
