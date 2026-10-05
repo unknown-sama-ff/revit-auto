@@ -1,14 +1,14 @@
-# Revit 2027 AI 建模桥接器 v0.3.21
+# Revit 2027 AI 建模桥接器 v0.3.22
 
 ## 当前状态
 
-2026-10-05：v0.3.21已编译通过（0警告、0错误），81项核心测试和153项MCP测试全部通过。本版新增设备连接器三态审计：明确已连接、明确未连接、状态未知；旧的未连接字段不再混入已连接端口。当前Revit实例仍运行v0.3.20，需在保存工作后重启以加载v0.3.21。泵房连接功能验收已完成，但流向、碰撞和维护净距仍需独立核查。官方MCP按用户决定暂不接入。连接说明见docs/piping-connection-compatibility.md。
+2026-10-05：v0.3.22 已加入局部只读实体碰撞/保守净距候选核查，100 项核心测试、166 项 MCP 测试通过，编译 0 警告/0 错误；待用户重启 Revit 加载后实机验收。v0.3.21 三态端口审计已经实机通过，当前运行仍为该版。泵房链路与手动保存/重开已验证；碰撞、维护净距和 CHWS 流向警告不因连接成功而判通过。官方 MCP 继续暂不接入。详见 docs/collision-check-acceptance.md。
 
 已编译独立 .NET 10 / Revit 2027 插件，并提供可被 Claude、Codex 发现的本机 stdio MCP 服务。Claude Desktop 和 Codex 的 `revit-custom` 已注册，原配置已备份。旧 Revit 2025 模型、族、脚本和程序集保留；旧项目只增加排除新目录的编译项。
 
 本机实际版本为 **Revit 2027.3（27.3.0.28）**，构建使用本机 API；这不是对 Revit 2027.2 原版的一次独立兼容认证。
 
-**已改为聊天确认模式：预览后由你在聊天中确认，Revit 不再重复弹窗。** 同一文档 identity 漂移、计划过期、端口预留和系统分类证据已加入安全校验。v0.3.21还需重启当前Revit实例后才会生效；新版验收脚本会拒绝在缺少对应能力的旧 DLL 上继续验收。实际业务写入和回滚效果仍需在项目副本中验收。
+**已改为聊天确认模式：预览后由你在聊天中确认，Revit 不再重复弹窗。** 同一文档 identity 漂移、计划过期、端口预留和系统分类证据已加入安全校验。v0.3.22还需重启当前Revit实例后才会生效；新版验收脚本会拒绝在缺少对应能力的旧 DLL 上继续验收。实际业务写入和回滚效果仍需在项目副本中验收。
 
 ## 开始使用
 
@@ -30,7 +30,7 @@
 
 逻辑 API 保留 `revit.context.get` 等点号命名；MCP 实际工具名使用 `revit_context_get` 等下划线，以兼容不同助手。工具描述给出对应逻辑 API。
 
-- 查询：context、search、inspect、audit；类型查询支持分页。
+- 查询：context、search、inspect、audit、collision_check；碰撞核查只读，净距结果为保守候选，类型查询支持分页。
 - 计划：plan_create、plan_get、plan_confirm、plan_cancel。
 - 专业流程：workflow_run 只生成预览，不直接修改模型。
 - 导入：import_preview、import_commit；操作目录见 operations_list 和资源 `revit-custom://operation-guide`。
