@@ -419,3 +419,15 @@
 - 0.3.23独立flowdiag构建目录编译0警告/0错误；105项核心测试、168项MCP原有测试保持通过，新增2项MCP流向契约测试通过。由于当前Revit锁定活动0323 DLL，没有热替换；实际调用返回feature_not_loaded且模型未改变。
 - 已注册bridge capability `flow-direction-diagnostic`，清单下一次安装/重启后加载。当前需要用户保存后重启Revit，再对系统2295840运行实机只读诊断；不能复用旧会话identity。
 - 实机诊断后再决定是否生成流向修正预览。没有用户提供流向设计意图前，不更改设备流向、系统类型或连接。
+
+## 2026-10-07 流向诊断部署路径修正（待重启加载）
+- 用户重启后实际仍为0.3.23，但bridge.features没有flow-direction-diagnostic；当前Revit加载的是旧chat-0323输出，模型identity为新会话、isModified=false。
+- 已确认独立flowdiag-test构建0警告/0错误；安装清单已改指向 `v27/bin/Release/net10.0-windows-v27-flowdiag-test/RevitAutoV27.dll`。这不会热替换当前内存程序集，必须再次手动重启后才能生效。
+- 当前没有执行模型写入或保存；下一次重启后只读调用revit_flow_diagnose(systemId=2295840)，重新读取新identity/revision，不复用旧会话。
+
+## 2026-10-07 CHWS 1 原生系统流向诊断完成
+- 流向诊断版已实际加载：v0.3.23 flow-direction-diagnostic，当前新会话identity=3f00ab9747a14d40a5be6a21f19bdec6，revision=0，isModified=false。
+- `revit.flow.diagnose(systemId=2295840)` 返回CHWS 1系统成员10个：水泵2295837、5段管道/4件新管路；PipingNetwork读取成功，BaseEquipmentConnector可读取，成员peers闭包与当前链路一致。
+- 系统原生计算：GetFlow可调用但结果为0；GetVolume可计算；GetStaticPressure不支持并返回错误。成员可读连接器全部Direction=Bidirectional、Flow=0，水泵端口3连接新路线，端口2明确未连接，末端80毫米管远端仍未连接。
+- Revit仍报告CHWS 1流向不匹配，且警告没有failingElementIds。当前证据能确定“系统拓扑可读、连接存在、流量求解为0/方向未被原生确定”，不能确定具体根因是水泵族流向设置、系统边界/设备配置还是项目设计意图缺失；没有修改任何流向或系统参数。
+- 诊断查询前后identity/revision和保存状态稳定。下一步若要修正，必须先明确设计意图（泵接口应为供水还是回水、系统是否应形成闭环/连接另一泵口、是否允许改族流向），再生成专门预览；不能把Bidirectional/0流量自动改成In/Out。
