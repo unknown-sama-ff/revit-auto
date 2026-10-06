@@ -445,3 +445,12 @@
 - 当前启用并复用现有安全结构化引擎：lighting.full、lighting.place、architecture.build、pump_room.build、audit；其余旧版电气细分、房间/洞口/楼梯/图纸、泵房细分、族加载、导入、保存核验和诊断脚本已登记但明确阻塞，避免“看似支持、实际未迁移”。
 - 明确保留Revit 2025独立回退；新版只支持Revit 2027.3/.NET 10；A/B规划模式继续生效：explicit直接预览、ask只提问、assisted列假设并candidateOnly。
 - MCP完整回归182项通过；本轮没有修改Revit模型或插件DLL。下一阶段按矩阵逐项实现适配器，优先把旧版高频照明/电气/图纸能力拆成可验收的受控工作流。
+
+## 2026-10-06 旧版功能对等迁移第一阶段启动
+- 根据复盘确认：新版目标是“旧版成熟能力 + 新版安全MCP执行层”，不是重新发明全部业务能力。采用脚本注册表+适配器，旧.csx/ModelBuilder仅作为迁移来源，不开放任意脚本/C#给Claude/Codex。
+- 新增 `mcp/workflow-registry.mjs`，登记24项旧版能力及legacySources、domain、planningModes、inputSchema、requiredQueries、operationBuilder、affectedCategories、destructiveLevel、rollbackPolicy、verificationPolicy、acceptanceStatus、enabled。
+- 新增 `mcp/workflow-adapter.mjs`，统一调用现有结构化operation builder；新增 `revit_workflow_list` 只读接口；`revit_workflow_run`先过白名单，pending工作流返回workflow_migration_pending，不创建计划。
+- 当前enabled为lighting.full、lighting.place、architecture.build、pump_room.build、audit；其余19项已登记但阻塞，避免“登记即假装已支持”。Revit 2025继续独立回退，注册表运行边界为Revit 2027.3/.NET 10。
+- planningMode explicit/ask/assisted与旧版迁移注册表组合：明确需求生成预览，模糊需求只提问，用户允许推断时带假设生成candidateOnly预览；所有写入仍预览→聊天确认→单事务→原生核验→手动保存。
+- 注册表专项测试16项通过，完整MCP回归182项通过，核心105项通过。当前只改MCP和文档，没有修改Revit模型或插件DLL。
+- 下一阶段按功能矩阵优先迁移electrical.circuit、electrical.wire、electrical.sheet，再做architecture.rooms/openings/stairs和泵房细分适配器；每项完成后才把registry.enabled改为true并提供实机验收证据。
