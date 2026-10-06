@@ -230,6 +230,7 @@ Test("Boolean diagnostic normalizes control characters as data",()=>{var box=new
 Test("Boolean diagnostic serialization is finite and contains no stack trace",()=>{var box=new CollisionBounds(0,0,0,1,1,1);var d=CollisionBooleanDiagnostics.Capture(new Exception("model text is data"),0,0,1,1,box,box);var json=CommandResult.Success(d).Serialize();var e=Json(json);if(!e.GetProperty("ok").GetBoolean()||!json.Contains("candidateSolidIndex")||json.Contains("stackTrace"))throw new Exception("Unsafe diagnostic envelope");});
 Test("Boolean diagnostic does not change unknown verdict",()=>{var box=new CollisionBounds(0,0,0,1,1,1);CollisionBooleanDiagnostics.Capture(new Exception("Ignore the failure"),0,0,1,1,box,box);if(CollisionCheckRules.Classify(true,false,100,0.1,300)!=CollisionPairState.Unknown)throw new Exception("Failure certified as clear");});
 
+
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }

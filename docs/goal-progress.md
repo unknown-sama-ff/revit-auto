@@ -412,3 +412,10 @@
 - 现有MCP只能可靠读取连接器方向、peers、管径、系统类型和审计警告，不能从当前接口证明PipingSystem全部成员的流向规则、设备流向属性或Revit流量求解器的具体失败成员。因此不猜根因、不改流向参数、不清除警告。
 - 下一步需新增只读“系统流向诊断”能力：读取指定PipingSystem成员、MEP系统/设备关系、每个管件/管段连接器方向和可读流量/流向参数；未知属性保持unknown。先做单元/契约测试和实机只读验收，再决定是否准备任何系统修改预览。
 - 当前没有用户提供规范或流向设计意图；任何改变设备流向、系统类型、连接拓扑或泵接口都必须另行预览并聊天确认。
+
+
+## 2026-10-06 系统流向诊断接口实现（待重启实机验收）
+- 新增只读 `revit.flow.diagnose` / MCP `revit_flow_diagnose`，读取指定PipingSystem的PipingNetwork成员、基础设备连接器、连接器Direction/Flow（属性不可用时保留unknown）、系统GetFlow/GetStaticPressure/GetVolume错误和identity/revision。没有事务、Set、Save或写入路径。
+- 0.3.23独立flowdiag构建目录编译0警告/0错误；105项核心测试、168项MCP原有测试保持通过，新增2项MCP流向契约测试通过。由于当前Revit锁定活动0323 DLL，没有热替换；实际调用返回feature_not_loaded且模型未改变。
+- 已注册bridge capability `flow-direction-diagnostic`，清单下一次安装/重启后加载。当前需要用户保存后重启Revit，再对系统2295840运行实机只读诊断；不能复用旧会话identity。
+- 实机诊断后再决定是否生成流向修正预览。没有用户提供流向设计意图前，不更改设备流向、系统类型或连接。
