@@ -83,8 +83,16 @@ test('architecture room adapter builds room tags, schedules and view artifacts',
 });
 
 
-test('pending room adapter is now enabled while openings and stairs remain blocked',()=>{
+test('room and openings adapters are enabled while stairs remain blocked',()=>{
   assert.equal(getWorkflow('architecture.rooms').enabled,true);
-  assert.equal(getWorkflow('architecture.openings').enabled,false);
+  assert.equal(getWorkflow('architecture.openings').enabled,true);
   assert.equal(getWorkflow('architecture.stairs').enabled,false);
+});
+
+
+test('architecture openings adapter builds explicit hosted door and window operations',()=>{
+  const built=buildRegisteredWorkflow('architecture.openings',{doors:[{symbolId:201,hostElementId:301,levelId:311,xMm:1000,yMm:0,zMm:0}],windows:[{symbolId:202,hostElementId:302,levelId:311,xMm:2000,yMm:0,zMm:900}],schedules:[],sheets:[],viewports:[]});
+  assert.deepEqual(built.operations.map(op=>op.operationType),['create_family_instance','create_family_instance']);
+  assert.equal(built.operations[0].hostElementId,301);
+  assert.equal(built.operations[1].hostElementId,302);
 });

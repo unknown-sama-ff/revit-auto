@@ -160,6 +160,9 @@ export function workflowOperations(name, input = {}) {
     add(input.schedules,'create_schedule','schedule');
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
+  } else if (name === 'architecture.openings') {
+    placements(input.doors,'door','OST_Doors'); placements(input.windows,'window','OST_Windows');
+    add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');
   } else if (name === 'architecture.build') {
     add(input.levels,'create_level','level'); add(input.grids,'create_grid','grid');
     add(input.walls,'create_wall','wall'); add(input.floors,'create_floor','floor');

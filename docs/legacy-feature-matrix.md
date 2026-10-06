@@ -52,3 +52,9 @@ The registry is source metadata and a safety boundary, not permission to execute
 
 - \`architecture.rooms\`: enabled as a controlled preview adapter for \`create_room\`, with explicit level/point/number/name inputs; room tags and documentation remain separate operations.
 - \`architecture.openings\`, \`architecture.stairs\`, and \`architecture.documentation\`: remain registered and blocked until their Revit 2027-specific adapters and native acceptance copies are complete.
+
+
+## Second architecture parity slice
+
+- \`architecture.openings\`: enabled for explicit hosted door/window instances, with current type/host/level validation and the shared preview/transaction path.
+- Stair and documentation migrations remain blocked until dedicated Revit 2027 adapters and native acceptance evidence exist.

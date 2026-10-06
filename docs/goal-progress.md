@@ -460,3 +460,9 @@
 - `architecture.rooms` 已从 pending 移到 enabled，映射 create_room 与通用 tags/views/schedules/sheets/viewport操作；旧rooms.csx的固定点位不硬编码，输入必须由当前context/用户约束提供。
 - openings/stairs/documentation及其他旧版细分继续pending，不能通过workflow.run创建计划。
 - 专项registry测试和完整MCP回归185项通过；核心105项保持通过；未修改Revit模型或DLL。下一步为这些已启用适配器建立Revit 2027副本实机验收，全部通过后才能标记implemented-and-accepted。
+
+## 2026-10-07 第三批建筑对等迁移：房间与门窗开口
+- `architecture.rooms` 和 `architecture.openings` 已从 pending 移到 enabled；房间工作流支持显式房间点位、编号/名称以及后续文档对象；开口工作流使用显式门窗族类型、宿主、标高和点位，旧脚本固定墙坐标不迁移。
+- `workflowOperations` 新增 `architecture.rooms` 与 `architecture.openings` 分支；所有操作仍进入同一结构化校验和计划预览，不开放旧脚本直接执行。
+- architecture.stairs、architecture.documentation、pump_room细分、族加载和导入仍pending；不能因注册而宣称已迁移。
+- 完整MCP回归186项通过，核心105项保持通过；没有修改Revit模型或DLL。下一步为房间/门窗和此前电气工作流准备Revit 2027副本实机验收基线。
