@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {resolvePlanningMode} from '../planning-mode.mjs';
+const root=path.resolve(import.meta.dirname,'../..');
+test('explicit pump planning proceeds without assumptions',()=>{const result=resolvePlanningMode('pump_room.build','explicit');assert.equal(result.mode,'explicit');assert.equal(result.requiresClarification,false);assert.deepEqual(result.assumptions,[]);});
+test('ambiguous pump planning asks questions and creates no plan',()=>{const result=resolvePlanningMode('pump_room.build',undefined);assert.equal(result.mode,'ask');assert.equal(result.requiresClarification,true);assert.equal(result.planCreated??false,false);assert.equal(result.questions.length,3);});
+test('assisted pump planning requires explicit assumptions',()=>{assert.throws(()=>resolvePlanningMode('pump_room.build','assisted'),/assumptions_required/);const result=resolvePlanningMode('pump_room.build','assisted',['沿用当前水泵和管道类型','允许提出候选路线']);assert.equal(result.candidateOnly,true);assert.equal(result.requiresClarification,false);assert.equal(result.assumptions.length,2);});
+test('non-pump workflows retain explicit default behavior',()=>{const result=resolvePlanningMode('architecture.build',undefined);assert.equal(result.mode,'explicit');assert.equal(result.requiresClarification,false);});
+test('MCP workflow contract exposes A/B planning modes',async()=>{const source=await fs.readFile(path.join(root,'mcp/revit-custom.mjs'),'utf8');assert.match(source,/planningMode:z\.enum\(\['explicit','ask','assisted'\]\)/);assert.match(source,/assumptions:z\.array/);assert.match(source,/needs_clarification/);assert.match(source,/candidateOnly/);});

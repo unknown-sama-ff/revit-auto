@@ -431,3 +431,9 @@
 - 系统原生计算：GetFlow可调用但结果为0；GetVolume可计算；GetStaticPressure不支持并返回错误。成员可读连接器全部Direction=Bidirectional、Flow=0，水泵端口3连接新路线，端口2明确未连接，末端80毫米管远端仍未连接。
 - Revit仍报告CHWS 1流向不匹配，且警告没有failingElementIds。当前证据能确定“系统拓扑可读、连接存在、流量求解为0/方向未被原生确定”，不能确定具体根因是水泵族流向设置、系统边界/设备配置还是项目设计意图缺失；没有修改任何流向或系统参数。
 - 诊断查询前后identity/revision和保存状态稳定。下一步若要修正，必须先明确设计意图（泵接口应为供水还是回水、系统是否应形成闭环/连接另一泵口、是否允许改族流向），再生成专门预览；不能把Bidirectional/0流量自动改成In/Out。
+
+## 2026-10-07 泵房 A/B 规划模式实现
+- 用户确定规则：明确需求使用A（`planningMode=explicit`）；模糊说明先询问并返回缺口（`planningMode=ask`）；用户明确允许AI推断时保留B（`planningMode=assisted`），必须列出假设并标记candidateOnly。
+- 新增 `mcp/planning-mode.mjs` 与 `revit_workflow_run` 契约：ask不创建plan、不写模型；explicit生成正常可审阅预览；assisted生成带假设的候选预览，仍需聊天确认，不从测试夹具警告推断工程意图。
+- 更新CLAUDE.md和natural-language-workflows.md，明确澄清后重新读取context/revision，不能复用旧会话授权。
+- 完整MCP回归175项通过，核心105项通过；当前只改客户端规划契约/文档，没有修改Revit模型或插件DLL。
