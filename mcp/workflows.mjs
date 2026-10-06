@@ -163,6 +163,13 @@ export function workflowOperations(name, input = {}) {
   } else if (name === 'architecture.openings') {
     placements(input.doors,'door','OST_Doors'); placements(input.windows,'window','OST_Windows');
     add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');
+  } else if (name === 'architecture.documentation') {
+    add(input.views,'create_view_plan','view');
+    add(input.viewConfigurations,'configure_view','viewConfiguration');
+    add(input.schedules,'create_schedule','schedule');
+    add(input.panelSchedules,'create_panel_schedule','panelSchedule');
+    add(input.sheets,'create_sheet','sheet');
+    add(input.viewports,'place_viewport','viewport');
   } else if (name === 'architecture.build') {
     add(input.levels,'create_level','level'); add(input.grids,'create_grid','grid');
     add(input.walls,'create_wall','wall'); add(input.floors,'create_floor','floor');

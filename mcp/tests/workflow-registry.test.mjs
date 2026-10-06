@@ -96,3 +96,11 @@ test('architecture openings adapter builds explicit hosted door and window opera
   assert.equal(built.operations[0].hostElementId,301);
   assert.equal(built.operations[1].hostElementId,302);
 });
+
+
+test('architecture documentation adapter builds views, schedules, sheets and viewports',()=>{
+  const built=buildRegisteredWorkflow('architecture.documentation',{views:[{viewFamilyTypeId:601,levelId:311,name:'AI建筑平面'}],viewConfigurations:[],schedules:[{category:'OST_Walls',fields:['标记'],name:'墙表'}],panelSchedules:[],sheets:[{number:'A201',name:'建筑平面',titleBlockId:701}],viewports:[{sheetId:'@sheet1',viewId:'@view1',xMm:420,yMm:297,zMm:0}]});
+  assert.deepEqual(built.operations.map(op=>op.operationType),['create_view_plan','create_schedule','create_sheet','place_viewport']);
+  assert.equal(built.operations[0].id,'view1');
+  assert.equal(built.operations[2].id,'sheet1');
+});

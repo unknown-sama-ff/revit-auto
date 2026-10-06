@@ -466,3 +466,9 @@
 - `workflowOperations` 新增 `architecture.rooms` 与 `architecture.openings` 分支；所有操作仍进入同一结构化校验和计划预览，不开放旧脚本直接执行。
 - architecture.stairs、architecture.documentation、pump_room细分、族加载和导入仍pending；不能因注册而宣称已迁移。
 - 完整MCP回归186项通过，核心105项保持通过；没有修改Revit模型或DLL。下一步为房间/门窗和此前电气工作流准备Revit 2027副本实机验收基线。
+
+## 2026-10-07 第四批建筑对等迁移：图纸/明细表
+- `architecture.documentation` 已从 pending 移到 enabled；映射现有 create_view_plan、configure_view、create_schedule、create_panel_schedule、create_sheet、place_viewport 操作，旧版固定图纸坐标不自动猜测，导出只作为只读验证。
+- 现已启用工作流：lighting.full、lighting.place、electrical.circuit、electrical.wire、electrical.sheet、architecture.build、architecture.rooms、architecture.openings、architecture.documentation、pump_room.build、audit。
+- architecture.stairs、泵房细分、族加载、导入、保存核验和诊断脚本仍登记但blocked，普通MCP客户端不能直接调用旧脚本。
+- 完整MCP回归187项通过，核心105项保持通过；本轮没有修改Revit模型或DLL。下一步为已启用电气/房间/门窗/文档适配器准备Revit 2027副本实机验收矩阵。

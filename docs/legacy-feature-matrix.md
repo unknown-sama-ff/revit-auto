@@ -58,3 +58,10 @@ The registry is source metadata and a safety boundary, not permission to execute
 
 - \`architecture.openings\`: enabled for explicit hosted door/window instances, with current type/host/level validation and the shared preview/transaction path.
 - Stair and documentation migrations remain blocked until dedicated Revit 2027 adapters and native acceptance evidence exist.
+
+
+## Third architecture parity slice
+
+- \`architecture.documentation\`: enabled for explicit views, view configurations, schedules, sheets and viewports using the current native operation builder.
+- Export and pixel verification remain read-only post-acceptance steps; no fixed legacy sheet coordinates or title blocks are inferred.
+- Stairs remain blocked pending a dedicated Revit 2027 stair adapter.
