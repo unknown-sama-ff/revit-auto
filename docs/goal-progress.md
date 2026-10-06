@@ -437,3 +437,11 @@
 - 新增 `mcp/planning-mode.mjs` 与 `revit_workflow_run` 契约：ask不创建plan、不写模型；explicit生成正常可审阅预览；assisted生成带假设的候选预览，仍需聊天确认，不从测试夹具警告推断工程意图。
 - 更新CLAUDE.md和natural-language-workflows.md，明确澄清后重新读取context/revision，不能复用旧会话授权。
 - 完整MCP回归175项通过，核心105项通过；当前只改客户端规划契约/文档，没有修改Revit模型或插件DLL。
+
+## 2026-10-07 旧版功能矩阵与受控工作流注册表
+- 新增 `mcp/workflow-registry.mjs`：登记24个旧版能力/脚本来源、领域、planningModes、所需查询、影响类别、破坏级别、回滚策略、核验策略和迁移状态。
+- 新增 `mcp/workflow-adapter.mjs`：统一从注册表调用已启用工作流的现有结构化操作构建器；普通MCP客户端不接触.csx路径、任意C#或脚本执行。
+- 新增 `revit_workflow_list` 只读接口；`revit_workflow_run` 改为先通过注册表白名单。未迁移工作流返回 `workflow_migration_pending`，不创建计划、不修改模型。
+- 当前启用并复用现有安全结构化引擎：lighting.full、lighting.place、architecture.build、pump_room.build、audit；其余旧版电气细分、房间/洞口/楼梯/图纸、泵房细分、族加载、导入、保存核验和诊断脚本已登记但明确阻塞，避免“看似支持、实际未迁移”。
+- 明确保留Revit 2025独立回退；新版只支持Revit 2027.3/.NET 10；A/B规划模式继续生效：explicit直接预览、ask只提问、assisted列假设并candidateOnly。
+- MCP完整回归182项通过；本轮没有修改Revit模型或插件DLL。下一阶段按矩阵逐项实现适配器，优先把旧版高频照明/电气/图纸能力拆成可验收的受控工作流。
