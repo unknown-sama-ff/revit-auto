@@ -153,10 +153,13 @@ internal static class CollisionCheckService
                 XYZ? collisionPoint = null;
                 var booleanComplete = true;
                 string? booleanError = null;
-                foreach (var first in targetGeometry.Solids)
+                CollisionBooleanFailureDetails? booleanDetails = null;
+                for (var targetSolidIndex = 0; targetSolidIndex < targetGeometry.Solids.Count; targetSolidIndex++)
                 {
-                    foreach (var second in candidateGeometry.Solids)
+                    var first = targetGeometry.Solids[targetSolidIndex];
+                    for (var candidateSolidIndex = 0; candidateSolidIndex < candidateGeometry.Solids.Count; candidateSolidIndex++)
                     {
+                        var second = candidateGeometry.Solids[candidateSolidIndex];
                         CheckBudget(clock, cancellation);
                         if (!first.Bounds.Intersects(second.Bounds)) continue;
                         if (++solidPairCount > CollisionCheckRules.MaxSolidPairs)
@@ -177,7 +180,11 @@ internal static class CollisionCheckService
                         }
                         catch (Exception error) when (error is not OperationCanceledException)
                         {
-                            booleanComplete = false; booleanError = "boolean-intersection-unavailable:" + error.GetType().Name; break;
+                            booleanComplete = false;
+                            booleanError = "boolean-intersection-unavailable:" + error.GetType().Name;
+                            booleanDetails = CollisionBooleanDiagnostics.Capture(error, targetSolidIndex, candidateSolidIndex,
+                                targetGeometry.Solids.Count, candidateGeometry.Solids.Count, first.Bounds, second.Bounds);
+                            break;
                         }
                     }
                     if (!booleanComplete) break;
@@ -199,7 +206,7 @@ internal static class CollisionCheckService
                             elements = pairInfo, note = "保守包围盒候选，不是精确净距或工程合规证明。" });
                         break;
                     case CollisionPairState.Unknown:
-                        unknown.Add(Unknown(pair.Target.Id.Value, pair.Candidate.Id.Value, "pair", booleanError ?? "intersection-unknown"));
+                        unknown.Add(Unknown(pair.Target.Id.Value, pair.Candidate.Id.Value, "pair", booleanError ?? "intersection-unknown", booleanDetails));
                         break;
                     default: clearedPairCount++; break;
                 }
@@ -316,8 +323,8 @@ internal static class CollisionCheckService
     private static object Point(XYZ point) => new { xMm = point.X * 304.8, yMm = point.Y * 304.8, zMm = point.Z * 304.8 };
     private static object Describe(Element element) => new { id = element.Id.Value, category = element.Category?.Name,
         categoryId = element.Category?.Id.Value, className = element.GetType().Name };
-    private static object Unknown(long? target, long? candidate, string role, string reason)
-        => new { targetElementId = target, candidateElementId = candidate, role, reason };
+    private static object Unknown(long? target, long? candidate, string role, string reason, CollisionBooleanFailureDetails? details = null)
+        => new { targetElementId = target, candidateElementId = candidate, role, reason, details };
     private static void CheckBudget(Stopwatch clock, CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();

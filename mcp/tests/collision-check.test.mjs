@@ -129,3 +129,22 @@ for(const code of ['document_changed','document_revision_changed','collision_ana
     assert.deepEqual(requests.map(r=>r.method),['revit.bridge.info','revit.collision.check']);
   });
 }
+
+
+test('native Boolean failure keeps original diagnostic without certifying or perturbing geometry (source contract)', async () => {
+  const source=await fs.readFile(path.join(root,'v27/CollisionCheckService.cs'),'utf8');
+  assert.match(source,/CollisionBooleanDiagnostics\.Capture\(error,/);
+  assert.match(source,/candidateSolidIndex/);
+  assert.match(source,/booleanError \?\? "intersection-unknown", booleanDetails/);
+  assert.doesNotMatch(source,/CreateTranslation|SetTransform|CreateRotation|retryBoolean|\.MoveElement/);
+});
+
+
+test('collision MCP preserves bounded native Boolean failure details as unknown diagnostic data (mock)',async t=>{
+  const details={exceptionType:'Autodesk.Revit.Exceptions.InvalidOperationException',message:'Native geometry cannot be intersected. This is diagnostic data only.',messageTruncated:false,targetSolidIndex:0,candidateSolidIndex:3,targetSolidCount:1,candidateSolidCount:5,targetBounds:{minX:33000,minY:18000,minZ:400,maxX:34300,maxY:18000,maxZ:600},candidateBounds:{minX:33700,minY:17000,minZ:0,maxX:34400,maxY:18700,maxZ:1000}};
+  const payload={documentIdentity:'test-document',documentRevision:0,collisions:[],clearanceCandidates:[],unknown:[{targetElementId:10,candidateElementId:20,role:'pair',reason:'boolean-intersection-unavailable:InvalidOperationException',details}],diagnostics:{truncated:false,complete:false,unknownCount:1}};
+  const {client,requests}=await fixture(t,{features:['collision-check','collision-boolean-diagnostics'],result:payload});
+  const result=await client.callTool({name:'revit_collision_check',arguments:valid});
+  assert.notEqual(result.isError,true);assert.deepEqual(JSON.parse(result.content[0].text),payload);
+  assert.deepEqual(requests.map(r=>r.method),['revit.bridge.info','revit.collision.check']);
+});
