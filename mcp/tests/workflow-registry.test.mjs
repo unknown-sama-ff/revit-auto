@@ -65,3 +65,13 @@ test('disabled legacy workflows remain discoverable without becoming callable wr
   assert.equal(pending.acceptanceStatus, 'legacy-source-registered-migration-pending');
   assert.deepEqual(pending.planningModes, ['explicit','ask','assisted']);
 });
+
+
+test('electrical parity adapters build circuit, wire and sheet operation subsets',()=>{
+  const circuit=buildRegisteredWorkflow('electrical.circuit',{circuits:[{elementIds:[101,102],panelId:103,name:'照明回路'}]});
+  assert.equal(circuit.operations[0].operationType,'create_circuit');
+  const wire=buildRegisteredWorkflow('electrical.wire',{wires:[{firstElementId:101,secondElementId:102,viewId:104,wireTypeId:105}]});
+  assert.equal(wire.operations[0].operationType,'create_wire');
+  const sheet=buildRegisteredWorkflow('electrical.sheet',{sheets:[{number:'E201',name:'照明图纸'}],schedules:[{category:'OST_LightingFixtures',fields:['标记'],name:'灯具表'}]});
+  assert.deepEqual(sheet.operations.map(op=>op.operationType),['create_schedule','create_sheet']);
+});

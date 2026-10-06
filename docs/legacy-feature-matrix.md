@@ -22,6 +22,8 @@ This matrix tracks the migration of the Revit 2025-era scripts and `ModelBuilder
 The following legacy sources are discoverable through `revit_workflow_list` but cannot create a model plan yet:
 
 - Electrical specialization: circuits, wires, sheets.
+
+The first electrical parity slice now enables `electrical.circuit`, `electrical.wire`, and `electrical.sheet` through the same structured operation validator. These are enabled for preview generation, not yet marked fully migrated until a dedicated Revit acceptance copy confirms native circuits, wire peers, schedules, sheets and rollback.
 - Architecture specialization: rooms, openings, stairs, documentation.
 - Pump-room specialization: route, connect, audit, collision, clearance.
 - Families: loading and family/type audits.

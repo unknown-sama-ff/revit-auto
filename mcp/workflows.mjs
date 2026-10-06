@@ -141,6 +141,19 @@ export function workflowOperations(name, input = {}) {
     add(input.panelSchedules,'create_panel_schedule','panelSchedule');
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
+  } else if (name === 'electrical.circuit') {
+    add(input.parameterChanges,'set_parameter','param');
+    add(input.circuits,'create_circuit','circuit');
+    add(input.panelSchedules,'create_panel_schedule','panelSchedule');
+  } else if (name === 'electrical.wire') {
+    add(input.wires,'create_wire','wire');
+  } else if (name === 'electrical.sheet') {
+    add(input.views,'create_view_plan','view');
+    add(input.viewConfigurations,'configure_view','viewConfiguration');
+    add(input.schedules,'create_schedule','schedule');
+    add(input.panelSchedules,'create_panel_schedule','panelSchedule');
+    add(input.sheets,'create_sheet','sheet');
+    add(input.viewports,'place_viewport','viewport');
   } else if (name === 'architecture.build') {
     add(input.levels,'create_level','level'); add(input.grids,'create_grid','grid');
     add(input.walls,'create_wall','wall'); add(input.floors,'create_floor','floor');
