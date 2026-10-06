@@ -75,3 +75,16 @@ test('electrical parity adapters build circuit, wire and sheet operation subsets
   const sheet=buildRegisteredWorkflow('electrical.sheet',{sheets:[{number:'E201',name:'照明图纸'}],schedules:[{category:'OST_LightingFixtures',fields:['标记'],name:'灯具表'}]});
   assert.deepEqual(sheet.operations.map(op=>op.operationType),['create_schedule','create_sheet']);
 });
+
+test('architecture room adapter builds room tags, schedules and view artifacts',()=>{
+  const built=buildRegisteredWorkflow('architecture.rooms',{rooms:[{levelId:311,xMm:1000,yMm:1000,zMm:0,number:'101',name:'办公室'}],tags:[{elementId:'@room1',viewId:500,xMm:1000,yMm:1000,zMm:0,id:'roomTag1'}],views:[],schedules:[],sheets:[],viewports:[]});
+  assert.deepEqual(built.operations.map(op=>op.operationType),['create_room','create_tag']);
+  assert.equal(built.operations[0].id,'room1');
+});
+
+
+test('pending room adapter is now enabled while openings and stairs remain blocked',()=>{
+  assert.equal(getWorkflow('architecture.rooms').enabled,true);
+  assert.equal(getWorkflow('architecture.openings').enabled,false);
+  assert.equal(getWorkflow('architecture.stairs').enabled,false);
+});

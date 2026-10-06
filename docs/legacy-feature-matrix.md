@@ -24,7 +24,7 @@ The following legacy sources are discoverable through `revit_workflow_list` but 
 - Electrical specialization: circuits, wires, sheets.
 
 The first electrical parity slice now enables `electrical.circuit`, `electrical.wire`, and `electrical.sheet` through the same structured operation validator. These are enabled for preview generation, not yet marked fully migrated until a dedicated Revit acceptance copy confirms native circuits, wire peers, schedules, sheets and rollback.
-- Architecture specialization: rooms, openings, stairs, documentation.
+- Architecture specialization: openings, stairs, documentation.
 - Pump-room specialization: route, connect, audit, collision, clearance.
 - Families: loading and family/type audits.
 - Imports: parameter tables, DWG candidates, image candidates.
@@ -46,3 +46,9 @@ Every enabled adapter must:
 8. Never auto-save the RVT.
 
 The registry is source metadata and a safety boundary, not permission to execute legacy scripts directly.
+
+
+## First architecture parity slice
+
+- \`architecture.rooms\`: enabled as a controlled preview adapter for \`create_room\`, with explicit level/point/number/name inputs; room tags and documentation remain separate operations.
+- \`architecture.openings\`, \`architecture.stairs\`, and \`architecture.documentation\`: remain registered and blocked until their Revit 2027-specific adapters and native acceptance copies are complete.

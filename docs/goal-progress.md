@@ -454,3 +454,9 @@
 - planningMode explicit/ask/assisted与旧版迁移注册表组合：明确需求生成预览，模糊需求只提问，用户允许推断时带假设生成candidateOnly预览；所有写入仍预览→聊天确认→单事务→原生核验→手动保存。
 - 注册表专项测试16项通过，完整MCP回归182项通过，核心105项通过。当前只改MCP和文档，没有修改Revit模型或插件DLL。
 - 下一阶段按功能矩阵优先迁移electrical.circuit、electrical.wire、electrical.sheet，再做architecture.rooms/openings/stairs和泵房细分适配器；每项完成后才把registry.enabled改为true并提供实机验收证据。
+
+## 2026-10-07 第二批功能对等迁移：电气与房间
+- `electrical.circuit`、`electrical.wire`、`electrical.sheet` 已从 pending 移到 enabled，统一映射到 create_circuit/create_wire/create_schedule/create_sheet/create_view_plan/configure_view/place_viewport；旧版固定数量/固定路径假设不复制。
+- `architecture.rooms` 已从 pending 移到 enabled，映射 create_room 与通用 tags/views/schedules/sheets/viewport操作；旧rooms.csx的固定点位不硬编码，输入必须由当前context/用户约束提供。
+- openings/stairs/documentation及其他旧版细分继续pending，不能通过workflow.run创建计划。
+- 专项registry测试和完整MCP回归185项通过；核心105项保持通过；未修改Revit模型或DLL。下一步为这些已启用适配器建立Revit 2027副本实机验收，全部通过后才能标记implemented-and-accepted。
