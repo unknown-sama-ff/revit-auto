@@ -1270,8 +1270,8 @@
         "originalAutoSaves": false,
         "originalUsesFixedWindowsPath": true
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Read-only current-session saved/unsaved state and bounded change history are implemented through verification.saved; Revit live and manual-save/reopen acceptance remains required."
+      "acceptanceEvidence": "acceptance/verification-saved-native-acceptance-20261008.json",
+      "migrationNotes": "Read-only current-session verification passed after manual save: saved=true, isModified=false, identity/revision matched and bounded change history was returned. Separate close/reopen acceptance remains required; automatic legacy SaveAs remains intentionally unexposed."
     },
     {
       "legacyFeature": "Preflight族提取与Build占位",

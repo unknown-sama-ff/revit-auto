@@ -53,11 +53,12 @@
 ## 后续依旧保留的完整目标
 
 - 专门原生实现：裸墙洞/竖井；楼梯 `landingMode=none` 已完成原生创建、手动保存和保存状态复查，自动平台分支已完整回滚；泵房路线和连接、受控族加载新 RFA 分支仍需对应实机验收。
-- 参数表导入已完成受控解析、显式字段映射、identity/revision 锁定和预览链路，仍需 Revit 原生提交、回滚、保存后复查；DWG/图片仍是候选导入。保存后核验已接入统一只读注册适配器，仍需 Revit 实机和保存/重开验收。
+- 参数表导入已完成受控解析、显式字段映射、identity/revision 锁定、Revit 原生提交和手动保存复查；本次已将楼梯 2295913 的“注释”写入 `AI_PARAMETER_IMPORT_TEST` 并确认保存。证据在被忽略的 `acceptance/parameter-import-native-acceptance-20261008.json`。DWG/图片仍是候选导入。保存后核验已接入统一只读注册适配器，仍需保存后关闭/重开复查。
 - 全部来源逐项写入/回滚/人工保存/复查（只读来源用只读合同），不以工作流别名替代结果对等迁移。
 - 发布前完成干净环境安装、许可证/安全说明、双客户端验收；当前仓库私有状态不自动改变。
 
 Revit 2025源码和程序集不修改；本批只改变Node MCP与元数据，无需重启Revit加载DLL。已有MCP进程需重连才能发现新客户端代码。
 
 
-2026-10-07：楼梯实机验收完成部分分支：landingMode=none 通过聊天确认后成功创建楼梯 2295913 及两段 2295914/2295918，手动保存后 saved=true/isModified=false；utomaticBetweenRuns 因 Revit 原生不接受该几何关系而失败，olledBack=true 且未留下新楼梯。证据在被忽略的 cceptance/stairs-native-acceptance-20261007.json。
+2026-10-07：楼梯实机验收完成部分分支：landingMode=none 通过聊天确认后成功创建楼梯 2295913 及两段 2295914/2295918，手动保存后 saved=true/isModified=false；utomaticBetweenRuns 因 Revit 原生不接受该几何关系而失败，olledBack=true 且未留下新楼梯。证据在被忽略的 cceptance/stairs-native-acceptance-20261007.json。
+2026-10-08：参数表导入实机验收通过：计划 `4a64fe257fa54f11894a0bb270f421ad` 在聊天确认后提交，楼梯 `2295913` 的“注释”变为 `AI_PARAMETER_IMPORT_TEST`，手动保存后 `saved=true/isModified=false`。
