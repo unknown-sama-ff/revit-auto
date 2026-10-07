@@ -24,3 +24,10 @@ test('saved verification schema is strict and bounded',()=>{
  assert.throws(()=>savedVerificationSchema.parse({documentIdentity:'doc-a',limit:101}));
  assert.throws(()=>savedVerificationSchema.parse({documentIdentity:'doc-a',sinceRevision:-1}));
 });
+test('saved verification validates the native nested history revision shape',async()=>{
+ await assert.rejects(()=>verifySaved({documentIdentity:'doc-a',expectedRevision:3},async(method)=>{
+   if(method==='revit.context.get')return {active:true,document:{identity:'doc-a',revision:3,isFamilyDocument:false,isModified:false}};
+   if(method==='revit.changes.get')return {documentIdentity:'doc-a',history:{currentRevision:2,changes:[]}};
+   throw new Error('unexpected');
+ }),/different project revision/);
+});

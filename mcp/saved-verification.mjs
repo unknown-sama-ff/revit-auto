@@ -17,6 +17,7 @@ export async function verifySaved(raw,call,signal){
   if(sinceRevision>context.document.revision)fail('invalid_revision','sinceRevision cannot be newer than the current project revision.');
   const changes=await call('revit.changes.get',{documentIdentity:context.document.identity,sinceRevision,limit:args.limit??100},signal);
   if(changes.documentIdentity!==undefined&&changes.documentIdentity!==context.document.identity)fail('document_changed','Change history belongs to a different project.');
-  if(changes.currentRevision!==undefined&&changes.currentRevision!==context.document.revision)fail('document_revision_changed','Change history was read from a different project revision.');
+  const history=changes.history && typeof changes.history==='object' ? changes.history : changes;
+  if(history.currentRevision!==undefined&&history.currentRevision!==context.document.revision)fail('document_revision_changed','Change history was read from a different project revision.');
   return {workflowId:'verification.saved',planningMode:'explicit',documentIdentity:context.document.identity,revision:context.document.revision,saved:context.document.isModified===false,isModified:context.document.isModified===true,sinceRevision,changes,automaticSave:false,planCreated:false,note:'Read-only saved-state evidence. The plugin never saves or opens another RVT; saving remains a user action.'};
 }
