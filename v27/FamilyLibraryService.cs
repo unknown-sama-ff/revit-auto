@@ -7,33 +7,28 @@ namespace RevitAutoV27;
 internal static class FamilyLibraryService
 {
     private static string Root => Path.Combine(RuntimeFiles.Root, "families");
-    private static List<FamilyAsset> ReadCatalog()
-    {
-        var path = Path.Combine(Root, "library.json");
-        FamilyLibraryRules.EnsurePlainPath(path);
-        if (!File.Exists(path)) throw new BridgeException("family_catalog_unavailable", "Register reviewed assets in local families/library.json first. Arbitrary RFA paths are not accepted.");
-        if (new FileInfo(path).Length > 2 * 1024 * 1024) throw new BridgeException("invalid_family_library", "Local family manifest exceeds 2 MB.");
-        using var json = JsonDocument.Parse(File.ReadAllText(path).TrimStart('\uFEFF'));
-        return FamilyLibraryRules.Catalog(json.RootElement);
-    }
+    private static FamilyCatalogSnapshot ReadCatalog() => FamilyCatalogSnapshot.Open(Path.Combine(Root, "library.json"));
     internal static object Catalog(UIApplication app, JsonElement parameters)
     {
         var doc = app.ActiveUIDocument?.Document ?? throw new BridgeException("no_active_document", "Open a project first.");
+        RequireProjectDocument(doc);
+        using var snapshot = ReadCatalog();
         var identity = RevitCommandRouter.Identity(doc);
         var revision = RevitCommandRouter.Revision(doc);
         if (JsonDefaults.String(parameters, "documentIdentity") is { } expected && expected != identity)
             throw new BridgeException("document_changed", "Read the current project before querying approved family assets.");
         if (JsonDefaults.Int64(parameters, "expectedRevision") is long r && r != revision)
             throw new BridgeException("document_revision_changed", "The project changed before querying approved family assets.");
-        return new { documentIdentity = identity, documentRevision = revision, assets = ReadCatalog().Select(asset => new {
+        return new { documentIdentity = identity, documentRevision = revision, catalogSha256 = snapshot.Sha256, assets = snapshot.Assets.Select(asset => new {
             familyKey = asset.FamilyKey, sha256 = asset.Sha256, expectedFamilyName = asset.ExpectedFamilyName,
             expectedCategoryId = asset.ExpectedCategoryId, requiredTypes = asset.RequiredTypes,
             byteVerification = "rechecked-before-preview-and-held-read-only-during-load" }).ToArray(),
             readOnly = true, filePathsExposed = false, note = "Local manifest is the asset whitelist; no RFA is loaded by this catalog read. Family metadata is verified after loading within the approved transaction." };
     }
-    private static FamilyAsset Asset(FamilyLoadInput input)
+    private static FamilyAsset Asset(FamilyCatalogSnapshot snapshot, FamilyLoadInput input)
     {
-        var asset = ReadCatalog().SingleOrDefault(asset => asset.FamilyKey == input.FamilyKey)
+        FamilyLibraryRules.MatchCatalogHash(snapshot.Sha256, input.CatalogSha256);
+        var asset = snapshot.Assets.SingleOrDefault(asset => asset.FamilyKey == input.FamilyKey)
             ?? throw new BridgeException("family_not_registered", "familyKey is not in the local approved catalog.");
         FamilyLibraryRules.Match(asset, input);
         return asset;
@@ -75,7 +70,9 @@ internal static class FamilyLibraryService
     internal static object Validate(Document doc, JsonElement operation)
     {
         var input = FamilyLibraryRules.Operation(operation);
-        var asset = Asset(input);
+        RequireProjectDocument(doc);
+        using var snapshot = ReadCatalog();
+        var asset = Asset(snapshot, input);
         using var file = FamilyLibraryRules.OpenVerified(Root, asset);
         var existing = Existing(doc, input.ExpectedFamilyName);
         if (existing is not null)
@@ -88,7 +85,7 @@ internal static class FamilyLibraryService
         var typeIds = existing?.GetFamilySymbolIds().Select(id => id.Value).ToHashSet() ?? [];
         var affected = typeIds.Count == 0 ? [] : new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
             .Where(instance => typeIds.Contains(instance.GetTypeId().Value)).Select(instance => instance.Id.Value).ToArray();
-        return new { familyKey = input.FamilyKey, sha256 = input.Sha256, expectedFamilyName = input.ExpectedFamilyName,
+        return new { familyKey = input.FamilyKey, sha256 = input.Sha256, catalogSha256 = input.CatalogSha256, expectedFamilyName = input.ExpectedFamilyName,
             expectedCategoryId = input.ExpectedCategoryId, requiredTypes = input.RequiredTypes,
             conflictPolicy = input.ConflictPolicy, overwriteTypeParameters = input.OverwriteTypeParameters,
             existingFamilyId = existing?.Id.Value, affectedInstanceCount = input.ConflictPolicy == "replace" ? affected.Length : 0,
@@ -115,7 +112,9 @@ internal static class FamilyLibraryService
     internal static OperationReceipt Load(Document doc, JsonElement operation)
     {
         var input = FamilyLibraryRules.Operation(operation);
-        var asset = Asset(input);
+        RequireProjectDocument(doc);
+        using var snapshot = ReadCatalog();
+        var asset = Asset(snapshot, input);
         using var file = FamilyLibraryRules.OpenVerified(Root, asset); // Windows sharing lock pins bytes until native loading finishes.
         var existing = Existing(doc, input.ExpectedFamilyName);
         if (existing is not null && input.ConflictPolicy == "reject") throw new BridgeException("family_already_loaded", "The exact family exists; load conflict strategy changed.");
@@ -139,7 +138,7 @@ internal static class FamilyLibraryService
             Evidence = NativeEvidence(doc, family, input, loaded ? existing is null ? "loaded-new" : "replaced-existing" : "unchanged-native-file", loaded) };
     }
     private static object NativeEvidence(Document doc, Family family, FamilyLoadInput input, string outcome, bool loaded)
-        => new { familyKey = input.FamilyKey, sha256 = input.Sha256, familyId = family.Id.Value, familyName = family.Name,
+        => new { familyKey = input.FamilyKey, sha256 = input.Sha256, catalogSha256 = input.CatalogSha256, familyId = family.Id.Value, familyName = family.Name,
             categoryId = family.FamilyCategory?.Id.Value, conflictPolicy = input.ConflictPolicy,
             overwriteTypeParameters = input.OverwriteTypeParameters, outcome, nativeLoadReturnedTrue = loaded,
             types = family.GetFamilySymbolIds().Select(id => new { id = id.Value, name = (doc.GetElement(id) as FamilySymbol)?.Name ?? $"<unavailable:{id.Value}>" }).OrderBy(t => t.id).ToArray(),

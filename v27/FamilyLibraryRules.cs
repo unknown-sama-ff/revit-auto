@@ -7,7 +7,7 @@ namespace RevitAutoV27;
 internal sealed record FamilyAsset(string FamilyKey, string RelativePath, string Sha256, string ExpectedFamilyName,
     long ExpectedCategoryId, string[] RequiredTypes);
 internal sealed record FamilyLoadInput(string FamilyKey, string Sha256, string ExpectedFamilyName,
-    long ExpectedCategoryId, string[] RequiredTypes, string ConflictPolicy, bool OverwriteTypeParameters);
+    long ExpectedCategoryId, string[] RequiredTypes, string ConflictPolicy, bool OverwriteTypeParameters, string CatalogSha256);
 
 internal static class FamilyLibraryRules
 {
@@ -70,22 +70,29 @@ internal static class FamilyLibraryRules
     }
     internal static FamilyLoadInput Operation(JsonElement op)
     {
-        ExactFields(op, "operationType", "familyKey", "sha256", "expectedFamilyName", "expectedCategoryId", "requiredTypes", "conflictPolicy", "overwriteTypeParameters");
+        ExactFields(op, "operationType", "familyKey", "sha256", "expectedFamilyName", "expectedCategoryId", "requiredTypes", "conflictPolicy", "overwriteTypeParameters", "catalogSha256");
         if (Text(op, "operationType") != "load_family") throw Invalid("Expected load_family operation.");
         var key = Text(op, "familyKey", 80); Key(key);
         var hash = Text(op, "sha256", 64); Hash(hash);
+        var catalogHash = Text(op, "catalogSha256", 64); Hash(catalogHash);
         var policy = Text(op, "conflictPolicy");
         if (policy is not ("reject" or "keep_existing" or "replace")) throw Invalid("Explicit conflictPolicy must be reject, keep_existing or replace.");
         if (!op.TryGetProperty("overwriteTypeParameters", out var overwrite) || overwrite.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
             throw Invalid("overwriteTypeParameters must be explicitly true or false.");
         if (overwrite.GetBoolean() && policy != "replace") throw Invalid("Only replace can overwrite existing type parameters.");
-        return new(key, hash.ToLowerInvariant(), Text(op, "expectedFamilyName"), Category(op), Types(op), policy, overwrite.GetBoolean());
+        return new(key, hash.ToLowerInvariant(), Text(op, "expectedFamilyName"), Category(op), Types(op), policy, overwrite.GetBoolean(), catalogHash.ToLowerInvariant());
     }
     internal static void Match(FamilyAsset catalog, FamilyLoadInput op)
     {
         if (catalog.FamilyKey != op.FamilyKey || catalog.Sha256 != op.Sha256 || catalog.ExpectedFamilyName != op.ExpectedFamilyName
             || catalog.ExpectedCategoryId != op.ExpectedCategoryId || !catalog.RequiredTypes.SequenceEqual(op.RequiredTypes))
             throw new BridgeException("family_asset_changed", "Family asset metadata changed after review. Obtain a new catalog and preview; no file is loaded.");
+    }
+    internal static void MatchCatalogHash(string current, string reviewed)
+    {
+        Hash(current); Hash(reviewed);
+        if (!string.Equals(current, reviewed, StringComparison.OrdinalIgnoreCase))
+            throw new BridgeException("family_catalog_changed", "The approved family catalog changed after preview. Read the catalog and review a new plan; no RFA is loaded.");
     }
     internal static void Relative(string relative)
     {
