@@ -19,7 +19,7 @@
 ## 当前启用的安全入口
 
 - 照明/电气：lighting.full、lighting.place、electrical.circuit、electrical.wire、electrical.sheet。
-- 建筑：architecture.build、architecture.rooms、architecture.openings、architecture.documentation、architecture.stairs（受控 StairsEditScope 预览/执行基础层，仍待实机验收）。
+- 建筑：architecture.build、architecture.rooms、architecture.openings、architecture.documentation、architecture.stairs（landingMode=none 已完成 Revit 实机验收；自动平台分支已验证回滚但仍未通过）。
 - 泵房：pump_room.build、pump_room.route、pump_room.connect。路线只把用户明确提供的点拆成直管段；连接只接受已核对的连接器 ID 或 criteria，不推断路线、流向、净距或连接器；复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的成熟管道实现。
 - 只读：audit、families.audit、verification.saved。参数导入：imports.parameter_table（CSV/TSV/XLSX/JSON，显式字段映射，预览后确认）。族加载：families.load（受控白名单 RFA；keep_existing 分支已完成 Revit 实机验收，实际新 RFA load/replace 仍未验收）。只读注册项具有readAdapter，不进入模型operationBuilder。
 
@@ -52,9 +52,12 @@
 
 ## 后续依旧保留的完整目标
 
-- 专门原生实现：裸墙洞/竖井；楼梯已加入专用 StairsEditScope 基础层，泵房路线和连接已加入显式点位/连接器 criteria 基础层，受控族加载已实现基础层；均仍需对应实机验收。
+- 专门原生实现：裸墙洞/竖井；楼梯 `landingMode=none` 已完成原生创建、手动保存和保存状态复查，自动平台分支已完整回滚；泵房路线和连接、受控族加载新 RFA 分支仍需对应实机验收。
 - 参数表导入已完成受控解析、显式字段映射、identity/revision 锁定和预览链路，仍需 Revit 原生提交、回滚、保存后复查；DWG/图片仍是候选导入。保存后核验已接入统一只读注册适配器，仍需 Revit 实机和保存/重开验收。
 - 全部来源逐项写入/回滚/人工保存/复查（只读来源用只读合同），不以工作流别名替代结果对等迁移。
 - 发布前完成干净环境安装、许可证/安全说明、双客户端验收；当前仓库私有状态不自动改变。
 
 Revit 2025源码和程序集不修改；本批只改变Node MCP与元数据，无需重启Revit加载DLL。已有MCP进程需重连才能发现新客户端代码。
+
+
+2026-10-07：楼梯实机验收完成部分分支：landingMode=none 通过聊天确认后成功创建楼梯 2295913 及两段 2295914/2295918，手动保存后 saved=true/isModified=false；utomaticBetweenRuns 因 Revit 原生不接受该几何关系而失败，olledBack=true 且未留下新楼梯。证据在被忽略的 cceptance/stairs-native-acceptance-20261007.json。

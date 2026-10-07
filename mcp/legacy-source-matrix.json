@@ -555,8 +555,8 @@
         "originalAutoSaves": false,
         "originalUsesFixedWindowsPath": false
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
+      "acceptanceEvidence": "acceptance/stairs-native-acceptance-20261007.json",
+      "migrationNotes": "Native landingMode=none branch accepted in Revit 2027.3: one stair and two runs created through StairsEditScope, manual save and saved-state verification passed. automaticBetweenRuns branch was rejected by native Revit and rolled back completely; full stairs parity, warning resolution and save/reopen remain required."
     },
     {
       "legacyFeature": "楼梯原生构件检查",
@@ -581,8 +581,8 @@
         "originalAutoSaves": false,
         "originalUsesFixedWindowsPath": false
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
+      "acceptanceEvidence": "acceptance/stairs-native-acceptance-20261007.json",
+      "migrationNotes": "Native landingMode=none branch accepted in Revit 2027.3: one stair and two runs created through StairsEditScope, manual save and saved-state verification passed. automaticBetweenRuns branch was rejected by native Revit and rolled back completely; full stairs parity, warning resolution and save/reopen remain required."
     },
     {
       "legacyFeature": "楼梯系统构件与参数",
@@ -607,8 +607,8 @@
         "originalAutoSaves": false,
         "originalUsesFixedWindowsPath": false
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
+      "acceptanceEvidence": "acceptance/stairs-native-acceptance-20261007.json",
+      "migrationNotes": "Native landingMode=none branch accepted in Revit 2027.3: one stair and two runs created through StairsEditScope, manual save and saved-state verification passed. automaticBetweenRuns branch was rejected by native Revit and rolled back completely; full stairs parity, warning resolution and save/reopen remain required."
     },
     {
       "legacyFeature": "当前族类型检查",
@@ -956,8 +956,8 @@
         "originalAutoSaves": true,
         "originalUsesFixedWindowsPath": false
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
+      "acceptanceEvidence": "acceptance/stairs-native-acceptance-20261007.json",
+      "migrationNotes": "Native landingMode=none branch accepted in Revit 2027.3: one stair and two runs created through StairsEditScope, manual save and saved-state verification passed. automaticBetweenRuns branch was rejected by native Revit and rolled back completely; full stairs parity, warning resolution and save/reopen remain required."
     },
     {
       "legacyFeature": "220V配电类型事务探针",
@@ -1174,8 +1174,8 @@
         "originalAutoSaves": true,
         "originalUsesFixedWindowsPath": false
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
+      "acceptanceEvidence": "acceptance/stairs-native-acceptance-20261007.json",
+      "migrationNotes": "Native landingMode=none branch accepted in Revit 2027.3: one stair and two runs created through StairsEditScope, manual save and saved-state verification passed. automaticBetweenRuns branch was rejected by native Revit and rolled back completely; full stairs parity, warning resolution and save/reopen remain required."
     },
     {
       "legacyFeature": "三相配电盘与类型复制参考",
