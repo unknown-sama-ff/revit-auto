@@ -3,6 +3,7 @@ import { workflowOperations } from './workflows.mjs';
 
 export function buildRegisteredWorkflow(workflowId, input = {}) {
   const workflow = assertWorkflowEnabled(workflowId);
+  if(workflow.destructiveLevel==='read-only'){const error=new Error('Read-only workflows use a read adapter, not a modeling operation builder.');error.code='workflow_read_only';throw error;}
   return { workflow, operations: workflowOperations(workflowId, input) };
 }
 

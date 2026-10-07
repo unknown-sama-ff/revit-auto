@@ -1,0 +1,1292 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "Reviewed root .csx sources and ModelBuilder.cs; metadata only, no runtime script execution.",
+  "statuses": {
+    "implemented-and-accepted": "已迁移并验收",
+    "implemented-not-accepted": "已迁移但未验收",
+    "implemented-needs-safe-adapter": "已实现但新版缺失安全适配",
+    "legacy-source-needs-redesign": "旧版存在但需要重新设计",
+    "intentionally-not-exposed": "明确不再支持（仅此自动执行行为）"
+  },
+  "sources": [
+    {
+      "legacyFeature": "建筑主体",
+      "legacyScript": "architecture.csx",
+      "newWorkflow": "architecture.build",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "create_grid",
+        "create_wall",
+        "create_floor",
+        "create_family_instance"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "模型类别和警告审计",
+      "legacyScript": "audit-final.csx",
+      "newWorkflow": "audit",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "外部样板族目录",
+      "legacyScript": "audit-template.csx",
+      "newWorkflow": "families.audit",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "External template/RFA inspection not covered by active-document family catalog; keep pending."
+    },
+    {
+      "legacyFeature": "外部门窗RFA参数审计",
+      "legacyScript": "audit-windows.csx",
+      "newWorkflow": "families.audit",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "External template/RFA inspection not covered by active-document family catalog; keep pending."
+    },
+    {
+      "legacyFeature": "当前模型精确族名目录",
+      "legacyScript": "check-families.csx",
+      "newWorkflow": "families.audit",
+      "sourceRole": "query-reference",
+      "supportedInputs": "explicit exact family names, reviewed document/revision",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.search"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "implemented-and-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": "Native current-document catalog and real stdio workflow/direct-tool equality; 12 read-only checks passed on 2026-10-07. See docs/legacy-feature-matrix.md.",
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "回路与配电盘",
+      "legacyScript": "create-circuits.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "set_parameter",
+        "create_circuit"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "图纸与配电盘表",
+      "legacyScript": "create-sheets.csx",
+      "newWorkflow": "electrical.sheet",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "create_view_plan",
+        "create_sheet",
+        "create_panel_schedule",
+        "place_viewport"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "导线与显式替换",
+      "legacyScript": "create-wires.csx",
+      "newWorkflow": "electrical.wire",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "delete_element",
+        "create_wire"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "视图图像导出",
+      "legacyScript": "export-plan.csx",
+      "newWorkflow": "architecture.documentation",
+      "sourceRole": "local-export",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "图纸图像导出",
+      "legacyScript": "export-sheets.csx",
+      "newWorkflow": "electrical.sheet",
+      "sourceRole": "local-export",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "图纸视口布局",
+      "legacyScript": "fix-sheet-layout.csx",
+      "newWorkflow": "electrical.sheet",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "configure_view",
+        "place_viewport"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "临时实例的连接器探针",
+      "legacyScript": "inspect-connectors.csx",
+      "newWorkflow": "pump_room.connect",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "电气控制参数检查",
+      "legacyScript": "inspect-control.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "配电系统类型检查",
+      "legacyScript": "inspect-distribution.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "临时电气回路探针",
+      "legacyScript": "inspect-electrical.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "电气API枚举参考",
+      "legacyScript": "inspect-enums.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "当前图纸视口关系",
+      "legacyScript": "inspect-layout.csx",
+      "newWorkflow": "architecture.documentation",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "配电盘API反射参考",
+      "legacyScript": "inspect-panel-api.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "设备电气类型与参数",
+      "legacyScript": "inspect-power.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "Revit API反射参考",
+      "legacyScript": "inspect-revit-api.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "明细表API反射参考",
+      "legacyScript": "inspect-schedule-api.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "楼梯API反射参考",
+      "legacyScript": "inspect-stair-api.csx",
+      "newWorkflow": "architecture.stairs",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "楼梯原生构件检查",
+      "legacyScript": "inspect-stair-detail.csx",
+      "newWorkflow": "architecture.stairs",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "楼梯系统构件与参数",
+      "legacyScript": "inspect-stairs.csx",
+      "newWorkflow": "architecture.stairs",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "当前族类型检查",
+      "legacyScript": "inspect-symbols.csx",
+      "newWorkflow": "families.audit",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "图框族类型检查",
+      "legacyScript": "inspect-titleblocks.csx",
+      "newWorkflow": "architecture.documentation",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "当前模型系统与族类型",
+      "legacyScript": "inspect-types.csx",
+      "newWorkflow": "families.audit",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "当前模型视图检查",
+      "legacyScript": "inspect-views.csx",
+      "newWorkflow": "architecture.documentation",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "当前导线类型和配置检查",
+      "legacyScript": "inspect-wire.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "族库加载",
+      "legacyScript": "load-families.csx",
+      "newWorkflow": "families.load",
+      "sourceRole": "production",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "灯具安装参数",
+      "legacyScript": "mark-flush-mount.csx",
+      "newWorkflow": "lighting.full",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "set_parameter"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "回路命名",
+      "legacyScript": "name-circuits.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "set_parameter"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "宿主门窗及类型复制",
+      "legacyScript": "openings.csx",
+      "newWorkflow": "architecture.openings",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "duplicate_type",
+        "create_family_instance"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Door/window families only. This source does not implement wall or shaft Opening API."
+    },
+    {
+      "legacyFeature": "照明设备放置",
+      "legacyScript": "place-lighting.csx",
+      "newWorkflow": "lighting.place",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "create_family_instance"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "API或原生属性探针",
+      "legacyScript": "probe.csx",
+      "newWorkflow": "diagnostics.query",
+      "sourceRole": "query-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "封闭房间",
+      "legacyScript": "rooms.csx",
+      "newWorkflow": "architecture.rooms",
+      "sourceRole": "production",
+      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+      "generatedOperations": [
+        "create_room"
+      ],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "implemented-not-accepted",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "旧固定路径自动另存为不得作为AI写入",
+      "legacyScript": "save-as.csx",
+      "newWorkflow": "verification.saved",
+      "sourceRole": "manual-save-only",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "intentionally-not-exposed",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Manual save by user; future verification is read-only. No silent SaveAs port."
+    },
+    {
+      "legacyFeature": "楼梯梯段平台",
+      "legacyScript": "stairs.csx",
+      "newWorkflow": "architecture.stairs",
+      "sourceRole": "production",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "adapter-declared affectedCategories",
+      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "StairsEditScope needs dedicated transaction integration; do not pretend a family placement is an equivalent port."
+    },
+    {
+      "legacyFeature": "220V配电类型事务探针",
+      "legacyScript": "test-220-system.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "A1图纸事务验收参考",
+      "legacyScript": "test-a1-sheet.csx",
+      "newWorkflow": "electrical.sheet",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "电气回路事务验收参考",
+      "legacyScript": "test-circuit.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "族类型复制事务探针",
+      "legacyScript": "test-copy-types.csx",
+      "newWorkflow": "lighting.full",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "电气设备放置事务探针",
+      "legacyScript": "test-electrical-placement.csx",
+      "newWorkflow": "lighting.place",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "外部族加载事务探针",
+      "legacyScript": "test-load-window.csx",
+      "newWorkflow": "families.load",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "配电盘类型事务探针",
+      "legacyScript": "test-panels.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "配电盘明细表事务探针",
+      "legacyScript": "test-schedule.csx",
+      "newWorkflow": "electrical.sheet",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "楼梯修复事务参考",
+      "legacyScript": "test-stair-repair.csx",
+      "newWorkflow": "architecture.stairs",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "三相配电盘与类型复制参考",
+      "legacyScript": "test-three-phase-panel.csx",
+      "newWorkflow": "electrical.circuit",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "墙面宿主事务探针",
+      "legacyScript": "test-wall-hosting.csx",
+      "newWorkflow": "lighting.place",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "导线事务验收参考",
+      "legacyScript": "test-wire.csx",
+      "newWorkflow": "electrical.wire",
+      "sourceRole": "test-reference",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": true,
+        "originalContainsRollback": true,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": false
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Reference regression scenario, never executable through MCP."
+    },
+    {
+      "legacyFeature": "保存后独立重开核验参考",
+      "legacyScript": "verify-saved.csx",
+      "newWorkflow": "verification.saved",
+      "sourceRole": "external-document-query",
+      "supportedInputs": "pending adapter-specific structured inputs",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get",
+        "revit.inspect"
+      ],
+      "writeCategories": "none in current source port",
+      "rollbackScope": "not-applicable-reference-or-read",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": false,
+        "originalUsesFixedWindowsPath": true
+      },
+      "acceptanceEvidence": null,
+      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+    },
+    {
+      "legacyFeature": "Preflight族提取与Build占位",
+      "legacyScript": "ModelBuilder.cs",
+      "newWorkflow": "families.load",
+      "sourceRole": "prototype",
+      "supportedInputs": "pending explicit file provenance and template family source",
+      "generatedOperations": [],
+      "readOnlyQueries": [
+        "revit.context.get"
+      ],
+      "writeCategories": [
+        "Family",
+        "FamilySymbol"
+      ],
+      "rollbackScope": "pending controlled native adapter",
+      "acceptanceStatus": "legacy-source-needs-redesign",
+      "runtimeExecutionAllowed": false,
+      "sideEffectReview": {
+        "originalUsesTransaction": false,
+        "originalContainsRollback": false,
+        "originalAutoSaves": true,
+        "originalUsesFixedWindowsPath": true
+      },
+      "migrationNotes": "Preflight exports template families; Build throws NotImplementedException in this checkout. It is not proof of a working legacy pipe/duct builder."
+    }
+  ]
+}

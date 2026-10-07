@@ -104,3 +104,10 @@ test('architecture documentation adapter builds views, schedules, sheets and vie
   assert.equal(built.operations[0].id,'view1');
   assert.equal(built.operations[2].id,'sheet1');
 });
+
+
+test('family audit is enabled as a read-only registry adapter',()=>{
+  const family=getWorkflow('families.audit');
+  assert.equal(family.enabled,true);assert.equal(family.destructiveLevel,'read-only');assert.equal(family.operationBuilder,null);assert.equal(family.readAdapter,'families.audit');
+});
+test('family audit MCP surface is read-only and never loads files',async()=>{const source=await fs.readFile(path.join(root,'mcp/revit-custom.mjs'),'utf8');assert.match(source,/revit\.families\.audit/);assert.match(source,/auditFamilies\(args,callRevit,signal\)/);assert.match(source,/no family files are loaded/);});

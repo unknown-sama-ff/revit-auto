@@ -472,3 +472,11 @@
 - 现已启用工作流：lighting.full、lighting.place、electrical.circuit、electrical.wire、electrical.sheet、architecture.build、architecture.rooms、architecture.openings、architecture.documentation、pump_room.build、audit。
 - architecture.stairs、泵房细分、族加载、导入、保存核验和诊断脚本仍登记但blocked，普通MCP客户端不能直接调用旧脚本。
 - 完整MCP回归187项通过，核心105项保持通过；本轮没有修改Revit模型或DLL。下一步为已启用电气/房间/门窗/文档适配器准备Revit 2027副本实机验收矩阵。
+
+## 2026-10-07 族库审计真实适配与逐源功能矩阵
+- 中断后保留原工作区修改，补齐families.audit真实只读适配器；统一workflow.run不再只返回提示，与revit_families_audit共用auditFamilies。新增工作流expectedRevision透传，拒绝nested identity/revision冲突。
+- 按当前项目原生family精确筛选FamilySymbol，带每族/全局预算和分页；found/missing/partial/not_scanned严格区分。分页后复核身份/revision，未知/断开不重试、不创建计划、不加载文件或保存模型。
+- 机器可读矩阵覆盖51个.csx及ModelBuilder共52来源，并测试源文件集合完全一致。发现并披露ModelBuilder.Build为占位，openings.csx实际门窗；外部模板/RFA审计、特殊事务探针和固定路径SaveAs不冒称已迁移。
+- 213项完整Node/MCP测试通过，包括纯函数、安全分页、身份/版本变化及实际stdio模拟测试；不以源码正则通过代替原生验收。
+- 当前原生Revit+真实stdio MCP完成12项族目录检查：水泵1型、子母门4型、照明配电箱28型及故意缺失名称；直接工具和统一工作流结果一致，错误revision被拒绝，模型identity/revision/计数/保存状态/视图/选择集不变。
+- 仅check-families.csx的当前项目只读目录能力有accepted证据；families.audit工作流仍部分迁移，外部族文件审计、族加载和其余40个重设计来源未完成。全部写入仍需具体新预览聊天批准；本批没有修改RVT或活动DLL。
