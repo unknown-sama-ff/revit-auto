@@ -139,12 +139,13 @@ internal static class RevitCommandRouter
         foreach (var op in plan.Operations) executor.Validate(op);
         if (doc.IsModifiable || doc.IsReadOnly) throw new BridgeException("document_busy", "Revit has another transaction or the document is read-only.");
         cancellation.ThrowIfCancellationRequested();
+        // Re-check the native document immediately before every write path, including StairsEditScope.
+        if (!Documents.Same(app.ActiveUIDocument?.Document, doc) || plan.DocumentRevision != Revision(doc))
+            return StalePlan(plan,Active(app));
         if (plan.Operations.Count == 1 && JsonDefaults.String(plan.Operations[0], "operationType") == "create_stair")
             return ConfirmStair(app, plan, cancellation, executor);
         // The trusted MCP client calls Confirm only after approval of this preview in chat.
         // Do not add a second model confirmation dialog or another approval flag here.
-        if (!Documents.Same(app.ActiveUIDocument?.Document, doc) || plan.DocumentRevision != Revision(doc))
-            return StalePlan(plan,Active(app));
         var created = new List<long>(); var changed = new List<long>();
         var operationEvidence = new List<object>();
         var failureCapture = new TransactionFailures();
