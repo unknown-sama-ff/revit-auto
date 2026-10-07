@@ -1,7 +1,7 @@
 export const PLANNING_MODES = ['explicit', 'ask', 'assisted'];
 
 export function resolvePlanningMode(name, planningMode, assumptions = []) {
-  if (name !== 'pump_room.build') return { mode: planningMode || 'explicit', assumptions: [], requiresClarification: false };
+  if (!['pump_room.build','pump_room.route'].includes(name)) return { mode: planningMode || 'explicit', assumptions: [], requiresClarification: false };
   const mode = planningMode || 'ask';
   if (!PLANNING_MODES.includes(mode)) throw new Error(`Unknown planningMode '${mode}'.`);
   if (mode === 'ask') return {

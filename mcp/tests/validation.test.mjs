@@ -17,3 +17,10 @@ test('pump workflow generates pipes', () => assert.equal(workflowOperations('pum
 
 test('stair workflow validates explicit straight runs and landing mode', () => assert.equal(workflowOperations('architecture.stairs',{stairs:[{baseLevelId:1,topLevelId:2,landingMode:'automaticBetweenRuns',runs:[{start:{xMm:0,yMm:0},end:{xMm:0,yMm:3000},widthMm:1200},{start:{xMm:1500,yMm:3000},end:{xMm:1500,yMm:0},widthMm:1200}]}]}).length,1));
 test('stair operation rejects guessed or incomplete platform inputs', () => assert.throws(() => validateOperations([{operationType:'create_stair',baseLevelId:1,topLevelId:2,landingMode:'automaticBetweenRuns',runs:[{start:{xMm:0,yMm:0},end:{xMm:0,yMm:3000},widthMm:1200}]}]), /at least two runs/));
+
+test('pump route expands only explicit points into straight pipe segments', () => {
+  const ops=workflowOperations('pump_room.route',{routes:[{id:'r',pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80,flowIntent:'supply',points:[{xMm:0,yMm:0,zMm:1000},{xMm:1000,yMm:0,zMm:1000},{xMm:1000,yMm:500,zMm:1000}]}]});
+  assert.deepEqual(ops.map(op=>op.operationType),['create_pipe','create_pipe']); assert.equal(ops[0].id,'r-1'); assert.equal(ops[1].start.yMm,0); assert.equal(ops[1].end.yMm,500);
+});
+test('pump route refuses missing explicit route points', () => assert.throws(() => workflowOperations('pump_room.route',{routes:[{pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80}]}), /explicit points/));
+

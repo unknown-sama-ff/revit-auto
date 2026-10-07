@@ -20,7 +20,7 @@
 
 - 照明/电气：lighting.full、lighting.place、electrical.circuit、electrical.wire、electrical.sheet。
 - 建筑：architecture.build、architecture.rooms、architecture.openings、architecture.documentation、architecture.stairs（受控 StairsEditScope 预览/执行基础层，仍待实机验收）。
-- 泵房：pump_room.build。复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的管道实现。
+- 泵房：pump_room.build、pump_room.route。路线工作流只把用户明确提供的点拆成直管段，不推断路线、流向、净距或连接器；复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的成熟管道实现。
 - 只读：audit、families.audit、verification.saved。参数导入：imports.parameter_table（CSV/TSV/XLSX/JSON，显式字段映射，预览后确认）。族加载：families.load（受控白名单 RFA；keep_existing 分支已完成 Revit 实机验收，实际新 RFA load/replace 仍未验收）。只读注册项具有readAdapter，不进入模型operationBuilder。
 
 电气、房间、门窗、图纸细分适配器已通过构建/契约测试但仍待逐项原生写入、回滚、保存后结果验证。没有给普通客户端原样执行旧脚本的权限。
@@ -52,7 +52,7 @@
 
 ## 后续依旧保留的完整目标
 
-- 专门原生实现：裸墙洞/竖井、泵房路线生成及连接工作流；楼梯已加入专用 StairsEditScope 基础层，受控族加载已实现基础层；两者仍需对应实机验收。
+- 专门原生实现：裸墙洞/竖井、泵房连接工作流；楼梯已加入专用 StairsEditScope 基础层，泵房路线已加入显式点位分段基础层，受控族加载已实现基础层；均仍需对应实机验收。
 - 参数表导入已完成受控解析、显式字段映射、identity/revision 锁定和预览链路，仍需 Revit 原生提交、回滚、保存后复查；DWG/图片仍是候选导入。保存后核验已接入统一只读注册适配器，仍需 Revit 实机和保存/重开验收。
 - 全部来源逐项写入/回滚/人工保存/复查（只读来源用只读合同），不以工作流别名替代结果对等迁移。
 - 发布前完成干净环境安装、许可证/安全说明、双客户端验收；当前仓库私有状态不自动改变。

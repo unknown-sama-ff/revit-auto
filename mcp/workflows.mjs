@@ -189,7 +189,14 @@ export function workflowOperations(name, input = {}) {
     placements(input.doors,'door','OST_Doors'); placements(input.windows,'window','OST_Windows');
     add(input.rooms,'create_room','room'); add(input.views,'create_view_plan','view');
     add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');
-  } else if (name === 'pump_room.build') {
+  } else if (name === 'pump_room.route') {
+    (input.routes || []).forEach((route, routeIndex) => {
+      if (!Array.isArray(route.points) || route.points.length < 2 || route.points.length > 50) throw new Error('Each pump route needs 2..50 explicit points.');
+      for (let index = 0; index < route.points.length - 1; index++) {
+        ops.push({...route, start:route.points[index], end:route.points[index + 1], points:undefined, operationType:'create_pipe', id:route.id ? `${route.id}-${index + 1}` : `route${routeIndex + 1}-${index + 1}`});
+      }
+    });
+    add(input.connections,'connect_elements','connection');  } else if (name === 'pump_room.build') {
     placements(input.equipment,'pump','OST_MechanicalEquipment');
     add(input.pipes,'create_pipe','pipe'); add(input.ducts,'create_duct','duct');
     add(input.fittings,'create_fitting','fitting'); add(input.connections,'connect_elements','connection');
