@@ -33,7 +33,7 @@ internal static class RevitCommandRouter
         {
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.3.23", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
                 "revit.type.resolve" => CommandResult.Success(TypeService.Resolve(app,parameters)),
@@ -44,6 +44,7 @@ internal static class RevitCommandRouter
                 "revit.inspect" => CommandResult.Success(RevitQueryService.Inspect(app, parameters)),
                 "revit.connector.resolve" => CommandResult.Success(ConnectorResolutionService.Resolve(app, parameters)),
                 "revit.collision.check" => CommandResult.Success(CollisionCheckService.Check(app, parameters, cancellation)),
+                "revit.family.library.get" => CommandResult.Success(FamilyLibraryService.Catalog(app, parameters)),
                 "revit.audit.run" => CommandResult.Success(RevitQueryService.Audit(app)),
                 "revit.flow.diagnose" => CommandResult.Success(FlowDirectionDiagnostic.Diagnose(app, parameters)),
                 "revit.operations.list" => CommandResult.Success(new { operations = PlanRules.Supported.Order().ToArray(), units = "mm", references = "Use @operation-id for earlier created elements", confirmation = "User approval in chat", confirmationMode = "chat", requiresRevitConfirmation = false }),
@@ -91,6 +92,8 @@ internal static class RevitCommandRouter
             Source = JsonDefaults.StringOr(parameters, "source", "assistant"), Operations = operations,
             ExpiresAtUtc = PlanLifetimePolicy.Expires(DateTime.UtcNow, RuntimeFiles.ReadSettings().PlanLifetimeMinutes)
         };
+        var familyPreviews = operations.Where(o => JsonDefaults.String(o, "operationType") == "load_family").Select(op => FamilyLibraryService.Validate(doc, op)).ToArray();
+        foreach (var familyPreview in familyPreviews) plan.Warnings.Add("受控族加载影响预览：" + JsonSerializer.Serialize(familyPreview, JsonDefaults.Options));
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "delete_element"))
         {
             var element = doc.GetElement(new ElementId(JsonDefaults.Int64(op, "elementId")!.Value));
@@ -139,6 +142,7 @@ internal static class RevitCommandRouter
         if (!Documents.Same(app.ActiveUIDocument?.Document, doc) || plan.DocumentRevision != Revision(doc))
             return StalePlan(plan,Active(app));
         var created = new List<long>(); var changed = new List<long>();
+        var operationEvidence = new List<object>();
         var failureCapture = new TransactionFailures();
         var progress = new ExecutionProgress();
         string? failedOperationType=null;long? failedElementId=null;
@@ -158,6 +162,7 @@ internal static class RevitCommandRouter
                 executor.Validate(op);
                 var receipt = executor.Execute(op);
                 created.AddRange(receipt.Created); changed.AddRange(receipt.Changed);
+                if (receipt.Evidence is not null) operationEvidence.Add(new { operationIndex = progress.CompletedOperationCount + 1, operationType = JsonDefaults.String(op, "operationType"), evidence = receipt.Evidence });
                 if (JsonDefaults.String(op, "id") is { } key && receipt.Created.FirstOrDefault() > 0) references.Add(key, new ElementId(receipt.Created[0]));
                 progress.Complete();
                 failedOperationType=null;failedElementId=null;
@@ -167,7 +172,7 @@ internal static class RevitCommandRouter
             if (transaction.Commit() != TransactionStatus.Committed) throw new InvalidOperationException(string.Join("; ", failureCapture.Messages.Prepend("Revit rejected the transaction.")));
             if (group.Assimilate() != TransactionStatus.Committed) throw new InvalidOperationException("Unable to commit transaction group.");
             plan.Status = "committed";
-            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = created.Distinct(), changedElementIds = changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray(), confirmationMode = "chat", saved = false };
+            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = created.Distinct(), changedElementIds = changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence, warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray(), confirmationMode = "chat", saved = false };
             Log.Write($"Committed plan={plan.PlanId}; created={created.Count}; changed={changed.Count}; confirmation=chat");
             foreach (var warning in failureCapture.Messages.Distinct()) Log.Write($"Plan={plan.PlanId}; warning={warning}");
             return CommandResult.Success(plan.Receipt);

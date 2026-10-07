@@ -1,5 +1,7 @@
+import {loadFamilyOperationSchema} from './family-load.mjs';
+
 export const OPERATIONS = new Set([
-  'create_family_instance','duplicate_type','set_parameter','delete_element',
+  'create_family_instance','duplicate_type','set_parameter','delete_element','load_family',
   'create_level','create_grid','create_wall','create_floor','create_room',
   'create_circuit','create_wire','create_view_plan','create_sheet','create_schedule',
   'create_panel_schedule','configure_view','place_viewport','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
@@ -62,6 +64,7 @@ export function validateOperations(operations) {
   for (const op of operations) {
     if (!op || typeof op !== 'object' || !OPERATIONS.has(op.operationType)) throw new Error(`Unsupported operation '${op?.operationType}'.`);
     for (const [field, value] of Object.entries(op)) {
+      if(op.operationType==='load_family'&&field==='expectedCategoryId')continue;
       if (field.endsWith('ConnectorId') && !(Number.isSafeInteger(value) && value >= 0)) throw new Error('Connector ids must be nonnegative integers.');
       const ids = field.endsWith('ConnectorId') ? [] : field.endsWith('Ids') && Array.isArray(value) ? value : field.endsWith('Id') ? [value] : [];
       for (const id of ids) {
@@ -75,6 +78,7 @@ export function validateOperations(operations) {
       known.add(op.id);
     }
     switch (op.operationType) {
+      case 'load_family': loadFamilyOperationSchema.parse(op); break;
       case 'create_family_instance':
         if (op.symbolId === undefined) { requireField(op,'family'); requireField(op,'type'); }
         point(op.point || op);

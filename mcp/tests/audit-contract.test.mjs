@@ -91,6 +91,6 @@ test('MCP audit refuses an old DLL before forwarding a misleading audit (mock)',
   assert.equal(result.isError, true);
   const error = JSON.parse(result.content[0].text);
   assert.equal(error.code, 'feature_not_loaded');
-  assert.match(error.message, /restart Revit to load v0\.3\.23/);
+  assert.match(error.message, /restart Revit to load v0\.4\.0/);
   assert.deepEqual(requests, ['revit.bridge.info']);
 });

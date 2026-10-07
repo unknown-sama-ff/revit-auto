@@ -11,8 +11,11 @@ import { resolvePlanningMode } from './planning-mode.mjs';
 import { assertWorkflowEnabled, listWorkflows } from './workflow-registry.mjs';
 import { buildRegisteredWorkflow } from './workflow-adapter.mjs';
 import { auditFamilies, familyAuditSchema } from './family-audit.mjs';
+import { previewFamilyLoads } from './family-load.mjs';
+import { savedVerificationSchema, verifySaved } from './saved-verification.mjs';
+import { parameterImportInputSchema, previewParameterImport } from './parameter-import.mjs';
 
-const server = new McpServer({name:'revit-custom',version:'0.3.23'},{instructions:'Read context and operation guide first. Coordinates are millimeters at Revit internal origin with absolute Z. All writes require plan preview and explicit user approval of that exact plan in chat. After chat approval, invoke the commit tool once; Revit executes without another confirmation dialog. Do not ask again for the same unchanged approved plan. The trusted MCP client is responsible for verifying the chat approval; Revit cannot read the conversation. Missing families/types/hosts cause errors; do not guess or bypass validation. After a timeout, query the same plan id, never automatically recreate the plan. Official Autodesk MCP must be configured Read-only; this custom add-in is the sole writer.'});
+const server = new McpServer({name:'revit-custom',version:'0.4.0'},{instructions:'Read context and operation guide first. Coordinates are millimeters at Revit internal origin with absolute Z. All writes require plan preview and explicit user approval of that exact plan in chat. After chat approval, invoke the commit tool once; Revit executes without another confirmation dialog. Do not ask again for the same unchanged approved plan. The trusted MCP client is responsible for verifying the chat approval; Revit cannot read the conversation. Missing families/types/hosts cause errors; do not guess or bypass validation. After a timeout, query the same plan id, never automatically recreate the plan. Official Autodesk MCP must be configured Read-only; this custom add-in is the sole writer.'});
 const obj = z.record(z.string(),z.unknown());
 const scenePoint=z.object({xMm:z.number().finite(),yMm:z.number().finite(),zMm:z.number().finite()});
 const sceneSheet=z.object({number:z.string().min(1),name:z.string().min(1),titleBlockId:z.number().int().positive(),point:scenePoint});
@@ -25,6 +28,7 @@ function register(name,description,inputSchema,handler,{readOnly=true} = {}) {
   });
 }
 register('revit.context.get','Read current project identity/revision, active view, levels, type catalog, selection and counts.',{},(_,signal)=>callRevit('revit.context.get',{},signal));
+register('revit.family.library.get','Read the administrator-reviewed local RFA catalog as family keys and pinned SHA-256 metadata. Does not load RFA, expose file paths or create a plan.',{documentIdentity:z.string().min(1),expectedRevision:z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional()},(args,signal)=>callRevit('revit.family.library.get',args,signal));
 register('revit.type.resolve','Resolve an explicit family/type/category to a unique native type id. Normalizes Unicode, whitespace and multiplication sign only; missing/ambiguous matches return candidates and never guess.',{type:z.string().min(1),family:z.string().optional(),category:z.string().optional()},(args,signal)=>callRevit('revit.type.resolve',args,signal));
 register('revit.view.export_image','Export an explicitly selected view/sheet to a local PNG for visual verification. No model mutation or RVT save. Browser/templates/schedules are rejected.',{viewId:z.number().int().positive(),pixelSize:z.number().int().min(600).max(2560).optional()},(args,signal)=>callRevit('revit.view.export_image',args,signal));
 register('revit.view.get','Read native plan-view range, crop coordinates, discipline, lighting-category flags and view-scoped candidates. No mutation or activation; pixel verification remains required.',{viewId:z.number().int().positive()},(args,signal)=>callRevit('revit.view.get',args,signal));
@@ -52,6 +56,8 @@ register('revit.room.lighting.preview','Generate a reviewed lighting scene: room
 register('revit.search','Search current model or types. category accepts OST_... or an exact localized name. family/type require exact names; query is substring. Supports pagination; query includes mark/room number, and mark/number filters are exact.',{query:z.string().optional(),mark:z.string().optional(),number:z.string().optional(),category:z.string().optional(),family:z.string().optional(),type:z.string().optional(),types:z.boolean().optional(),levelId:z.number().int().positive().optional(),limit:z.number().int().min(1).max(500).optional(),offset:z.number().int().min(0).optional()},(args,signal)=>callRevit('revit.search',args,signal));
 register('revit.families.audit','Read-only current-project exact family/type catalog. Reports found, missing, partial and not-scanned families; no family files are loaded and no model changes occur.',familyAuditSchema,(args,signal)=>auditFamilies(args,callRevit,signal));
 register('revit.changes.get','Read document transaction names and added/modified/deleted element ids since a revision. Explain stale plans; never bypass revision validation.',{documentIdentity:z.string().optional(),sinceRevision:z.number().int().min(0).optional(),limit:z.number().int().min(1).max(100).optional()},(args,signal)=>callRevit('revit.changes.get',args,signal));
+register('revit.saved.verify','Read current saved/unsaved state and bounded document change history. Never saves, opens another RVT or creates a plan.',savedVerificationSchema,(args,signal)=>verifySaved(args,callRevit,signal));
+register('revit.parameter_import.preview','Read a CSV/TSV/XLSX/JSON parameter table and create a pinned preview plan only. Mapping is explicit; no automatic family/type guessing or save.',{documentIdentity:z.string().min(1),expectedRevision:z.number().int().min(0).optional(),summary:z.string().optional(),input:parameterImportInputSchema},(args,signal)=>previewParameterImport({...args,...args.input},callRevit,signal));
 register('revit.connector.resolve','Resolve one unique physical connector by explicit domain, shape, point and tolerance. Zero or multiple matches are returned as status, never guessed.',{elementId:z.number().int().positive(),domain:z.enum(['DomainPiping','DomainHvac','DomainElectrical']).optional(),shape:z.enum(['Round','Rectangular','Oval','Invalid']).optional(),point:scenePoint.optional(),toleranceMm:z.number().finite().positive().max(10000),documentIdentity:z.string().optional(),expectedRevision:z.number().int().min(0).optional()},(args,signal)=>callRevit('revit.connector.resolve',args,signal));
 register('revit.inspect','Inspect existing element parameters and connector ids/positions. connectionStatusSupported=false means unknown, not disconnected; other connector and circuit data are retained.',{elementIds:z.array(z.number().int().positive()).min(1).max(100)},(args,signal)=>callRevit('revit.inspect',args,signal));
 register('revit.operations.list','Get exact supported operation types and field examples. No arbitrary C# or script execution is exposed.',{},async()=>({operations:[...OPERATIONS],units:'mm, absolute Z from internal project origin',required:'Read resources revit-custom://operation-guide and revit-custom://safety. Specify known ids; @id references can point to earlier operations.'}));
@@ -65,6 +71,16 @@ register('revit.workflow.run','Create a preview only from the controlled legacy-
   const workflow=assertWorkflowEnabled(args.name);
   if(args.planningMode && !workflow.planningModes.includes(args.planningMode)) throw new Error('Planning mode '+args.planningMode+' is not supported by workflow '+args.name+'.');
   if(args.name==='audit')return callRevit('revit.audit.run',{},signal);
+  if(args.name==='families.load')return previewFamilyLoads(args,callRevit,signal);
+  if(args.name==='imports.parameter_table') {
+    return previewParameterImport({documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,summary:args.summary,input:args.input||{}},callRevit,signal);
+  }
+  if(args.name==='verification.saved') {
+    const input=savedVerificationSchema.parse(args.input||{});
+    if(input.documentIdentity && input.documentIdentity!==args.documentIdentity) throw new Error('Conflicting workflow and saved-state document identities.');
+    if(input.expectedRevision!==undefined && args.expectedRevision!==undefined && input.expectedRevision!==args.expectedRevision) throw new Error('Conflicting workflow and saved-state revisions.');
+    return verifySaved({...input,documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision??input.expectedRevision},callRevit,signal);
+  }
   if(args.name==='families.audit') {
     const input=familyAuditSchema.parse(args.input||{});
     if(input.documentIdentity && input.documentIdentity!==args.documentIdentity) throw new Error('Conflicting workflow and audit document identities.');

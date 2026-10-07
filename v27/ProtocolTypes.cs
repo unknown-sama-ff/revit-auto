@@ -123,7 +123,7 @@ internal static class PlanRules
     public const int MaxOperations = 1000;
     public static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
-        "create_family_instance", "duplicate_type", "set_parameter", "delete_element",
+        "create_family_instance", "duplicate_type", "set_parameter", "delete_element", "load_family",
         "create_level", "create_grid", "create_wall", "create_floor", "create_room",
         "create_circuit", "create_wire", "create_view_plan", "create_sheet", "create_schedule",
         "create_panel_schedule", "configure_view", "place_viewport", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension"
@@ -144,6 +144,7 @@ internal static class PlanRules
                 throw new BridgeException("invalid_operation_id", $"Duplicate or invalid operation id '{key}'.");
             switch (type)
             {
+                case "load_family": FamilyLibraryRules.Operation(op); break;
                 case "create_family_instance":
                     RequireAny(op, "symbolId", "family");
                     if (!JsonDefaults.Has(op, "symbolId")) Require(op, "type");
@@ -186,6 +187,8 @@ internal static class PlanRules
     {
         foreach (var property in op.EnumerateObject())
         {
+            // Built-in category IDs are negative constants, not element references. The load schema validates them.
+            if (JsonDefaults.String(op, "operationType") == "load_family" && property.Name == "expectedCategoryId") continue;
             if (property.Name.EndsWith("ConnectorId", StringComparison.Ordinal))
             {
                 if (property.Value.ValueKind != JsonValueKind.Number || !property.Value.TryGetInt32(out var port) || port < 0) throw new BridgeException("invalid_connector", "Connector ids must be nonnegative integers.");

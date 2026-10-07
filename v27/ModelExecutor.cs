@@ -10,6 +10,7 @@ namespace RevitAutoV27;
 
 internal sealed record OperationReceipt(List<long> Created, List<long> Changed)
 {
+    public object? Evidence { get; init; }
     public static OperationReceipt New(Element e) => new([e.Id.Value], []);
     public static OperationReceipt Modified(Element e) => new([], [e.Id.Value]);
 }
@@ -74,6 +75,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         var kind = JsonDefaults.String(op, "operationType")!;
         switch (kind)
         {
+            case "load_family": FamilyLibraryService.Validate(Doc, op); break;
             case "create_family_instance":
                 var symbol = Symbol(op); Level(op); var host = Check<Element>(op, "hostElementId", false);
                 if (JsonDefaults.String(op, "mark") is { } proposedMark && new FilteredElementCollector(Doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().Any(f => f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString() == proposedMark)) throw Invalid($"Mark {proposedMark} already exists; choose a distinct mark or modify the existing element.");
@@ -165,6 +167,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         {
             var resultType = kind switch
             {
+                "load_family" => typeof(Family),
                 "create_family_instance" or "create_fitting" => typeof(FamilyInstance),
                 "duplicate_type" => Check<ElementType>(op, "sourceTypeId")?.GetType() ?? typeof(ElementType),
                 "create_level" => typeof(Level), "create_grid" => typeof(Grid), "create_wall" => typeof(Wall), "create_floor" => typeof(Floor),
@@ -182,6 +185,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         Element? created = null;
         switch (kind)
         {
+            case "load_family": return FamilyLibraryService.Load(Doc, op);
             case "create_family_instance":
                 var symbol = Symbol(op)!; var level = Level(op)!; var point = Point(op);
                 if (!symbol.IsActive) { symbol.Activate(); Doc.Regenerate(); }

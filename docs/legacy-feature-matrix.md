@@ -21,7 +21,7 @@
 - 照明/电气：lighting.full、lighting.place、electrical.circuit、electrical.wire、electrical.sheet。
 - 建筑：architecture.build、architecture.rooms、architecture.openings、architecture.documentation。
 - 泵房：pump_room.build。复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的管道实现。
-- 只读：audit、families.audit。只读注册项具有readAdapter，不进入模型operationBuilder。
+- 只读：audit、families.audit、verification.saved。参数导入：imports.parameter_table（CSV/TSV/XLSX/JSON，显式字段映射，预览后确认）。族加载：families.load（受控白名单 RFA；keep_existing 分支已完成 Revit 实机验收，实际新 RFA load/replace 仍未验收）。只读注册项具有readAdapter，不进入模型operationBuilder。
 
 电气、房间、门窗、图纸细分适配器已通过构建/契约测试但仍待逐项原生写入、回滚、保存后结果验证。没有给普通客户端原样执行旧脚本的权限。
 
@@ -44,12 +44,16 @@
 - 每个分页和结束复核同一identity/revision，模型变更时丢弃结果；读取失败不自动重试。
 - 不加载RFA、不读取外部样板、不创建建模计划、不保存模型；原生符号ID仅是候选证据，不替用户选择类型。
 
-2026-10-07：实际本机stdio MCP和原生Revit查询完成12项验收：水泵1型、子母门4型、照明配电箱28型可读取；故意不存在的名称返回missing；直接工具/统一工作流结果相同；错误revision被拒绝；identity、revision、计数、保存状态、视图与选择集不变。原生证据仅存本机acceptance，不上传仓库。仅这一明确的只读目录能力标记accepted，外部文件族审计和族加载仍未完成。
+2026-10-07：实际本机stdio MCP和原生Revit查询完成12项验收：水泵1型、子母门4型、照明配电箱28型可读取；故意不存在的名称返回missing；直接工具/统一工作流结果相同；错误revision被拒绝；identity、revision、计数、保存状态、视图与选择集不变。原生证据仅存本机acceptance，不上传仓库。仅这一明确的只读目录能力标记accepted；外部文件族审计仍未完成。族加载本批已完成目录绑定、哈希锁定、冲突策略、事务回滚接入和 MCP 契约测试，但仍未完成真实 RFA 的预览/提交/回滚实机验收。
+
+
+
+2026-10-07：`families.load` 的 `keep_existing` 分支完成 Revit 2027.3 原生验收：聊天确认后提交 1 个受控计划；照明配电箱族（族 ID 2288583）和 `LB404` 类型核验通过，原生类型证据共28项；创建/修改元素均为0，文档 revision 保持0，`isModified=false`，未自动保存。证据保存在被忽略的 `acceptance/family-load-keep-existing-20261007.json`。这不代表新的 RFA 加载或 replace 分支已验收。
 
 ## 后续依旧保留的完整目标
 
-- 专门原生实现：楼梯、裸墙洞/竖井、受控族加载、泵房路线生成及连接工作流。
-- 分专业审计、Excel/CSV参数表、DWG/图片候选导入、保存后核验接入统一注册适配器。
+- 专门原生实现：楼梯、裸墙洞/竖井、泵房路线生成及连接工作流；受控族加载已实现基础层，仍需实机验收。
+- 参数表导入已完成受控解析、显式字段映射、identity/revision 锁定和预览链路，仍需 Revit 原生提交、回滚、保存后复查；DWG/图片仍是候选导入。保存后核验已接入统一只读注册适配器，仍需 Revit 实机和保存/重开验收。
 - 全部来源逐项写入/回滚/人工保存/复查（只读来源用只读合同），不以工作流别名替代结果对等迁移。
 - 发布前完成干净环境安装、许可证/安全说明、双客户端验收；当前仓库私有状态不自动改变。
 

@@ -40,7 +40,7 @@ test('registered enabled workflow builds through the same operation validator', 
 
 test('registry list is safe metadata and does not expose script execution', () => {
   const list = listWorkflows();
-  assert.ok(list.some(item => item.workflowId === 'families.load' && item.enabled === false));
+  assert.ok(list.some(item => item.workflowId === 'families.load' && item.enabled === true));
   assert.ok(list.every(item => item.legacySources.every(source => !source.includes('..'))));
   assert.ok(list.every(item => item.operationBuilder === null || typeof item.operationBuilder === 'string'));
   assert.doesNotMatch(JSON.stringify(list), /send_code_to_revit|execute_script|child_process|powershell/i);
@@ -105,6 +105,16 @@ test('architecture documentation adapter builds views, schedules, sheets and vie
   assert.equal(built.operations[2].id,'sheet1');
 });
 
+
+test('parameter table import is enabled as a controlled write-preview adapter',()=>{
+  const imported=getWorkflow('imports.parameter_table');
+  assert.equal(imported.enabled,true);assert.equal(imported.destructiveLevel,'batch-write');assert.equal(imported.operationBuilder,'imports.parameter_table');
+});
+
+test('saved verification is enabled as a read-only registry adapter',()=>{
+  const saved=getWorkflow('verification.saved');
+  assert.equal(saved.enabled,true);assert.equal(saved.destructiveLevel,'read-only');assert.equal(saved.operationBuilder,null);assert.equal(saved.readAdapter,'verification.saved');
+});
 
 test('family audit is enabled as a read-only registry adapter',()=>{
   const family=getWorkflow('families.audit');

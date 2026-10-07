@@ -1244,15 +1244,15 @@
       "legacyScript": "verify-saved.csx",
       "newWorkflow": "verification.saved",
       "sourceRole": "external-document-query",
-      "supportedInputs": "pending adapter-specific structured inputs",
+      "supportedInputs": "current document identity/revision, optional baseline revision and bounded history limit",
       "generatedOperations": [],
       "readOnlyQueries": [
         "revit.context.get",
-        "revit.inspect"
+        "revit.changes.get"
       ],
       "writeCategories": "none in current source port",
       "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": false,
@@ -1261,7 +1261,7 @@
         "originalUsesFixedWindowsPath": true
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+      "migrationNotes": "Read-only current-session saved/unsaved state and bounded change history are implemented through verification.saved; Revit live and manual-save/reopen acceptance remains required."
     },
     {
       "legacyFeature": "Preflight族提取与Build占位",
