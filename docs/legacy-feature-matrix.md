@@ -20,7 +20,7 @@
 
 - 照明/电气：lighting.full、lighting.place、electrical.circuit、electrical.wire、electrical.sheet。
 - 建筑：architecture.build、architecture.rooms、architecture.openings、architecture.documentation、architecture.stairs（landingMode=none 已完成 Revit 实机验收；自动平台分支已验证回滚但仍未通过）。
-- 泵房：pump_room.build、pump_room.route、pump_room.connect。路线只把用户明确提供的点拆成直管段；连接只接受已核对的连接器 ID 或 criteria，不推断路线、流向、净距或连接器；复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的成熟管道实现。
+- 泵房：pump_room.build、pump_room.route、pump_room.connect。路线只把用户明确提供的点拆成直管段；连接只接受已核对的连接器 ID 或 criteria，并要求显式 flowIntent=supply|return|neutral；不推断路线、流向、净距或连接器；复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的成熟管道实现。
 - 只读：audit、families.audit、verification.saved。参数导入：imports.parameter_table（CSV/TSV/XLSX/JSON，显式字段映射，预览后确认）。族加载：families.load（受控白名单 RFA；keep_existing 分支已完成 Revit 实机验收，实际新 RFA load/replace 仍未验收）。只读注册项具有readAdapter，不进入模型operationBuilder。
 
 电气、房间、门窗、图纸细分适配器已通过构建/契约测试但仍待逐项原生写入、回滚、保存后结果验证。没有给普通客户端原样执行旧脚本的权限。

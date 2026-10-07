@@ -192,11 +192,15 @@ export function workflowOperations(name, input = {}) {
   } else if (name === 'pump_room.route') {
     (input.routes || []).forEach((route, routeIndex) => {
       if (!Array.isArray(route.points) || route.points.length < 2 || route.points.length > 50) throw new Error('Each pump route needs 2..50 explicit points.');
+      if (!['supply','return','neutral'].includes(route.flowIntent)) throw new Error('pump_room.route requires explicit flowIntent supply|return|neutral for every route.');
       for (let index = 0; index < route.points.length - 1; index++) {
         ops.push({...route, start:route.points[index], end:route.points[index + 1], points:undefined, operationType:'create_pipe', id:route.id ? `${route.id}-${index + 1}` : `route${routeIndex + 1}-${index + 1}`});
       }
     });
     add(input.connections,'connect_elements','connection');  } else if (name === 'pump_room.connect') {
+    (input.connections || []).forEach(connection => {
+      if (!['supply','return','neutral'].includes(connection.flowIntent)) throw new Error('pump_room.connect requires explicit flowIntent supply|return|neutral for every connection.');
+    });
     add(input.connections,'connect_elements','connection');
   } else if (name === 'pump_room.build') {
     placements(input.equipment,'pump','OST_MechanicalEquipment');

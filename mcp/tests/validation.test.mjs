@@ -22,12 +22,16 @@ test('pump route expands only explicit points into straight pipe segments', () =
   const ops=workflowOperations('pump_room.route',{routes:[{id:'r',pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80,flowIntent:'supply',points:[{xMm:0,yMm:0,zMm:1000},{xMm:1000,yMm:0,zMm:1000},{xMm:1000,yMm:500,zMm:1000}]}]});
   assert.deepEqual(ops.map(op=>op.operationType),['create_pipe','create_pipe']); assert.equal(ops[0].id,'r-1'); assert.equal(ops[1].start.yMm,0); assert.equal(ops[1].end.yMm,500);
 });
-test('pump route refuses missing explicit route points', () => assert.throws(() => workflowOperations('pump_room.route',{routes:[{pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80}]}), /explicit points/));
+test('pump route refuses missing explicit route points', () => assert.throws(() => workflowOperations('pump_room.route',{routes:[{pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80,flowIntent:'supply'}]}), /explicit points/));
 
 
 test('pump connection workflow preserves explicit connector criteria and rejects missing selection', () => {
-  const ops=workflowOperations('pump_room.connect',{connections:[{firstElementId:10,secondElementId:11,firstConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:0,yMm:0,zMm:0},toleranceMm:2},secondConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:100,yMm:0,zMm:0},toleranceMm:2}}]});
+  const ops=workflowOperations('pump_room.connect',{connections:[{flowIntent:'supply',firstElementId:10,secondElementId:11,firstConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:0,yMm:0,zMm:0},toleranceMm:2},secondConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:100,yMm:0,zMm:0},toleranceMm:2}}]});
   assert.equal(ops[0].operationType,'connect_elements'); assert.equal(ops[0].firstConnector.domain,'DomainPiping');
-  assert.throws(()=>workflowOperations('pump_room.connect',{connections:[{firstElementId:10,secondElementId:11}]}),/requires exactly one connector/);
+  assert.throws(()=>workflowOperations('pump_room.connect',{connections:[{flowIntent:'supply',firstElementId:10,secondElementId:11}]}),/requires exactly one connector/);
 });
+
+
+test('pump route and connect reject omitted flow intent',()=>{ assert.throws(()=>workflowOperations('pump_room.route',{routes:[{pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80,points:[{xMm:0,yMm:0,zMm:0},{xMm:100,yMm:0,zMm:0}]}]}),/flowIntent/); assert.throws(()=>workflowOperations('pump_room.connect',{connections:[{firstElementId:1,secondElementId:2,flowIntent:'unknown',firstConnectorId:1,secondConnectorId:2}]}),/flowIntent/); });
+
 
