@@ -59,6 +59,8 @@
 
 这是参数化工具集，不是无尺寸/族库即可从图片生成完整施工模型。族、工程系统类型、配电制式必须在目标模型中可用；不会猜测或下载未知族。
 
+保存核验边界：`revit.saved.verify` 与 `verification.saved` 返回同一只读证据。查询后再次核对文档身份、revision、路径和修改状态；未知状态返回 `null/unknown`，历史截断单独披露。`saved=true` 只表示当前会话没有待保存修改，`persistenceVerified=false`，不能代替磁盘内容验证或关闭/重开验收。
+
 ## 表格、DWG 和图片
 
 - CSV/TSV/JSON/XLSX：显式字段映射、单位、默认操作类型及计划校验。

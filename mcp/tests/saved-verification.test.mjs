@@ -31,3 +31,21 @@ test('saved verification validates the native nested history revision shape',asy
    throw new Error('unexpected');
  }),/different project revision/);
 });
+
+
+test('unknown native modified state remains unknown, never clean or persistence-certified',async()=>{
+ const r=await verifySaved({documentIdentity:'doc-a'},async method=>method==='revit.context.get'?{active:true,document:{identity:'doc-a',revision:0,isFamilyDocument:false}}:{documentIdentity:'doc-a',history:{currentRevision:0,historyComplete:true,hasMore:false,changes:[]}});
+ assert.equal(r.saved,null);assert.equal(r.isModified,null);assert.equal(r.saveState,'unknown');assert.equal(r.persistenceVerified,false);
+});
+test('element id truncation prevents complete evidence even when transaction history is retained',async()=>{
+ const r=await verifySaved({documentIdentity:'doc-a'},async method=>method==='revit.context.get'?{active:true,document:{identity:'doc-a',revision:2,isModified:false}}:{documentIdentity:'doc-a',history:{currentRevision:2,historyComplete:true,hasMore:false,changes:[{elementIdsTruncated:true}]}});
+ assert.equal(r.historyComplete,false);assert.equal(r.historyTruncated,true);assert.equal(r.persistenceVerified,false);
+});
+test('missing history identity or revision cannot certify saved verification',async()=>{
+ for(const history of [{history:{currentRevision:0}},{documentIdentity:'doc-a',history:{}}]){
+  await assert.rejects(()=>verifySaved({documentIdentity:'doc-a'},async method=>method==='revit.context.get'?{active:true,document:{identity:'doc-a',revision:0,isModified:false}}:history),e=>e.code==='invalid_verification_response');
+ }
+});
+test('SaveAs or document path change without revision invalidates saved snapshot',async()=>{
+ let n=0;await assert.rejects(()=>verifySaved({documentIdentity:'doc-a'},async method=>method==='revit.context.get'?{active:true,document:{identity:'doc-a',revision:0,isModified:false,path:++n===1?'before.rvt':'after.rvt'}}:{documentIdentity:'doc-a',history:{currentRevision:0,historyComplete:true,hasMore:false,changes:[]}}),e=>e.code==='saved_state_changed');
+});
