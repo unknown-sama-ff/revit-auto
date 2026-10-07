@@ -2,7 +2,7 @@ import {loadFamilyOperationSchema} from './family-load.mjs';
 
 export const OPERATIONS = new Set([
   'create_family_instance','duplicate_type','set_parameter','delete_element','load_family',
-  'create_level','create_grid','create_wall','create_floor','create_room',
+  'create_level','create_grid','create_wall','create_floor','create_room','create_stair',
   'create_circuit','create_wire','create_view_plan','create_sheet','create_schedule',
   'create_panel_schedule','configure_view','place_viewport','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
 ]);
@@ -95,6 +95,13 @@ export function validateOperations(operations) {
         if (!Array.isArray(op.boundary) || op.boundary.length < 3) throw new Error('Floor needs at least three boundary points.');
         requireField(op,'floorTypeId'); op.boundary.forEach(point); break;
       case 'create_room': point(op); break;
+      case 'create_stair':
+        ['baseLevelId','topLevelId','landingMode'].forEach(f=>requireField(op,f));
+        if(!['none','automaticBetweenRuns'].includes(op.landingMode))throw new Error('create_stair landingMode must be none or automaticBetweenRuns.');
+        if(!Array.isArray(op.runs)||op.runs.length<1||op.runs.length>8)throw new Error('create_stair needs 1..8 straight runs.');
+        if(op.landingMode==='automaticBetweenRuns'&&op.runs.length<2)throw new Error('automaticBetweenRuns needs at least two runs.');
+        op.runs.forEach(run=>{if(!run||typeof run!=='object')throw new Error('Each stair run must be an object.');point(run.start);point(run.end);number(run,'widthMm',true);});
+        break;
       case 'duplicate_type': requireField(op,'sourceTypeId'); requireField(op,'name'); break;
       case 'delete_element': requireField(op,'elementId'); break;
       case 'set_parameter': requireField(op,'elementId'); requireField(op,'parameter'); requireField(op,'value'); break;
@@ -158,6 +165,8 @@ export function workflowOperations(name, input = {}) {
     add(input.panelSchedules,'create_panel_schedule','panelSchedule');
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
+  } else if (name === 'architecture.stairs') {
+    add(input.stairs,'create_stair','stair');
   } else if (name === 'architecture.rooms') {
     add(input.rooms,'create_room','room');
     add(input.views,'create_view_plan','view');

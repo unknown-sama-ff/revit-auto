@@ -537,15 +537,17 @@
       "legacyScript": "inspect-stair-api.csx",
       "newWorkflow": "architecture.stairs",
       "sourceRole": "query-reference",
-      "supportedInputs": "pending adapter-specific structured inputs",
-      "generatedOperations": [],
+      "supportedInputs": "baseLevelId/topLevelId, explicit straight-run start/end/widthMm, landingMode none|automaticBetweenRuns",
+      "generatedOperations": [
+        "create_stair"
+      ],
       "readOnlyQueries": [
         "revit.context.get",
         "revit.inspect"
       ],
       "writeCategories": "none in current source port",
       "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": true,
@@ -554,22 +556,24 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
     },
     {
       "legacyFeature": "楼梯原生构件检查",
       "legacyScript": "inspect-stair-detail.csx",
       "newWorkflow": "architecture.stairs",
       "sourceRole": "query-reference",
-      "supportedInputs": "pending adapter-specific structured inputs",
-      "generatedOperations": [],
+      "supportedInputs": "baseLevelId/topLevelId, explicit straight-run start/end/widthMm, landingMode none|automaticBetweenRuns",
+      "generatedOperations": [
+        "create_stair"
+      ],
       "readOnlyQueries": [
         "revit.context.get",
         "revit.inspect"
       ],
       "writeCategories": "none in current source port",
       "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": false,
@@ -578,22 +582,24 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
     },
     {
       "legacyFeature": "楼梯系统构件与参数",
       "legacyScript": "inspect-stairs.csx",
       "newWorkflow": "architecture.stairs",
       "sourceRole": "query-reference",
-      "supportedInputs": "pending adapter-specific structured inputs",
-      "generatedOperations": [],
+      "supportedInputs": "baseLevelId/topLevelId, explicit straight-run start/end/widthMm, landingMode none|automaticBetweenRuns",
+      "generatedOperations": [
+        "create_stair"
+      ],
       "readOnlyQueries": [
         "revit.context.get",
         "revit.inspect"
       ],
       "writeCategories": "none in current source port",
       "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": false,
@@ -602,7 +608,7 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
     },
     {
       "legacyFeature": "当前族类型检查",
@@ -932,15 +938,17 @@
       "legacyScript": "stairs.csx",
       "newWorkflow": "architecture.stairs",
       "sourceRole": "production",
-      "supportedInputs": "pending adapter-specific structured inputs",
-      "generatedOperations": [],
+      "supportedInputs": "baseLevelId/topLevelId, explicit straight-run start/end/widthMm, landingMode none|automaticBetweenRuns",
+      "generatedOperations": [
+        "create_stair"
+      ],
       "readOnlyQueries": [
         "revit.context.get",
         "revit.inspect"
       ],
       "writeCategories": "adapter-declared affectedCategories",
       "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": true,
@@ -949,7 +957,7 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "StairsEditScope needs dedicated transaction integration; do not pretend a family placement is an equivalent port."
+      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
     },
     {
       "legacyFeature": "220V配电类型事务探针",
@@ -1148,15 +1156,17 @@
       "legacyScript": "test-stair-repair.csx",
       "newWorkflow": "architecture.stairs",
       "sourceRole": "test-reference",
-      "supportedInputs": "pending adapter-specific structured inputs",
-      "generatedOperations": [],
+      "supportedInputs": "baseLevelId/topLevelId, explicit straight-run start/end/widthMm, landingMode none|automaticBetweenRuns",
+      "generatedOperations": [
+        "create_stair"
+      ],
       "readOnlyQueries": [
         "revit.context.get",
         "revit.inspect"
       ],
       "writeCategories": "none in current source port",
       "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": true,
@@ -1165,7 +1175,7 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Reference regression scenario, never executable through MCP."
+      "migrationNotes": "Dedicated Revit StairsEditScope preview/commit path is implemented; native stair geometry, automatic landing, rollback and save/reopen acceptance remains required."
     },
     {
       "legacyFeature": "三相配电盘与类型复制参考",

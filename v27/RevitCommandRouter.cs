@@ -33,7 +33,7 @@ internal static class RevitCommandRouter
         {
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
                 "revit.type.resolve" => CommandResult.Success(TypeService.Resolve(app,parameters)),
@@ -81,6 +81,8 @@ internal static class RevitCommandRouter
         if (JsonDefaults.Int64(parameters, "expectedRevision") is long expectedRevision && expectedRevision != Revision(doc))
             return CommandResult.Failure("document_revision_changed", "The source model changed during planning. Re-read context and room data before previewing.", new { expectedRevision, currentRevision = Revision(doc) });
         var operations = PlanRules.Validate(JsonDefaults.Get(parameters, "operations"));
+        if (operations.Any(o => JsonDefaults.String(o, "operationType") == "create_stair") && operations.Count != 1)
+            throw new BridgeException("invalid_stair", "create_stair must be the only operation in its plan; StairsEditScope is an atomic native scope.");
         var executor = new ModelExecutor(app, new Dictionary<string, ElementId>(StringComparer.Ordinal));
         foreach (var op in operations) executor.Validate(op);
         foreach (var p in Plans.Values.Where(p => p.Status == "pending" && p.ExpiresAtUtc < DateTime.UtcNow)) p.Status = "expired";
@@ -137,6 +139,8 @@ internal static class RevitCommandRouter
         foreach (var op in plan.Operations) executor.Validate(op);
         if (doc.IsModifiable || doc.IsReadOnly) throw new BridgeException("document_busy", "Revit has another transaction or the document is read-only.");
         cancellation.ThrowIfCancellationRequested();
+        if (plan.Operations.Count == 1 && JsonDefaults.String(plan.Operations[0], "operationType") == "create_stair")
+            return ConfirmStair(app, plan, cancellation, executor);
         // The trusted MCP client calls Confirm only after approval of this preview in chat.
         // Do not add a second model confirmation dialog or another approval flag here.
         if (!Documents.Same(app.ActiveUIDocument?.Document, doc) || plan.DocumentRevision != Revision(doc))
@@ -191,6 +195,30 @@ internal static class RevitCommandRouter
             Log.Write($"Failed plan={plan.PlanId}; rolledBack={rolledBack}; error={ex}");
             plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack, completedOperationCount = progress.CompletedOperationCount, failedOperationIndex = progress.FailedOperationIndex, failedOperationType, failedElementId, createdElementIds = Array.Empty<long>(), warnings = failureCapture.Messages, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message };
             Log.Write($"Plan={plan.PlanId}; completed={progress.CompletedOperationCount}; failedOperationIndex={progress.FailedOperationIndex}");
+            return CommandResult.Failure("execution_failed", ex.Message, plan.Receipt);
+        }
+    }
+    private static CommandResult ConfirmStair(UIApplication app, ModelPlan plan, CancellationToken cancellation, ModelExecutor executor)
+    {
+        var operation = plan.Operations[0];
+        var references = new Dictionary<string, ElementId>(StringComparer.Ordinal);
+        var failedOperationType = JsonDefaults.String(operation, "operationType");
+        try
+        {
+            plan.Status = "executing";
+            cancellation.ThrowIfCancellationRequested();
+            var receipt = executor.ExecuteStair(operation);
+            if (JsonDefaults.String(operation, "id") is { } key && receipt.Created.FirstOrDefault() > 0) references[key] = new ElementId(receipt.Created[0]);
+            plan.Status = "committed";
+            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = 1, createdElementIds = receipt.Created.Distinct(), changedElementIds = receipt.Changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence = receipt.Evidence is null ? Array.Empty<object>() : new[] { new { operationIndex = 1, operationType = failedOperationType, evidence = receipt.Evidence } }, warnings = plan.Warnings.ToArray(), confirmationMode = "chat", saved = false, atomicScope = "StairsEditScope" };
+            Log.Write($"Committed stair plan={plan.PlanId}; created={receipt.Created.Count}; confirmation=chat");
+            return CommandResult.Success(plan.Receipt);
+        }
+        catch (Exception ex)
+        {
+            plan.Status = "failed";
+            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack = true, completedOperationCount = 0, failedOperationIndex = 1, failedOperationType, createdElementIds = Array.Empty<long>(), warnings = plan.Warnings, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message, atomicScope = "StairsEditScope" };
+            Log.Write($"Failed stair plan={plan.PlanId}; rolledBack=true; error={ex}");
             return CommandResult.Failure("execution_failed", ex.Message, plan.Receipt);
         }
     }

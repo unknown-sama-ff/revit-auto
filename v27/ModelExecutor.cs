@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
@@ -70,6 +71,23 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         if (start.DistanceTo(end) < Doc.Application.ShortCurveTolerance) throw Invalid("The line is shorter than Revit's ShortCurveTolerance.");
         return Autodesk.Revit.DB.Line.CreateBound(start, end);
     }
+    private void ValidateStair(JsonElement op)
+    {
+        var bottom = Check<Level>(op, "baseLevelId");
+        var top = Check<Level>(op, "topLevelId");
+        if (bottom is not null && top is not null && top.Elevation <= bottom.Elevation)
+            throw Invalid("topLevelId must be above baseLevelId.");
+        var mode = JsonDefaults.String(op, "landingMode");
+        var runs = JsonDefaults.Array(op, "runs").ToList();
+        if (mode == "automaticBetweenRuns" && runs.Count < 2) throw Invalid("automaticBetweenRuns needs at least two runs.");
+        foreach (var run in runs)
+        {
+            var start = Point(JsonDefaults.Get(run, "start"));
+            var end = Point(JsonDefaults.Get(run, "end"));
+            if (start.DistanceTo(end) < Doc.Application.ShortCurveTolerance) throw Invalid("A stair run is shorter than Revit's ShortCurveTolerance.");
+            if (PlanRules.Number(run, "widthMm") <= 0) throw Invalid("Stair run width must be positive.");
+        }
+    }
     public void Validate(JsonElement op)
     {
         var kind = JsonDefaults.String(op, "operationType")!;
@@ -104,6 +122,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "create_floor": Check<FloorType>(op, "floorTypeId"); Level(op); FloorLoop(op); break;
             case "create_grid": Line(op); break;
             case "create_room": Level(op); break;
+            case "create_stair": ValidateStair(op); break;
             case "create_level":
                 if (new FilteredElementCollector(Doc).OfClass(typeof(Level)).Cast<Level>().Any(l => l.Name == JsonDefaults.String(op, "name"))) throw Invalid("Level name already exists.");
                 break;
@@ -177,6 +196,68 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             };
             predicted[key] = resultType;
             predictedOperations[key] = op.Clone();
+        }
+    }
+    internal OperationReceipt ExecuteStair(JsonElement op)
+    {
+        ValidateStair(op);
+        var baseLevel = Required<Level>(op, "baseLevelId");
+        var topLevel = Required<Level>(op, "topLevelId");
+        using var scope = new StairsEditScope(Doc, "AI 受控楼梯");
+        var stairId = ElementId.InvalidElementId;
+        var runIds = new List<ElementId>();
+        var failureCapture = new StairFailures();
+        try
+        {
+            stairId = scope.Start(baseLevel.Id, topLevel.Id);
+            using (var transaction = new Transaction(Doc, "AI 楼梯梯段与平台"))
+            {
+                if (transaction.Start() != TransactionStatus.Started) throw Invalid("Unable to start stair transaction.");
+                transaction.SetFailureHandlingOptions(transaction.GetFailureHandlingOptions().SetFailuresPreprocessor(failureCapture).SetClearAfterRollback(true).SetForcedModalHandling(true));
+                foreach (var run in JsonDefaults.Array(op, "runs"))
+                {
+                    var line = Autodesk.Revit.DB.Line.CreateBound(Point(JsonDefaults.Get(run, "start")), Point(JsonDefaults.Get(run, "end")));
+                    var stairRun = StairsRun.CreateStraightRun(Doc, stairId, line, StairsRunJustification.Center);
+                    stairRun.ActualRunWidth = Mm(PlanRules.Number(run, "widthMm"));
+                    runIds.Add(stairRun.Id);
+                }
+                if (JsonDefaults.String(op, "landingMode") == "automaticBetweenRuns")
+                {
+                    for (var index = 0; index < runIds.Count - 1; index++)
+                    {
+                        if (!StairsLanding.CanCreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]))
+                            throw Invalid($"Revit cannot create an automatic landing between runs {index + 1} and {index + 2}.");
+                        StairsLanding.CreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]);
+                    }
+                }
+                if (transaction.Commit() != TransactionStatus.Committed) throw Invalid("Revit rejected the stair transaction.");
+            }
+            scope.Commit(failureCapture);
+            var stair = Doc.GetElement(stairId) as Stairs ?? throw Invalid("Revit did not return the created stair.");
+            var created = new List<long> { stair.Id.Value };
+            created.AddRange(stair.GetStairsRuns().Select(id => id.Value));
+            created.AddRange(stair.GetStairsLandings().Select(id => id.Value));
+            return new(created.Distinct().ToList(), [])
+            {
+                Evidence = new { stairId = stair.Id.Value, runIds = stair.GetStairsRuns().Select(id => id.Value).ToArray(), landingIds = stair.GetStairsLandings().Select(id => id.Value).ToArray(), landingMode = JsonDefaults.String(op, "landingMode"), warnings = failureCapture.Messages.ToArray(), note = "Native StairsEditScope result; no automatic save." }
+            };
+        }
+        catch
+        {
+            try { scope.Cancel(); } catch { }
+            throw;
+        }
+    }
+    private sealed class StairFailures : IFailuresPreprocessor
+    {
+        public List<string> Messages { get; } = [];
+        public FailureProcessingResult PreprocessFailures(FailuresAccessor accessor)
+        {
+            var failures = accessor.GetFailureMessages();
+            Messages.AddRange(failures.Select(f => f.GetDescriptionText()));
+            if (failures.Any(f => f.GetSeverity() == FailureSeverity.Error || f.GetSeverity() == FailureSeverity.DocumentCorruption)) return FailureProcessingResult.ProceedWithRollBack;
+            foreach (var failure in failures.Where(f => f.GetSeverity() == FailureSeverity.Warning)) accessor.DeleteWarning(failure);
+            return FailureProcessingResult.Continue;
         }
     }
     public OperationReceipt Execute(JsonElement op)

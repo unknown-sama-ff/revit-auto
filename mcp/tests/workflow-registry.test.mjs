@@ -22,9 +22,9 @@ test('workflow registry covers legacy migration domains and required metadata', 
 test('registry exposes enabled workflows and blocks pending migration workflows', () => {
   assert.equal(getWorkflow('lighting.full').enabled, true);
   assert.equal(getWorkflow('pump_room.build').enabled, true);
-  assert.equal(getWorkflow('architecture.stairs').enabled, false);
-  assert.throws(() => assertWorkflowEnabled('architecture.stairs'), error => error.code === 'workflow_migration_pending' && error.details.legacySources.includes('stairs.csx'));
-  assert.throws(() => assertWorkflowEnabled('unknown.workflow'), /Unknown registered workflow/);
+  assert.equal(getWorkflow('architecture.stairs').enabled, true);
+  assert.equal(getWorkflow('pump_room.route').enabled, false);
+  assert.throws(() => assertWorkflowEnabled('pump_room.route'), error => error.code === 'workflow_migration_pending' && error.details.legacySources.includes('ModelBuilder.cs'));
 });
 
 test('registered enabled workflow builds through the same operation validator', () => {
@@ -61,7 +61,7 @@ test('registry metadata explains the Revit 2027-only runtime boundary', async ()
 });
 
 test('disabled legacy workflows remain discoverable without becoming callable writes', () => {
-  const pending = registryPreviewMetadata('architecture.stairs');
+  const pending = registryPreviewMetadata('pump_room.route');
   assert.equal(pending.acceptanceStatus, 'legacy-source-registered-migration-pending');
   assert.deepEqual(pending.planningModes, ['explicit','ask','assisted']);
 });
@@ -83,10 +83,10 @@ test('architecture room adapter builds room tags, schedules and view artifacts',
 });
 
 
-test('room and openings adapters are enabled while stairs remain blocked',()=>{
+test('room, openings and stairs adapters are enabled',()=>{
   assert.equal(getWorkflow('architecture.rooms').enabled,true);
   assert.equal(getWorkflow('architecture.openings').enabled,true);
-  assert.equal(getWorkflow('architecture.stairs').enabled,false);
+  assert.equal(getWorkflow('architecture.stairs').enabled,true);
 });
 
 

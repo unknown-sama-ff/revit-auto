@@ -30,7 +30,7 @@
 
 - `families.load`：只允许管理员登记的本地 RFA 白名单；支持 `reject`、`keep_existing`、`replace`，所有写入都必须先预览并在聊天中确认。`keep_existing` 分支已在 Revit 2027.3 验收；实际新 RFA 加载和 replace 仍需独立测试副本验收。
 - `verification.saved`：读取当前文档是否有未保存修改及受限变更历史；不保存、不打开其他 RVT、不创建模型计划。
-- `imports.parameter_table`：CSV/TSV/XLSX/JSON 显式字段映射和计划预览；不猜测族、类型、楼层，不自动保存。
+- `imports.parameter_table`：CSV/TSV/XLSX/JSON 显式字段映射和计划预览；不猜测族、类型、楼层，不自动保存。`architecture.stairs`：显式上下标高、直跑几何、宽度和平台策略，使用专用 `StairsEditScope` 原子路径。
 
 当前仓库提交为 `942530f`，已推送到私人 GitHub 仓库。实机验收仍需使用项目副本；自动化测试不等于真实 Revit 业务验收。
 ## 工具和安全

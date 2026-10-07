@@ -124,7 +124,7 @@ internal static class PlanRules
     public static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
         "create_family_instance", "duplicate_type", "set_parameter", "delete_element", "load_family",
-        "create_level", "create_grid", "create_wall", "create_floor", "create_room",
+        "create_level", "create_grid", "create_wall", "create_floor", "create_room", "create_stair",
         "create_circuit", "create_wire", "create_view_plan", "create_sheet", "create_schedule",
         "create_panel_schedule", "configure_view", "place_viewport", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension"
     };
@@ -163,6 +163,15 @@ internal static class PlanRules
                     if (JsonDefaults.Array(op, "boundary").Count() < 3) throw new BridgeException("invalid_geometry", "Floor boundary needs 3+ points.");
                     foreach (var p in JsonDefaults.Array(op, "boundary")) Point(p); break;
                 case "create_room": Point(op); break;
+                case "create_stair":
+                    Require(op, "baseLevelId"); Require(op, "topLevelId"); Require(op, "landingMode");
+                    var stairMode = JsonDefaults.String(op, "landingMode");
+                    if (stairMode is not ("none" or "automaticBetweenRuns")) throw new BridgeException("invalid_stair", "landingMode must be none or automaticBetweenRuns.");
+                    var stairRuns = JsonDefaults.Array(op, "runs").ToList();
+                    if (stairRuns.Count is < 1 or > 8) throw new BridgeException("invalid_stair", "A stair needs 1..8 explicit straight runs.");
+                    if (stairMode == "automaticBetweenRuns" && stairRuns.Count < 2) throw new BridgeException("invalid_stair", "automaticBetweenRuns needs at least two runs.");
+                    foreach (var run in stairRuns) { Point(JsonDefaults.Get(run, "start")); Point(JsonDefaults.Get(run, "end")); Positive(run, "widthMm"); }
+                    break;
                 case "delete_element": Require(op, "elementId"); break;
                 case "set_parameter": Require(op, "elementId"); Require(op, "parameter"); Require(op, "value"); break;
                 case "duplicate_type": Require(op, "sourceTypeId"); Require(op, "name"); break;
