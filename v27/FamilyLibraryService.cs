@@ -66,6 +66,12 @@ internal static class FamilyLibraryService
         if (input.RequiredTypes.Any(type => !types.Contains(type)))
             throw new BridgeException("family_types_missing", "Native family lacks required reviewed type names; do not commit partial family loading.");
     }
+    private static void VerifyExistingReplacementTarget(Family family, FamilyLoadInput input)
+    {
+        if (family.Name != input.ExpectedFamilyName || family.FamilyCategory?.Id.Value != input.ExpectedCategoryId)
+            throw new BridgeException("family_replacement_target_mismatch", "The existing replacement target name/category differs from the reviewed catalog; create a new preview.");
+        if (Shared(family)) throw new BridgeException("shared_family_not_supported", "Existing shared family is not handled by ordinary replacement.");
+    }
     internal static object Validate(Document doc, JsonElement operation)
     {
         var input = FamilyLibraryRules.Operation(operation);
@@ -77,6 +83,7 @@ internal static class FamilyLibraryService
             if (Shared(existing)) throw new BridgeException("shared_family_not_supported", "Existing shared family is not handled by ordinary loading.");
             if (input.ConflictPolicy == "reject") throw new BridgeException("family_already_loaded", "The exact family already exists. Explicitly review keep_existing or replace before a new preview.");
             if (input.ConflictPolicy == "keep_existing") Verify(doc, existing, input);
+            if (input.ConflictPolicy == "replace") VerifyExistingReplacementTarget(existing, input);
         }
         var typeIds = existing?.GetFamilySymbolIds().Select(id => id.Value).ToHashSet() ?? [];
         var affected = typeIds.Count == 0 ? [] : new FilteredElementCollector(doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
@@ -112,6 +119,7 @@ internal static class FamilyLibraryService
         using var file = FamilyLibraryRules.OpenVerified(Root, asset); // Windows sharing lock pins bytes until native loading finishes.
         var existing = Existing(doc, input.ExpectedFamilyName);
         if (existing is not null && input.ConflictPolicy == "reject") throw new BridgeException("family_already_loaded", "The exact family exists; load conflict strategy changed.");
+        if (existing is not null && input.ConflictPolicy == "replace") VerifyExistingReplacementTarget(existing, input);
         if (existing is not null && input.ConflictPolicy == "keep_existing")
         {
             Verify(doc, existing, input);
