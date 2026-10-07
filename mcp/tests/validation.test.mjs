@@ -24,3 +24,10 @@ test('pump route expands only explicit points into straight pipe segments', () =
 });
 test('pump route refuses missing explicit route points', () => assert.throws(() => workflowOperations('pump_room.route',{routes:[{pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80}]}), /explicit points/));
 
+
+test('pump connection workflow preserves explicit connector criteria and rejects missing selection', () => {
+  const ops=workflowOperations('pump_room.connect',{connections:[{firstElementId:10,secondElementId:11,firstConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:0,yMm:0,zMm:0},toleranceMm:2},secondConnector:{domain:'DomainPiping',shape:'Round',point:{xMm:100,yMm:0,zMm:0},toleranceMm:2}}]});
+  assert.equal(ops[0].operationType,'connect_elements'); assert.equal(ops[0].firstConnector.domain,'DomainPiping');
+  assert.throws(()=>workflowOperations('pump_room.connect',{connections:[{firstElementId:10,secondElementId:11}]}),/requires exactly one connector/);
+});
+

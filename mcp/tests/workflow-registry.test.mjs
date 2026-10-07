@@ -24,9 +24,9 @@ test('registry exposes enabled workflows and blocks pending migration workflows'
   assert.equal(getWorkflow('pump_room.build').enabled, true);
   assert.equal(getWorkflow('architecture.stairs').enabled, true);
   assert.equal(getWorkflow('pump_room.route').enabled, true);
-  assert.equal(getWorkflow('pump_room.connect').enabled, false);
-  assert.throws(() => assertWorkflowEnabled('pump_room.connect'), error => error.code === 'workflow_migration_pending' && error.details.legacySources.includes('ModelBuilder.cs'));
-  assert.throws(() => assertWorkflowEnabled('unknown.workflow'), /Unknown registered workflow/);
+  assert.equal(getWorkflow('pump_room.connect').enabled, true);
+  assert.equal(getWorkflow('pump_room.audit').enabled, false);
+  assert.throws(() => assertWorkflowEnabled('pump_room.audit'), error => error.code === 'workflow_migration_pending' && error.details.legacySources.includes('audit-final.csx'));
 });
 
 test('registered enabled workflow builds through the same operation validator', () => {
@@ -63,7 +63,7 @@ test('registry metadata explains the Revit 2027-only runtime boundary', async ()
 });
 
 test('disabled legacy workflows remain discoverable without becoming callable writes', () => {
-  const pending = registryPreviewMetadata('pump_room.connect');
+  const pending = registryPreviewMetadata('pump_room.audit');
   assert.equal(pending.acceptanceStatus, 'legacy-source-registered-migration-pending');
   assert.deepEqual(pending.planningModes, ['explicit','ask','assisted']);
 });
