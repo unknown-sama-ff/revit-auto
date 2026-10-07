@@ -5,7 +5,7 @@ const base={documentIdentity:'doc-a',expectedRevision:3,sinceRevision:2,limit:20
 
 test('saved verification reports current saved state and bounded history without plans',async()=>{
  const calls=[];const result=await verifySaved(base,async(method,args)=>{calls.push([method,args]);if(method==='revit.context.get')return {active:true,document:{identity:'doc-a',revision:3,isFamilyDocument:false,isModified:false}};if(method==='revit.changes.get')return {documentIdentity:'doc-a',currentRevision:3,entries:[{revision:3,added:[10],modified:[],deleted:[],transactions:['AI test']}]};throw new Error('unexpected '+method);});
- assert.equal(result.saved,true);assert.equal(result.planCreated,false);assert.deepEqual(calls.map(([method])=>method),['revit.context.get','revit.changes.get']);assert.deepEqual(calls[1][1],{documentIdentity:'doc-a',sinceRevision:2,limit:20});
+ assert.equal(result.saved,true);assert.equal(result.planCreated,false);assert.deepEqual(calls.map(([method])=>method),['revit.context.get','revit.changes.get','revit.context.get']);assert.deepEqual(calls[1][1],{documentIdentity:'doc-a',sinceRevision:2,limit:20});
 });
 
 test('saved verification reports unsaved state and never saves',async()=>{

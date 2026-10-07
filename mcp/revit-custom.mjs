@@ -12,7 +12,7 @@ import { assertWorkflowEnabled, listWorkflows } from './workflow-registry.mjs';
 import { buildRegisteredWorkflow } from './workflow-adapter.mjs';
 import { auditFamilies, familyAuditSchema } from './family-audit.mjs';
 import { previewFamilyLoads } from './family-load.mjs';
-import { savedVerificationSchema, verifySaved } from './saved-verification.mjs';
+import { savedVerificationSchema, savedVerificationInputSchema, verifySaved } from './saved-verification.mjs';
 import { parameterImportInputSchema, previewParameterImport } from './parameter-import.mjs';
 
 const server = new McpServer({name:'revit-custom',version:'0.4.0'},{instructions:'Read context and operation guide first. Coordinates are millimeters at Revit internal origin with absolute Z. All writes require plan preview and explicit user approval of that exact plan in chat. After chat approval, invoke the commit tool once; Revit executes without another confirmation dialog. Do not ask again for the same unchanged approved plan. The trusted MCP client is responsible for verifying the chat approval; Revit cannot read the conversation. Missing families/types/hosts cause errors; do not guess or bypass validation. After a timeout, query the same plan id, never automatically recreate the plan. Official Autodesk MCP must be configured Read-only; this custom add-in is the sole writer.'});
@@ -76,7 +76,7 @@ register('revit.workflow.run','Create a preview only from the controlled legacy-
     return previewParameterImport({documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,summary:args.summary,input:args.input||{}},callRevit,signal);
   }
   if(args.name==='verification.saved') {
-    const input=savedVerificationSchema.parse(args.input||{});
+    const input=savedVerificationInputSchema.parse(args.input||{});
     if(input.documentIdentity && input.documentIdentity!==args.documentIdentity) throw new Error('Conflicting workflow and saved-state document identities.');
     if(input.expectedRevision!==undefined && args.expectedRevision!==undefined && input.expectedRevision!==args.expectedRevision) throw new Error('Conflicting workflow and saved-state revisions.');
     return verifySaved({...input,documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision??input.expectedRevision},callRevit,signal);

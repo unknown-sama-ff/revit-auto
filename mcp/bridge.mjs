@@ -21,6 +21,7 @@ export async function callRevit(method,params = {},signal) {
   if (method==='revit.plan.create') {
     const required=[];
     if(params.operations?.some(op=>op.operationType==='load_family'))required.push('controlled-family-loading');
+    if(params.operations?.some(op=>op.operationType==='create_stair'))required.push('controlled-stairs-edit-scope');
     if(params.operations?.some(op=>['connect_elements','create_fitting'].includes(op.operationType)&&(Object.hasOwn(op,'firstConnector')||Object.hasOwn(op,'secondConnector'))))required.push('connector-criteria-connections');
     if(params.operations?.some(op=>op.operationType==='configure_view'))required.push('view-configuration');
     if(params.operations?.some(op=>op.operationType==='configure_view'&&Object.hasOwn(op,'cropBounds')))required.push('explicit-crop-bounds');

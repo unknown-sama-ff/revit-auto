@@ -147,3 +147,16 @@ test('criteria selectors survive SDK planning without generated port IDs or writ
  const result=await client.callTool({name:'revit_plan_create',arguments:{documentIdentity:'copy-session',expectedRevision:0,summary:'criteria connection preview',operations:ops}});assert.ok(!result.isError,result.content[0].text);assert.deepEqual(calls[0].params.operations,ops);assert.equal(calls[0].method,'revit.plan.create');assert.equal(calls.length,1);
  const invalid=await client.callTool({name:'revit_plan_create',arguments:{documentIdentity:'copy-session',summary:'invalid',operations:[{...ops[1],secondElementId:2,secondConnectorId:0}]}});assert.equal(invalid.isError,true);assert.equal(calls.length,1);
 });
+
+
+test('stair capability is required before any preview reaches an old native host',async t=>{
+ let forwarded=0;const f=await fixture((_,socket)=>{forwarded++;send(socket,{});});t.after(f.close);
+ const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+ await assert.rejects(callRevit('revit.plan.create',{operations:[{operationType:'create_stair'}]}),e=>e.code==='feature_not_loaded'&&e.details.requiredFeatures.includes('controlled-stairs-edit-scope'));
+ assert.equal(forwarded,0);
+});
+test('matching stair capability forwards exactly one preview and no commit',async t=>{
+ const methods=[];const f=await fixture((request,socket)=>{methods.push(request.method);send(socket,{status:'pending'});},{features:['controlled-stairs-edit-scope']});t.after(f.close);
+ const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+ assert.equal((await callRevit('revit.plan.create',{operations:[{operationType:'create_stair'}]})).status,'pending');assert.deepEqual(methods,['revit.plan.create']);
+});
