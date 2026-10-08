@@ -49,3 +49,9 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 - `runtime\bridge.json`, local family catalogs, models, acceptance records, and assistant credentials remain private.
 - The public MCP entry point is the controlled `revit-custom` stdio server; arbitrary C# and `.csx` execution is not part of the release interface.
 - A successful build or check-only run proves packaging prerequisites, not native Revit business acceptance. Native workflow claims require the acceptance records described in `docs/goal-progress.md`.
+
+## Continuous integration
+
+每次推送到 `main` 或创建 Pull Request 时，GitHub Actions 会在 Windows/Linux 上运行 MCP 契约测试、.NET 核心安全测试和仓库卫生检查。CI 不编译 Revit 插件本体，因为 Autodesk Revit API DLL 不能随仓库分发；带有本机 Revit 2027.3 的 Windows 环境仍需按上面的可移植构建命令做发布候选构建。
+
+仓库卫生检查仅检查当前 Git 跟踪的路径及新版部署入口，不是完整的密钥、内容或 Git 历史扫描。旧版生成的 `audit.json`、`preflight.json` 已停止跟踪，本地文件保留；历史提交可能仍包含报告或项目细节。仓库公开前必须另行审查历史及文档中的私有验收内容，不能仅凭这项检查宣布可公开。

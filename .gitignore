@@ -45,3 +45,7 @@ Thumbs.db
 # Administrator-local approved proprietary family catalog
 families/library.json
 families/library.json.backup-*
+
+# Local legacy audit/preflight outputs (not public fixtures)
+/audit.json
+/preflight.json
