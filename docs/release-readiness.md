@@ -100,3 +100,5 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 `architecture.stairs` 已升级为严格显式类型/几何契约：现有 stairTypeId、上下标高、总及每跑踢面数、踏面深度、完整水平路径 XYZ 和容差；none/automaticBetweenRuns/sketched 平台模式均不得静默互换。空楼梯在创建组件前绑定到审阅类型，仅修改新实例、不改类型定义。事务提交前和范围提交后核对原生类型、集合、数量、宽度、标高、路径及明确的平台轮廓；旧清理证据继续区分取消返回和可能已提交，不声称已回滚验证。
 
 暂存构建 Revit 27.3.0.28 API 0 警告、0 错误；162 核心测试、384 MCP 测试通过。全量测试曾暴露取消夹具的定时器竞态，已改为确认模拟命令收到后取消并给等待设置上限；仅停止了已核实的本轮挂起 Node 测试进程，未停止 Revit/真实助手。新 DLL 未部署，新显式契约与草绘平台尚未原生实机验收；旧 none-only 验收记录只作为历史证据，不能为新契约背书。详见 `docs/stairs-explicit.md`。
+
+楼梯契约提交 `0ecd80b` 的 GitHub Actions run `37803437671` 已完成，Windows/Linux 共 4 项检查全部成功。独立源码克隆构建：162 核心测试、381 MCP 测试通过，3 项私有原生记录测试明确跳过；安装只检查通过且未生成 runtime。当前旧运行插件的真实 MCP 请求在严格楼梯预览前被 `explicit-stair-geometry` 能力门禁拒绝，identity/revision/isModified/路径/元素统计均不变。这不是类型切换、踢面数、平台或回滚成功证据；新 DLL 未安装，旧 none-only 证据不能为新契约认证。
