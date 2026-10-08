@@ -9,12 +9,6 @@ using Autodesk.Revit.UI;
 
 namespace RevitAutoV27;
 
-internal sealed record OperationReceipt(List<long> Created, List<long> Changed)
-{
-    public object? Evidence { get; init; }
-    public static OperationReceipt New(Element e) => new([e.Id.Value], []);
-    public static OperationReceipt Modified(Element e) => new([], [e.Id.Value]);
-}
 internal sealed class ModelExecutor(UIApplication app, Dictionary<string, ElementId> references)
 {
     private Document Doc => app.ActiveUIDocument!.Document;
@@ -310,7 +304,10 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 break;
             case "duplicate_type": created = Required<ElementType>(op, "sourceTypeId").Duplicate(JsonDefaults.String(op, "name")!); break;
             case "set_parameter":
-                var target = Required<Element>(op, "elementId"); SetParameter(target, JsonDefaults.String(op, "parameter")!, JsonDefaults.Get(op, "value")); return OperationReceipt.Modified(target);
+                var target = Required<Element>(op, "elementId");
+                var parameterName = JsonDefaults.String(op, "parameter")!;
+                var wroteParameter = SetParameter(target, parameterName, JsonDefaults.Get(op, "value"));
+                return OperationReceipt.ForParameter(target.Id.Value, parameterName, wroteParameter);
             case "delete_element": return new([], Doc.Delete(Id(op, "elementId")).Select(id => id.Value).ToList());
             case "create_level": created = Autodesk.Revit.DB.Level.Create(Doc, Mm(PlanRules.Number(op, "elevationMm"))); created.Name = JsonDefaults.String(op, "name")!; break;
             case "create_grid": created = Grid.Create(Doc, Line(op)); if (JsonDefaults.String(op, "name") is { } gridName) created.Name = gridName; break;
@@ -429,7 +426,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         }
         materializedOperations[created.Id.Value] = op.Clone();
         if(kind=="create_opening")return OpeningService.Verify(Doc,(Opening)created,op);
-        return OperationReceipt.New(created);
+        return OperationReceipt.New(created.Id.Value);
     }
     private void ValidateOpening(JsonElement op)=>OpeningService.Validate(Doc,op);
     private Opening CreateOpening(JsonElement op)=>OpeningService.Create(Doc,op);
@@ -534,13 +531,14 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         }
         throw Invalid($"Value has wrong type for {p.Definition.Name} ({p.StorageType}).");
     }
-    private void SetParameter(Element e, string name, JsonElement value)
+    private bool SetParameter(Element e, string name, JsonElement value)
     {
         var p = Parameter(e, name); var converted = ConvertValue(p, value);
         var same = converted switch { string s => p.AsString() == s, int i => p.AsInteger() == i, double d => Math.Abs(p.AsDouble() - d) <= 1e-10 * Math.Max(1, Math.Abs(d)), ElementId id => p.AsElementId() == id, _ => false };
-        if (same) return;
+        if (same) return false;
         var changed = converted switch { string s => p.Set(s), int i => p.Set(i), double d => p.Set(d), ElementId id => p.Set(id), _ => false };
         if (!changed) throw Invalid($"Revit refused parameter {name} on {e.Id.Value}.");
+        return true;
     }
     private static void SetBuiltIn(Element e, BuiltInParameter name, string value)
     {

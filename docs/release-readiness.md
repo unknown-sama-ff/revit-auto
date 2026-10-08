@@ -136,3 +136,11 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 用户批准的临时标高测试只提交一次，第一步完成、第二步只读参数失败；原生回滚状态及临时名称/实际 ID 消失、原有标高/统计/保护对象基线恢复均核验通过。回滚事件使 revision 增加，但当前 isModified=false，无需要求保存不存在的模型变更；没有清理、重试或自动保存。
 
 失败收据保持 captureComplete=false：原生 TransactionRolledBack 事件未提供未提交临时创建的 ID 集合，只有版本/事件覆盖完整。未凭空认证净差异、副作用或完整模型恢复，普通事务的此次基线证明不推广为楼梯/洞口/全业务回滚验收。已为 no-op 同值测试生成新预览，未执行，等待新的聊天批准。所有模型/元素详细证据仍仅本地保存。
+
+### 2026-10-09：no-op 收据语义缺陷与最小修复
+
+当前 loaded `ffa1d98` 的单次同值原生测试未改变参数、声明基线、revision 或保存状态，但主要回执错误列出灯具修改，captureComplete=false。该验收判为未通过，而非“成功 no-op”；执行器已定位为跳过 setter 后仍无条件返回修改 ID。
+
+源码修正只影响 set_parameter 的操作结果：同值输出空主要变化 ID 和 no_change，实际 setter 成功仍输出修改 ID；失败继续回滚，事件捕获规则不放宽，不自动认证净差异、副作用或参数读回。新增回归覆盖普通写入、空事件 no-op、虚构修改不能完整、真实内部事件不能被掩盖和 SDK 回执透传。修复版尚需真实加载后的新计划/新聊天批准验收；旧 committed 计划不重试、不修复模型、不自动保存。
+
+no-op 误报的源码修复回归已通过：168 核心测试、424 MCP 测试。改动仅让参数 setter 的实际执行结果驱动主要变更 ID，同时保留操作完成数和 no_change 证据；NativeChangeReceipt 覆盖规则保持原样，不能通过强改 captureComplete 掩盖缺失事件。真实运行版的旧 no-op 记录仍保留为未通过，不自动重交、保存或篡改旧回执。

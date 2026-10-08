@@ -57,3 +57,11 @@ MCP SDK模拟宿主验证 nativeChanges 完整透传、失败证据保留且不�
 DocumentChanged 与独立原生历史均记录一次 TransactionRolledBack，事件 ID 集合为空。临时元素在尚未提交事务中创建又被回滚，捕获器没有对应新增 ID 证据；revisionCoverageComplete=true，但 elementEvidenceComplete/captureComplete=false，未被改写为完整。声明基线恢复由独立名称/ID/集合/字段读回支持，不由空事件集合推断，netModelDiffVerified/sideEffectsVerified 仍为 false。此结果不是全模型恢复、楼梯/洞口回滚、其他业务写入或磁盘重开证明。
 
 下一 no-op 测试只生成新的同值参数预览，等待新的聊天批准；不沿用回滚批准，也不把 failed 计划重新提交。实际 no-op 的事件、revision、主要 changed IDs 与数据不变状态必须独立读取，不能事先假定。
+
+## 2026-10-09：同值 no-op 原生实测发现误报（未通过）
+
+用户批准的同值计划只提交一次。参数、声明保护对象/标高/分类统计、revision 和 isModified 均不变；原生事件数为 0，独立变更历史也没有新增/修改/删除。旧运行版主要 changedElementIds 却仍列出目标灯具，捕获器正确因这项证据缺口保留 captureComplete=false。**这次 no-op 收据验收未通过**，不会把数据未改变或计划 committed 等同于回执语义正确。
+
+原因：SetParameter 同值时跳过 native setter，但执行分派无条件生成 Modified 回执。源码修正为返回是否实际执行参数 setter，并构造独立可测试的参数操作回执；同值返回空 Created/Changed 和 no_change/noOp 证据，真实 setter 成功继续返回主要修改 ID，setter 拒绝/异常仍走失败回滚。操作证据不认证原生读回、净差异或副作用，NativeChangeReceipt 规则没有被放宽；若 Revit 的内部元素确实发生变化仍如实捕获。
+
+修复版仅在源码/暂存构建与回归测试中核验；必须在重新加载后用新的预览和新的聊天批准进行 no-op 原生回归，不能重交此已提交计划或悄悄篡改它的旧回执。数据没有待保存修改，不要求用户保存不存在的变更。

@@ -470,6 +470,35 @@ Test("sketched landing data must be horizontal explicit and aligned with riser g
 Test("non-sketched stair modes reject landings that would otherwise be silently ignored",()=>{
  Throws("invalid_stair",()=>StairRules.Validate(Json(explicitStairJson.Replace("\"runs\":","\"landings\":[],\"runs\":"))));
 });
+
+Test("same-value parameter outcome has no created/changed IDs and discloses no_change without readback claims",()=>{
+ var operation=OperationReceipt.ForParameter(2290242,"Comments",false);
+ if(operation.Created.Count!=0||operation.Changed.Count!=0)throw new Exception("Same-value parameter incorrectly claims an element mutation");
+ var evidence=JsonSerializer.SerializeToElement(operation.Evidence,JsonDefaults.Options);
+ if(evidence.GetProperty("outcome").GetString()!="no_change"||evidence.GetProperty("parameterWritePerformed").GetBoolean()||!evidence.GetProperty("noOp").GetBoolean()||evidence.GetProperty("nativeReadbackVerified").GetBoolean()||evidence.GetProperty("sideEffectsVerified").GetBoolean())throw new Exception("No-op result fabricates write or readback/safety evidence");
+});
+Test("real parameter write outcome preserves the single modified element and reports only setter success",()=>{
+ var operation=OperationReceipt.ForParameter(123,"Comments",true);
+ if(operation.Created.Count!=0||!operation.Changed.SequenceEqual(new long[]{123}))throw new Exception("Real parameter mutation omitted from primary receipt");
+ var evidence=JsonSerializer.SerializeToElement(operation.Evidence,JsonDefaults.Options);
+ if(evidence.GetProperty("outcome").GetString()!="write_performed"||!evidence.GetProperty("parameterWritePerformed").GetBoolean()||evidence.GetProperty("noOp").GetBoolean()||evidence.GetProperty("nativeReadbackVerified").GetBoolean())throw new Exception("Setter outcome was certified as independently verified data");
+});
+Test("correct no-op operation receipt permits complete empty-event coverage without faking net diff",()=>{
+ var operation=OperationReceipt.ForParameter(123,"Comments",false);var capture=new NativeChangeReceipt("doc",2);var evidence=capture.Snapshot(2,"committed",operation.Created,operation.Changed);
+ if(!evidence.CaptureComplete||!evidence.ElementEvidenceComplete||evidence.ObservedEventCount!=0||evidence.ObservedModifiedElementIds.Length!=0||evidence.NetModelDiffVerified||evidence.SideEffectsVerified)throw new Exception("No-op event evidence contract is wrong");
+});
+Test("a parameter result claiming a real write cannot pass empty native-event coverage",()=>{
+ var operation=OperationReceipt.ForParameter(123,"Comments",true);var capture=new NativeChangeReceipt("doc",2);var evidence=capture.Snapshot(2,"committed",operation.Created,operation.Changed);
+ if(evidence.CaptureComplete||evidence.ElementEvidenceComplete)throw new Exception("Native event evidence was forced complete despite a missing actual modification");
+});
+Test("no-op operation does not hide native internal mutations when events actually exist",()=>{
+ var operation=OperationReceipt.ForParameter(123,"Comments",false);var capture=new NativeChangeReceipt("doc",2);capture.Record("doc",3,"TransactionCommitted",["native activity"],[],[456],[]);var evidence=capture.Snapshot(3,"committed",operation.Created,operation.Changed);
+ if(!evidence.CaptureComplete||!evidence.UnreportedModifiedElementIds.SequenceEqual(new long[]{456})||evidence.SideEffectsVerified)throw new Exception("No-op operation suppressed real native internal changes");
+});
+Test("invalid parameter outcome IDs or names are rejected rather than emitted as native changes",()=>{
+ foreach(var input in new[]{(0L,"Comments"),(-1L,"Comments"),(1L," ")}){try{OperationReceipt.ForParameter(input.Item1,input.Item2,false);throw new Exception("Invalid parameter receipt accepted");}catch(ArgumentException){}}
+});
+
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }
