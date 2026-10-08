@@ -84,3 +84,5 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 最终独立暂存目录为 `v27/bin/Release/net10.0-windows-v27-electrical-audit-final-stage-20261008/`，Revit 27.3.0.28 API 编译 0 警告、0 错误；153 项核心测试、361 项 MCP 测试通过。安装只检查流程通过，不修改 runtime 或插件清单。
 
 实际 SDK 对当前旧运行插件核验：新电气审计在方法转发前被 feature_not_loaded 拒绝，identity/revision/isModified/路径/元素统计不变，没有创建/提交计划。**新 DLL 没有部署，新原生审计尚未实机验收**；此门禁拒绝证据不是电气审计成功证据。业务对等及发布目标继续保持未完成，详见 docs/electrical-audit.md。
+
+电气审计提交 `a6ea542` 的 GitHub Actions run `37788809856` 已完成：Windows/Linux 契约测试及发布卫生共 4 个任务全部成功。独立源码克隆重新构建为 0 警告、0 错误，358 项 MCP 测试通过、3 项私有捕获测试显式跳过；153 核心测试通过。最终暂存 DLL 与独立克隆的安装只检查均通过，未创建私有 runtime、更新安装清单或启动/重启应用。这是构建与发布门禁证据，不是新原生业务验收。
