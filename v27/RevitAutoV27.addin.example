@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>RevitAuto AI 2027</Name>
+    <Assembly>RevitAutoV27.dll</Assembly>
+    <AddInId>6E95F8A9-7A3D-4B4A-9C4F-93F1D92F31C8</AddInId>
+    <FullClassName>RevitAutoV27.App</FullClassName>
+    <VendorId>CDXA</VendorId>
+    <VendorDescription>Local Revit 2027 AI model builder</VendorDescription>
+  </AddIn>
+</RevitAddIns>

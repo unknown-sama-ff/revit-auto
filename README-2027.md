@@ -32,7 +32,7 @@
 - `verification.saved`：读取当前文档是否有未保存修改及受限变更历史；不保存、不打开其他 RVT、不创建模型计划。
 - `imports.parameter_table`：CSV/TSV/XLSX/JSON 显式字段映射和计划预览；不猜测族、类型、楼层，不自动保存。`architecture.stairs`：显式上下标高、直跑几何、宽度和平台策略，使用专用 `StairsEditScope` 原子路径。
 
-当前仓库提交为 `942530f`，已推送到私人 GitHub 仓库。实机验收仍需使用项目副本；自动化测试不等于真实 Revit 业务验收。
+仓库当前为私有 GitHub 仓库；版本与验收状态以 Git 提交、`docs/goal-progress.md` 和 `docs/release-readiness.md` 为准。实机验收仍需使用项目副本；自动化测试不等于真实 Revit 业务验收。
 族加载目录保护：计划绑定 RFA 哈希和整个 `library.json` 的 `catalogSha256`；目录改变需要重新预览。没有 `family-catalog-snapshot` 能力的旧插件不能创建新版族加载计划。加载提示弹窗不作为版本证据，应以原生 `revit.bridge.info` 能力查询为准。目录哈希错误的原生预览拒绝已验证，真实新 RFA 加载/替换仍待验收。
 
 ## 工具和安全
@@ -113,6 +113,27 @@ node D:\Desktop\revitt\revit-auto\mcp\acceptance.mjs --lighting D:\Desktop\revit
 
 自动化测试覆盖协议、认证数据流、中文分块传输、两个模拟助手、导入、只读代理、引用和计划生命周期。**模拟测试不是 Revit 业务验收，不应宣称回路、导线、宿主和回滚已经在真实项目中验证成功。**
 
+## 可移植构建与干净安装检查
+
+新版构建不再写死开发机的 Revit 路径，也不会把 Autodesk API DLL 打包进仓库。使用本机 Revit 2027.3 的 API 编译：
+
+```powershell
+.\build-v27.ps1 -RevitInstallDir 'C:\Program Files\Autodesk\Revit 2027'
+```
+
+如果 Revit 安装在其他位置，使用 `-RevitInstallDir` 或 `REVIT_2027_INSTALL_DIR`。需要同时存在 `RevitAPI.dll`、`RevitAPIUI.dll`，版本必须是 2027.3+ 的 2027 系列。Revit 正在运行时请指定独立的仓库内暂存目录：
+
+```powershell
+.\build-v27.ps1 -RevitInstallDir 'D:\revit 2027\Autodesk\Revit 2027' -OutputDirectory 'v27\bin\Release\net10.0-windows-release-stage'
+```
+
+发布前先运行只检查模式；它不会创建令牌、写入清单或修改 Claude/Codex 配置：
+
+```powershell
+.\install-v27.ps1 -CheckOnly -AssemblyPath '.\v27\bin\Release\net10.0-windows-release-stage\RevitAutoV27.dll'
+```
+
+完整说明见 `docs/release-readiness.md`。
 ## 安装和回退
 
 `install-v27.ps1 -RegisterCodex -RegisterClaudeDesktop` 会安装清单、私有设置并合并助手配置；不关闭 Revit、不改模型。重跑保留令牌、备份配置。

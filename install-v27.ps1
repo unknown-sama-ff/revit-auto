@@ -1,8 +1,36 @@
-param([switch]$RegisterCodex,[switch]$RegisterClaudeDesktop,[switch]$DisableLegacyClaudeRevit)
+param(
+  [switch]$RegisterCodex,
+  [switch]$RegisterClaudeDesktop,
+  [switch]$DisableLegacyClaudeRevit,
+  [switch]$CheckOnly,
+  [string]$AssemblyPath
+)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
-$dll=Join-Path $root 'v27\bin\Release\net10.0-windows-v27-family-snapshot-0400\RevitAutoV27.dll'
-if(-not(Test-Path -LiteralPath $dll)){throw 'Build-v27.ps1 must succeed before installation.'}
+. (Join-Path $root 'v27\deployment.ps1')
+if([string]::IsNullOrWhiteSpace($AssemblyPath)){$AssemblyPath=Get-V27DefaultDll $root}
+$dll=Assert-V27Dll $root $AssemblyPath
+$template=Join-Path $root 'v27\RevitAutoV27.addin.example'
+[xml]$addin=Get-Content -LiteralPath $template -Raw
+if($addin.RevitAddIns.AddIn.FullClassName -ne 'RevitAutoV27.App' -or $addin.RevitAddIns.AddIn.AddInId -ne '6E95F8A9-7A3D-4B4A-9C4F-93F1D92F31C8'){
+  throw 'Invalid Revit add-in template.'
+}
+$addin.RevitAddIns.AddIn.Assembly=$dll
+$node=Get-V27Node
+$script=Join-Path $root 'mcp\revit-custom.mjs'
+if(-not(Test-Path -LiteralPath $script -PathType Leaf)){throw 'MCP entry point is missing.'}
+# Dependency resolution uses the package directory, independent of caller cwd.
+Push-Location (Join-Path $root 'mcp')
+try{
+  & $node --input-type=module -e "await import('@modelcontextprotocol/sdk/server/mcp.js'); await import('fast-xml-parser'); await import('fflate'); await import('zod');"
+  if($LASTEXITCODE -ne 0){throw 'MCP dependencies are missing or invalid. Run npm ci in the mcp directory.'}
+}finally{Pop-Location}
+if($RegisterCodex){$codex=(Get-Command codex -ErrorAction Stop).Source}
+if($CheckOnly){
+  Write-Output "Installation checks passed. Selected DLL: $dll"
+  Write-Output 'No runtime credentials, Revit manifest or assistant configuration were changed.'
+  return
+}
 $runtime=Join-Path $root 'runtime'
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 # Runtime credentials may be read only by the current Windows account and SYSTEM.
@@ -30,14 +58,14 @@ if(-not $settings.PSObject.Properties['planLifetimeMinutes']){
 if($settings.planLifetimeMinutes -isnot [long] -and $settings.planLifetimeMinutes -isnot [int]){throw 'planLifetimeMinutes must be an integer.'}
 if($settings.planLifetimeMinutes -lt 15 -or $settings.planLifetimeMinutes -gt 480){throw 'planLifetimeMinutes must be between 15 and 480.'}
 $manifest=Join-Path $root 'v27\RevitAutoV27.addin'
-[xml]$addin=Get-Content -LiteralPath $manifest -Raw
-$addin.RevitAddIns.AddIn.Assembly=$dll
 $addin.Save($manifest)
 $targetDir=Join-Path $env:APPDATA 'Autodesk\Revit\Addins\2027'
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-Copy-Item -LiteralPath $manifest -Destination (Join-Path $targetDir 'RevitAutoV27.addin') -Force
-$node=(Get-Command node -ErrorAction Stop).Source
-$script=Join-Path $root 'mcp\revit-custom.mjs'
+$target=Join-Path $targetDir 'RevitAutoV27.addin'
+if(Test-Path -LiteralPath $target -PathType Leaf){
+  Copy-Item -LiteralPath $target -Destination ($target+'.backup-'+[Guid]::NewGuid().ToString('N'))
+}
+Copy-Item -LiteralPath $manifest -Destination $target -Force
 if($RegisterCodex){
   $codex=(Get-Command codex -ErrorAction Stop).Source
   $codexConfig=if($env:CODEX_HOME){Join-Path $env:CODEX_HOME 'config.toml'}else{Join-Path $env:USERPROFILE '.codex\config.toml'}

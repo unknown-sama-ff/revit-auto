@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <RevitInstallDir Condition="'$(RevitInstallDir)' == ''">$(REVIT_2027_INSTALL_DIR)</RevitInstallDir>
+    <RevitInstallDir Condition="'$(RevitInstallDir)' == ''">$(ProgramW6432)\Autodesk\Revit 2027</RevitInstallDir>
     <TargetFramework>net10.0-windows</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
@@ -16,15 +18,19 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="RevitAPI">
-      <HintPath>D:\revit 2027\Autodesk\Revit 2027\RevitAPI.dll</HintPath>
+      <HintPath>$(RevitInstallDir)\RevitAPI.dll</HintPath>
       <Private>false</Private>
       <ExternallyResolved>true</ExternallyResolved>
     </Reference>
     <Reference Include="RevitAPIUI">
-      <HintPath>D:\revit 2027\Autodesk\Revit 2027\RevitAPIUI.dll</HintPath>
+      <HintPath>$(RevitInstallDir)\RevitAPIUI.dll</HintPath>
       <Private>false</Private>
       <ExternallyResolved>true</ExternallyResolved>
     </Reference>
   </ItemGroup>
 
+  <Target Name="ValidateRevitApiDirectory" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(RevitInstallDir)\RevitAPI.dll') Or !Exists('$(RevitInstallDir)\RevitAPIUI.dll')"
+           Text="Revit API DLLs are missing. Use build-v27.ps1 -RevitInstallDir or set REVIT_2027_INSTALL_DIR. Autodesk API DLLs are not distributed with this project." />
+  </Target>
 </Project>
