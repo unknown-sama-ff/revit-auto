@@ -19,7 +19,7 @@ test('private model, family, runtime and generated manifest files are not tracke
 
 test('new runtime deployment code has no developer-specific paths', () => {
   // Legacy 2025 scripts remain independent fallback assets, not portable 2027 entry points.
-  const files = ['v27/RevitAutoV27.csproj', 'v27/deployment.ps1', 'build-v27.ps1', 'install-v27.ps1'];
+  const files = ['v27/RevitAutoV27.csproj', 'v27/deployment.ps1', 'build-v27.ps1', 'install-v27.ps1', 'start-claude-2027.ps1'];
   for (const file of files) {
     assert.doesNotMatch(fs.readFileSync(path.join(root, file), 'utf8'), /[A-Za-z]:\\/i, file);
   }

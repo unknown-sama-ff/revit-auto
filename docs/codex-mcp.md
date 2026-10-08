@@ -7,7 +7,7 @@
 - MCP 服务：`D:\Desktop\revitt\revit-auto\mcp\revit-custom.mjs`
 - Node：脚本会优先解析本机 Node 的绝对路径。
 - Codex 配置：`%USERPROFILE%\.codex\config.toml`
-- Claude 配置：`D:\Desktop\revitt\revit-auto\mcp\claude.mcp.json`
+- Claude Code：使用本包的 `start-claude-2027.ps1`；运行时生成专用配置。详见 `docs/claude-code.md`。
 
 ## 安装到 Codex
 

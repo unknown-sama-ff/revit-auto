@@ -62,7 +62,7 @@ test('installer parses public template and checks dependencies before any instal
  assert.match(fs.readFileSync(path.join(root,'.gitignore'),'utf8'),/^\*\.addin\s*$/m);
 });
 test('PowerShell scripts parse without errors',windows,()=>{
- const files=['build-v27.ps1','install-v27.ps1','v27/deployment.ps1'];
+ const files=['build-v27.ps1','install-v27.ps1','v27/deployment.ps1','start-claude-2027.ps1'];
  for(const file of files){
   const result=ps(`$tokens=$null;$errors=$null;[void][System.Management.Automation.Language.Parser]::ParseFile(${quote(path.join(root,file))},[ref]$tokens,[ref]$errors);if($errors.Count){$errors | Out-String | Write-Error;exit 1}`);
   assert.equal(result.status,0,result.stderr||result.error?.message);

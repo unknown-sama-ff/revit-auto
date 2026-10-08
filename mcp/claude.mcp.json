@@ -2,7 +2,7 @@
   "mcpServers": {
     "revit-custom": {
       "command": "node",
-      "args": ["D:\\Desktop\\revitt\\revit-auto\\mcp\\revit-custom.mjs"]
+      "args": ["mcp/revit-custom.mjs"]
     }
   }
 }

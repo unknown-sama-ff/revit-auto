@@ -66,3 +66,7 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 - GitHub Actions run `37775132193`：Windows/Linux 的契约测试和仓库卫生共 4 个任务全部成功；云端使用 Node 22 和 .NET 10，未启动 Revit。
 
 以上不是稳定版发布承诺。功能矩阵逐项原生验收、实际安装/双客户端联调、Claude Code 启动入口的干净包核验、仓库历史隐私检查以及许可证仍待完成。新增变更收据与楼梯清理证据能力只有源码/暂存构建验证，尚未在运行中的 Revit 插件上验收；本轮没有模型写入或应用重启。
+
+### Claude Code 便携式入口进展
+
+`start-claude-2027.ps1` 已按包位置生成专用配置，不再要求开发机绝对路径。源码模板只有单一 `revit-custom`；只检查模式无配置写入，正常启动不改全局配置、不添加权限绕过、不重试客户端失败。新增 17 项启动器测试及本机 Claude Code 2.1.292 配置检查通过，完整测试为 144 核心 + 324 MCP。实际客户端工具发现仍须真实会话验收；详见 `docs/claude-code.md`。

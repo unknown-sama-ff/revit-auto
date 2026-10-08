@@ -28,6 +28,15 @@
 
 自然语言由接入的助手解析；本桥负责确定性的模型查询、校验、流程和执行，不包含一个独立聊天模型。
 
+## Claude Code 专用入口
+
+不需要 Claude Desktop。可从任意目录调用本包启动器：
+
+```powershell
+& 'C:\src\revit-auto\start-claude-2027.ps1' -CheckOnly
+```
+
+只检查模式不启动聊天、不写配置；正常启动去掉 `-CheckOnly`，按本包实际路径生成专用 MCP 配置，不修改全局客户端配置。客户端无法被 PATH 找到时可提供 `-ClaudePath` 绝对路径。完整说明与只读接入验收边界见 `docs/claude-code.md`。
 ## v0.4.0 新增工作流
 
 - `families.load`：只允许管理员登记的本地 RFA 白名单；支持 `reject`、`keep_existing`、`replace`，所有写入都必须先预览并在聊天中确认。`keep_existing` 分支已在 Revit 2027.3 验收；实际新 RFA 加载和 replace 仍需独立测试副本验收。
