@@ -9,7 +9,7 @@ namespace RevitAutoV27;
 
 internal static class RevitQueryService
 {
-    private static readonly BuiltInCategory[] CountCategories = [BuiltInCategory.OST_Levels, BuiltInCategory.OST_Grids, BuiltInCategory.OST_Walls, BuiltInCategory.OST_Doors, BuiltInCategory.OST_Windows, BuiltInCategory.OST_Floors, BuiltInCategory.OST_Rooms, BuiltInCategory.OST_LightingFixtures, BuiltInCategory.OST_LightingDevices, BuiltInCategory.OST_ElectricalEquipment, BuiltInCategory.OST_ElectricalCircuit, BuiltInCategory.OST_Wire, BuiltInCategory.OST_MechanicalEquipment, BuiltInCategory.OST_PipeCurves, BuiltInCategory.OST_DuctCurves, BuiltInCategory.OST_Sheets];
+    private static readonly BuiltInCategory[] CountCategories = [BuiltInCategory.OST_Levels, BuiltInCategory.OST_Grids, BuiltInCategory.OST_Walls, BuiltInCategory.OST_StructuralColumns, BuiltInCategory.OST_Columns, BuiltInCategory.OST_Stairs, BuiltInCategory.OST_Doors, BuiltInCategory.OST_Windows, BuiltInCategory.OST_Floors, BuiltInCategory.OST_Rooms, BuiltInCategory.OST_LightingFixtures, BuiltInCategory.OST_LightingDevices, BuiltInCategory.OST_ElectricalEquipment, BuiltInCategory.OST_ElectricalCircuit, BuiltInCategory.OST_Wire, BuiltInCategory.OST_MechanicalEquipment, BuiltInCategory.OST_PipeCurves, BuiltInCategory.OST_DuctCurves, BuiltInCategory.OST_Sheets];
     public static object Context(UIApplication app)
     {
         if (app.ActiveUIDocument?.Document is not { } doc) return new { active = false, message = "Open a project in Revit first." };
@@ -18,7 +18,7 @@ internal static class RevitQueryService
             active = true, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild,
             document = new { title = doc.Title, path = doc.PathName, identity = RevitCommandRouter.Identity(doc), revision = RevitCommandRouter.Revision(doc), isWorkshared = doc.IsWorkshared, isReadOnly = doc.IsReadOnly, isModified = doc.IsModified, isFamilyDocument = doc.IsFamilyDocument },
             activeView = app.ActiveUIDocument.ActiveView is { } view ? new { id = view.Id.Value, name = view.Name, viewType = view.ViewType.ToString(), scale = view.Scale } : null,
-            selectedElementIds = app.ActiveUIDocument.Selection.GetElementIds().Select(id => id.Value),
+            selectedElementIds = app.ActiveUIDocument.Selection.GetElementIds().Select(id => id.Value).ToArray(),
             units = new { coordinates = "mm", coordinateFrame = "Revit internal/project origin, absolute Z", parameterUnits = "Explicit value+unit required for doubles; BIP: names recommended" },
             levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).Select(l => new { id = l.Id.Value, name = l.Name, elevationMm = JsonDefaults.InternalToMm(l.Elevation) }).ToList(),
             familyTypes = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().Take(400).Select(s => new { id = s.Id.Value, category = s.Category?.Name, categoryId = s.Category?.Id.Value, family = s.FamilyName, type = s.Name, placement = s.Family.FamilyPlacementType.ToString() }).ToList(),
@@ -93,18 +93,19 @@ internal static class RevitQueryService
                 default: unknown.Add(row); break;
             }
         }
-        return new
+        var warnings = doc.GetWarnings();
+        return NativeReadSnapshot.Freeze(new
         {
-            documentIdentity = RevitCommandRouter.Identity(doc), counts = Counts(doc),
-            warnings = doc.GetWarnings().Take(200).Select(w => new { description = w.GetDescriptionText(), failingElementIds = w.GetFailingElements().Select(id => id.Value) }),
-            warningCount = doc.GetWarnings().Count,
-            unmarkedElectricalElementIds = instances.Where(f => string.IsNullOrEmpty(f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString())).Select(f => f.Id.Value),
-            duplicateMarks = instances.GroupBy(f => f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString()).Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1).Select(g => new { mark = g.Key, elementIds = g.Select(f => f.Id.Value) }),
+            documentIdentity = RevitCommandRouter.Identity(doc), documentRevision = RevitCommandRouter.Revision(doc), snapshotPolicy = "ui-thread-json-v1", counts = Counts(doc),
+            warnings = warnings.Take(200).Select(w => new { description = w.GetDescriptionText(), failingElementIds = w.GetFailingElements().Select(id => id.Value).ToArray() }).ToArray(),
+            warningCount = warnings.Count,
+            unmarkedElectricalElementIds = instances.Where(f => string.IsNullOrEmpty(f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString())).Select(f => f.Id.Value).ToArray(),
+            duplicateMarks = instances.GroupBy(f => f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString()).Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1).Select(g => new { mark = g.Key, elementIds = g.Select(f => f.Id.Value).ToArray() }).ToArray(),
             unconnectedMechanicalPorts = unconnected,
             connectedMechanicalPorts = connected,
             unknownMechanicalPorts = unknown,
             mechanicalPortAudit = new { totalCount = mechanicalPortRows.Length, scannedCount = mechanicalPortSample.Length, truncated = mechanicalPortRows.Length > mechanicalPortSample.Length, classification = "connected|unconnected|unknown" }
-        };
+        });
     }
     private static MechanicalPortAuditState MechanicalPortState(object row)
     {
@@ -158,7 +159,7 @@ internal static class RevitQueryService
             projectionOrigin=Point(projection.Origin), projectionBasisX=Point(projection.BasisX), projectionBasisY=Point(projection.BasisY), projectionBasisZ=Point(projection.BasisZ),
             anchor=viewport.get_Parameter(BuiltInParameter.VIEW_ANCHOR)?.AsInteger(), positionX=viewport.get_Parameter(BuiltInParameter.VIEW_POSITION_X)?.AsDouble(), positionY=viewport.get_Parameter(BuiltInParameter.VIEW_POSITION_Y)?.AsDouble() };
     }
-    private static object Counts(Document doc) => CountCategories.ToDictionary(c => c.ToString(), c => new FilteredElementCollector(doc).OfCategory(c).WhereElementIsNotElementType().GetElementCount());
+    internal static object Counts(Document doc) => CountCategories.ToDictionary(c => c.ToString(), c => new FilteredElementCollector(doc).OfCategory(c).WhereElementIsNotElementType().GetElementCount());
     private static string Name(Element e) { try { return e.Name; } catch { return e.GetType().Name; } }
     private static object Summary(Element e) => new { id = e.Id.Value, uniqueId = e.UniqueId, name = Name(e), category = e.Category?.Name, categoryId = e.Category?.Id.Value, className = e.GetType().Name, mark = e.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString(), number = e is Autodesk.Revit.DB.Architecture.Room r ? r.Number : null, viewFamily = e is ViewFamilyType vft ? vft.ViewFamily.ToString() : null, placement = e is FamilySymbol symbol ? symbol.Family.FamilyPlacementType.ToString() : null, levelId = e is ViewPlan levelView ? levelView.GenLevel?.Id.Value ?? e.LevelId.Value : e.LevelId.Value, typeId = e.GetTypeId().Value, ownerViewId = e.OwnerViewId.Value, hostId = e is FamilyInstance hosted ? (long?)hosted.Host?.Id.Value : null, sheetNumber = e is ViewSheet sheet ? sheet.SheetNumber : null, viewType = e is View drawingView ? drawingView.ViewType.ToString() : null, isViewTemplate = e is View templateView ? (bool?)templateView.IsTemplate : null, viewScale = e is ViewPlan planView ? (int?)planView.Scale : null, family = e is FamilyInstance f ? f.Symbol.FamilyName : e is FamilySymbol s ? s.FamilyName : null, type = e is FamilyInstance fi ? fi.Symbol.Name : null, location = Location(e) };
     private static object? Location(Element e) => e.Location switch

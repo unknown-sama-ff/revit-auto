@@ -39,19 +39,19 @@
       "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
     },
     {
-      "legacyFeature": "模型类别和警告审计",
+      "legacyFeature": "模型类别、警告、回路成员和配电箱参数审计",
       "legacyScript": "audit-final.csx",
-      "newWorkflow": "audit",
+      "newWorkflow": "electrical.audit",
       "sourceRole": "query-reference",
-      "supportedInputs": "pending adapter-specific structured inputs",
+      "supportedInputs": "reviewed documentIdentity/expectedRevision, optional exact circuitIds and explicit bounded member/parameter scope",
       "generatedOperations": [],
       "readOnlyQueries": [
         "revit.context.get",
-        "revit.inspect"
+        "revit.electrical.audit"
       ],
       "writeCategories": "none in current source port",
       "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "legacy-source-needs-redesign",
+      "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": false,
@@ -60,7 +60,7 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Native result, rollback and manual-save acceptance remains required."
+      "migrationNotes": "Controlled native circuit/member/panel/parameter and counts/warnings snapshot implemented and independently compiled; native loaded acceptance is pending. Raw internal values and unknown/truncated reads are explicit, no capacity inference or script execution."
     },
     {
       "legacyFeature": "外部样板族目录",

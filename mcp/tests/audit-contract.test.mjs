@@ -184,3 +184,29 @@ test('unified audit retains the native capability gate and does not retry an old
  assert.equal(requests.includes('revit.audit.run'),false);assert.equal(requests.filter(x=>x==='revit.context.get').length,1);
  assert.equal(requests.some(x=>/plan|confirm|import/.test(x)),false);
 });
+
+test('native audit freezes deferred API reads on UI thread before the bridge serializes its result',async()=>{
+ const source=await fs.readFile(path.join(root,'v27/RevitQueryService.cs'),'utf8');
+ const audit=source.slice(source.indexOf('public static object Audit'),source.indexOf('private static MechanicalPortAuditState'));
+ assert.match(audit,/return NativeReadSnapshot\.Freeze\(new/);
+ assert.match(audit,/documentRevision = RevitCommandRouter\.Revision\(doc\)/);
+ assert.match(audit,/snapshotPolicy = "ui-thread-json-v1"/);
+ assert.match(audit,/failingElementIds = w\.GetFailingElements\(\)\.Select\(id => id\.Value\)\.ToArray\(\)/);
+ assert.match(audit,/unmarkedElectricalElementIds = .*\.ToArray\(\)/);
+});
+
+test('generic audit does not claim UI snapshot validation for an older native report (mock)',async t=>{
+ const {client}=await auditClient(t,['mechanical-port-audit-tristate'],{documentIdentity:'test-document',warningCount:0,warnings:[]});
+ const result=await client.callTool({name:'revit_workflow_run',arguments:{name:'audit',documentIdentity:'test-document',expectedRevision:0,input:{}}});
+ assert.notEqual(result.isError,true);assert.equal(JSON.parse(result.content[0].text).auditConsistency.uiThreadSnapshotVerified,false);
+});
+test('generic audit verifies the declared native UI snapshot and refuses a conflicting native revision (mock)',async t=>{
+ const {client}=await auditClient(t,['mechanical-port-audit-tristate','ui-thread-audit-snapshot'],{documentIdentity:'test-document',documentRevision:0,snapshotPolicy:'ui-thread-json-v1',warningCount:0,warnings:[]});
+ const result=await client.callTool({name:'revit_workflow_run',arguments:{name:'audit',documentIdentity:'test-document',expectedRevision:0,input:{}}});
+ assert.notEqual(result.isError,true);assert.equal(JSON.parse(result.content[0].text).auditConsistency.uiThreadSnapshotVerified,true);
+});
+test('generic audit cannot overwrite a wrong native revision with the reviewed context revision (mock)',async t=>{
+ const {client,requests}=await auditClient(t,['mechanical-port-audit-tristate','ui-thread-audit-snapshot'],{documentIdentity:'test-document',documentRevision:1,snapshotPolicy:'ui-thread-json-v1'});
+ const result=await client.callTool({name:'revit_workflow_run',arguments:{name:'audit',documentIdentity:'test-document',expectedRevision:0,input:{}}});
+ assert.equal(result.isError,true);assert.equal(JSON.parse(result.content[0].text).code,'audit_scope_mismatch');assert.equal(requests.filter(x=>x==='revit.audit.run').length,1);
+});

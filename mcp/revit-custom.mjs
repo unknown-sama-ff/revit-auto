@@ -12,6 +12,7 @@ import { assertWorkflowEnabled, listWorkflows } from './workflow-registry.mjs';
 import { buildRegisteredWorkflow } from './workflow-adapter.mjs';
 import { auditFamilies, familyAuditSchema } from './family-audit.mjs';
 import {runModelAuditWorkflow} from './model-audit.mjs';
+import {auditElectrical,electricalAuditSchema,runElectricalAuditWorkflow} from './electrical-audit.mjs';
 import { previewFamilyLoads } from './family-load.mjs';
 import {pumpWorkflowIds,previewPumpWorkflow} from './pump-planning.mjs';
 import { savedVerificationSchema, savedVerificationInputSchema, verifySaved } from './saved-verification.mjs';
@@ -74,6 +75,7 @@ register('revit.workflow.run','Run a registered read-only audit/verification or 
   if(args.planningMode && !workflow.planningModes.includes(args.planningMode)) throw new Error('Planning mode '+args.planningMode+' is not supported by workflow '+args.name+'.');
   if(pumpWorkflowIds.includes(args.name))return previewPumpWorkflow(args,callRevit,signal);
   if(args.name==='audit')return runModelAuditWorkflow(args,callRevit,signal);
+  if(['electrical.audit','audit.electrical'].includes(args.name))return runElectricalAuditWorkflow(args,callRevit,signal);
   if(args.name==='families.load')return previewFamilyLoads(args,callRevit,signal);
   if(args.name==='imports.parameter_table') {
     return previewParameterImport({documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,summary:args.summary,input:args.input||{}},callRevit,signal);
@@ -103,6 +105,7 @@ register('revit.import.preview','Read CSV/TSV/XLSX/JSON parameter tables with ex
   return callRevit('revit.plan.create',{summary:args.summary || '参数表导入',documentIdentity:args.documentIdentity,source:'import',operations:parsed.operations},signal);
 });
 register('revit.import.commit','After explicit user chat approval, commit a previously validated table-import plan without any Revit confirmation dialog. DWG/image candidates must first be reviewed through plan.create.',{planId:z.string().min(1)},(args,signal)=>callRevit('revit.import.commit',args,signal),{readOnly:false});
+register('revit.electrical.audit','Read-only bounded circuit, terminal member, native panel relation and parameter evidence. Pins the reviewed document/revision and freezes native UI-thread data. Unknown, known-null and truncated evidence remain distinct; no repairs, capacity guesses, model writes or compliance certification.',electricalAuditSchema,(args,signal)=>auditElectrical(args,callRevit,signal));
 register('revit.audit.run','Read-only model warning, electrical mark and tri-state equipment-port audit (connected, unconnected, unknown). Does not certify compliance.',{},(_,signal)=>callRevit('revit.audit.run',{},signal));
 register('revit.flow.diagnose','Read-only PipingSystem flow-direction diagnostic. Reads current system members, base connector, connector direction/flow when supported, and calculated flow errors; never modifies or saves the model.',{documentIdentity:z.string().min(1),expectedRevision:z.number().int().nonnegative().optional(),systemId:z.number().int().positive()},(args,signal)=>callRevit('revit.flow.diagnose',args,signal));
 register('revit.collision.check','Read-only local collision and conservative clearance-candidate audit for explicitly selected elements. Target group and explicit exclusions are not external candidates. Exact solid intersections, expanded bounding-box candidates, and unknown geometry are separate; no code compliance or exact-distance certification, no model modification or save.',collisionInputSchema,(args,signal)=>callRevit('revit.collision.check',args,signal));

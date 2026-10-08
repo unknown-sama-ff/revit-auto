@@ -40,6 +40,9 @@
 ## 当前项目审计的固定上下文入口
 
 统一工作流 `revit.workflow.run` 的 `name: "audit"` 会校验已读取的 identity/revision，并在查询后复查文档、版本和保存状态。变化时丢弃报告，不自动重试、不创建计划；未知端口和截断证据保留。原始无参数 `revit.audit.run` 保持兼容。具体范围及尚未完成的专业审计迁移见 `docs/model-audit.md`。
+## 电气回路审计迁移（暂存版）
+
+新增只读 `electrical.audit`（兼容名称 `audit.electrical`）及直接 `revit.electrical.audit`：查询当前文档的回路、终端成员、配电箱关系和参数，并披露未知、范围及截断。采用 UI 线程纯数据快照，不猜容量、不修复或保存模型。源码/暂存构建已实现，运行插件尚未部署与原生验收；旧 DLL 缺少能力时在转发前拒绝。完整说明见 `docs/electrical-audit.md`。
 ## v0.4.0 新增工作流
 
 - `families.load`：只允许管理员登记的本地 RFA 白名单；支持 `reject`、`keep_existing`、`replace`，所有写入都必须先预览并在聊天中确认。`keep_existing` 分支已在 Revit 2027.3 验收；实际新 RFA 加载和 replace 仍需独立测试副本验收。

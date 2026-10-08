@@ -387,6 +387,50 @@ Test("stair cancelled execution has a stable cause and no fabricated rollback fi
  if(e.CauseCode!="execution_cancelled"||json.GetProperty("rollbackVerified").GetBoolean()||json.GetProperty("rollbackStatus").GetString()!="unknown"||json.TryGetProperty("rolledBack",out _))throw new Exception("Unknown/cancelled state fabricated rollback");
 });
 
+Test("native read snapshot evaluates deferred data in its owner context before background serialization",()=>{
+ bool ownerContext=true;int reads=0;
+ IEnumerable<object> ReadNativeRows(){if(!ownerContext)throw new Exception("API accessed after UI context");reads++;yield return new{elementId=1,mark="L1"};}
+ var snapshot=NativeReadSnapshot.Freeze(new{rows=ReadNativeRows()});ownerContext=false;
+ var encoded=CommandResult.Success(snapshot).Serialize();Json(encoded);
+ if(reads!=1||snapshot.GetProperty("rows")[0].GetProperty("elementId").GetInt32()!=1)throw new Exception("Native enumerator escaped snapshot");
+});
+Test("native read snapshot owns copied values and cannot observe later source mutations",()=>{
+ var ids=new List<long>{1,2};var snapshot=NativeReadSnapshot.Freeze(new{ids});ids.Clear();
+ if(snapshot.GetProperty("ids").GetArrayLength()!=2)throw new Exception("Snapshot retained mutable source data");
+ Json(CommandResult.Success(snapshot).Serialize());
+});
+Test("electrical audit native input preserves revision zero and exact selected circuit IDs",()=>{
+ var input=ElectricalAuditRules.Parse(Json("""{"documentIdentity":"doc-a","expectedRevision":0,"circuitIds":[12,19],"maxCircuits":2,"maxMembersPerCircuit":10,"maxParametersPerCircuit":20}"""));
+ if(input.ExpectedRevision!=0||!input.CircuitIds.SequenceEqual(new long[]{12,19})||input.MaxCircuits!=2||input.MaxMembersPerCircuit!=10||input.MaxParametersPerCircuit!=20)throw new Exception("Audit scope changed");
+});
+Test("electrical audit default request stays bounded without an inferred circuit selection",()=>{
+ var input=ElectricalAuditRules.Parse(Json("""{"documentIdentity":"doc-a"}"""));
+ if(input.CircuitIds.Length!=0||input.ExpectedRevision is not null||input.MaxCircuits!=100||input.MaxMembersPerCircuit!=100||input.MaxParametersPerCircuit!=64)throw new Exception("Audit defaults not bounded");
+});
+Test("electrical audit refuses code paths duplicate IDs unsafe revisions and invalid limits",()=>{
+ foreach(var json in new[]{"""{"documentIdentity":"doc","code":"x"}""","""{"documentIdentity":"doc","filePath":"x.csx"}""","""{"documentIdentity":"doc","circuitIds":[]}""","""{"documentIdentity":"doc","circuitIds":[1,1]}""","""{"documentIdentity":"doc","circuitIds":[0]}""","""{"documentIdentity":"doc","circuitIds":[1.2]}""","""{"documentIdentity":"doc","expectedRevision":null}""","""{"documentIdentity":"doc","expectedRevision":-1}""","""{"documentIdentity":"doc","expectedRevision":9007199254740992}""","""{"documentIdentity":"doc","maxCircuits":201}""","""{"documentIdentity":"doc","maxMembersPerCircuit":501}""","""{"documentIdentity":"doc","maxParametersPerCircuit":129}""","""{"documentIdentity":"doc","circuitIds":[1,2],"maxCircuits":1}""","""{"documentIdentity":"doc","maxCircuits":1,"maxCircuits":2}""","""{"documentIdentity":" "}"""})
+  Throws("invalid_electrical_audit_request",()=>ElectricalAuditRules.Parse(Json(json)));
+});
+Test("electrical audit distinguishes unavailable native values from known absence and zero",()=>{
+ var zero=AuditValueEvidence.Read(()=>0L);var absent=AuditValueEvidence.Read(()=>null);var failed=AuditValueEvidence.Read(()=>throw new InvalidOperationException("Unsupported getter"));
+ if(zero.State!="known"||!Equals(zero.Value,0L)||absent.State!="known-null"||!absent.Supported||failed.State!="unknown"||failed.Supported||failed.Value is not null||failed.ErrorType!="InvalidOperationException")throw new Exception("Native audit uncertainty was guessed");
+ Json(CommandResult.Success(new{zero,absent,failed}).Serialize());
+});
+Test("electrical audit numeric failures are unknown and oversized strings disclose truncation",()=>{
+ foreach(var value in new object[]{double.NaN,double.PositiveInfinity,float.NegativeInfinity}){var evidence=AuditValueEvidence.Read(()=>value);if(evidence.Supported||evidence.Value is not null||evidence.State!="unknown")throw new Exception("Nonfinite audit value fabricated");Json(CommandResult.Success(evidence).Serialize());}
+ var text=AuditValueEvidence.Read(()=>new string('x',3000));if(!text.Truncated||((string)text.Value!).Length!=2048)throw new Exception("Oversized audit text not disclosed");
+});
+Test("electrical audit read failures retain bounded diagnostics without hiding cancellation",()=>{
+ var evidence=AuditValueEvidence.Read(()=>throw new IOException(new string('x',600)));if(evidence.Error!.Length!=400||evidence.ErrorType!="IOException")throw new Exception("Unbounded audit diagnostic");
+ try{AuditValueEvidence.Read(()=>throw new OperationCanceledException());throw new Exception("Cancellation hidden");}catch(OperationCanceledException){}
+});
+Test("UI-owned read snapshot can be serialized on a background thread without reentering native getters",()=>{
+ int ownerThread=Environment.CurrentManagedThreadId,reads=0;
+ IEnumerable<long> ReadNativeIds(){if(Environment.CurrentManagedThreadId!=ownerThread)throw new Exception("Wrong native API thread");reads++;yield return 12;yield return 19;}
+ var snapshot=NativeReadSnapshot.Freeze(new{ids=ReadNativeIds()});
+ var json=Task.Run(()=>CommandResult.Success(snapshot).Serialize()).GetAwaiter().GetResult();Json(json);
+ if(reads!=1||snapshot.GetProperty("ids").GetArrayLength()!=2)throw new Exception("Background response reentered native API");
+});
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }

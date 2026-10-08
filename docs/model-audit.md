@@ -29,4 +29,4 @@
 
 ### 后续原生安全任务
 
-代码审查还发现原生 Audit 的警告、未标记元素和重复标记使用延迟枚举，而响应在桥接线程序列化。后续原生版本应把涉及 Revit API 的这些读取在 UI 线程内物化为纯数据快照，并独立编译/实机核验；本轮 MCP 保护不替代这项原生线程安全任务。当前 API 查询范围、只读快照校验与完整专业审计迁移仍分别验收，不合并为一个“全部完成”状态。
+原生 Audit 的警告、未标记元素和重复标记延迟枚举已在源码中改为 UI 线程物化，并以 NativeReadSnapshot 冻结独立 JSON；新增 documentRevision/snapshotPolicy 和 ui-thread-audit-snapshot 能力标记。暂存编译与核心生命周期测试通过，但当前运行 DLL 未部署该变更，原生加载后验收仍待完成。MCP 的 auditConsistency.uiThreadSnapshotVerified 仅在返回相应原生标记时为 true，旧 DLL 不冒充已核验。新电气回路审计的范围与未完成状态见 docs/electrical-audit.md；这些状态仍分别验收，不合并为“全部完成”。

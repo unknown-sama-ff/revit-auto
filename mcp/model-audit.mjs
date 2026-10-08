@@ -20,13 +20,14 @@ export async function runModelAuditWorkflow(args,call,signal){
   if(expectedRevision!==undefined && before.document?.revision!==expectedRevision)fail('document_revision_changed','The audit project changed after the reviewed context.');
   const report=await call('revit.audit.run',{},signal);
   if(report.documentIdentity!==before.document.identity)fail('audit_scope_mismatch','Native audit evidence does not identify the reviewed project.');
+  if(report.documentRevision!==undefined && report.documentRevision!==before.document.revision)fail('audit_scope_mismatch','Native audit evidence identifies a different model revision.');
   const after=await call('revit.context.get',{},signal);
   requireContext(after);
   if(after.document?.identity!==before.document.identity)fail('document_changed','The active project changed during the audit; discard this report.');
   if(after.document?.revision!==before.document.revision)fail('document_revision_changed','The model revision changed during the audit; discard this report.');
   if(after.document?.path!==before.document.path || after.document?.isModified!==before.document.isModified)fail('audit_state_changed','The document path or saved state changed during the audit; discard this report.');
   return {...report,status:'read_only_result',workflowId:'audit',documentRevision:before.document.revision,readOnly:true,planCreated:false,
-    auditConsistency:{documentIdentityVerified:true,documentRevisionVerified:true,
+    auditConsistency:{documentIdentityVerified:true,documentRevisionVerified:true,uiThreadSnapshotVerified:report.snapshotPolicy==='ui-thread-json-v1',
       pathVerified:typeof before.document.path==='string' && typeof after.document.path==='string',
       savedStateVerified:typeof before.document.isModified==='boolean' && typeof after.document.isModified==='boolean'},
     warningsTruncated:Number.isSafeInteger(report.warningCount) && Array.isArray(report.warnings) ? report.warningCount>report.warnings.length : null,

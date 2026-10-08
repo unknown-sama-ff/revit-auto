@@ -76,3 +76,11 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 通用 `audit` 工作流已修复忽略 identity/revision 的缺口：校验嵌套输入与报告来源，查询前后检查项目、revision、路径和保存状态，变化时拒绝报告、不自动重试。新增 17 项公开 MCP 契约用例，完整 MCP 测试 341 项通过；直接无参数审计保持兼容。
 
 实际 SDK/stdio 只读核验通过，identity/revision/isModified/元素统计均不变，直接接口与工作流的原生集合内容一致，只有端口顺序变化。结果保留未知/截断，并明确不验证工程合规、磁盘持久性或完整专业审计对等；详见 `docs/model-audit.md`。本轮没有修改 Revit DLL 或模型。
+
+### 原生 UI 快照与电气审计迁移（2026-10-08）
+
+新增 NativeReadSnapshot 在 UI API 上下文内冻结审计结果；通用 Audit 的延迟警告、标记枚举和 context 选择集已物化。新增 `revit.electrical.audit`、`electrical.audit` / `audit.electrical`，迁移旧版类别统计/警告、回路号/负载名/配电箱、终端成员及参数读取，具有原生/桥接能力门禁、范围/总预算/时间/响应大小限制及未知值披露。
+
+最终独立暂存目录为 `v27/bin/Release/net10.0-windows-v27-electrical-audit-final-stage-20261008/`，Revit 27.3.0.28 API 编译 0 警告、0 错误；153 项核心测试、361 项 MCP 测试通过。安装只检查流程通过，不修改 runtime 或插件清单。
+
+实际 SDK 对当前旧运行插件核验：新电气审计在方法转发前被 feature_not_loaded 拒绝，identity/revision/isModified/路径/元素统计不变，没有创建/提交计划。**新 DLL 没有部署，新原生审计尚未实机验收**；此门禁拒绝证据不是电气审计成功证据。业务对等及发布目标继续保持未完成，详见 docs/electrical-audit.md。
