@@ -110,3 +110,5 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 候选只返回 candidateOnly，不创建原生 planId，也不能直接 import.commit；当前尚未完成 AutoCAD 实机提取、真实图片识别和候选到 Revit 原生落模验收，不能把 candidate-only 测试称作建模完成。
 
 候选工作流的最终工作区回归：414 项 MCP 测试、162 项核心测试通过。实际 SDK/stdio 对当前 Revit 的合成 DWG/图片源转换均返回 candidateOnly，没有原生 planId，identity/revision/isModified/路径/元素统计不变；不以合成候选证明真实 AutoCAD 提取、图片视觉识别或原生落模验收。所有源文本都按不可信数据返回，候选指纹不作为批准令牌或原始文件稳定性证明。
+
+候选工作流提交 `a821d5c` 的 GitHub Actions run `37813451403` 已完成，Windows/Linux 四项检查全部成功。独立源码克隆验证为 411 项 MCP、162 核心测试通过，3 项私有原生捕获测试显式跳过，未创建私有 runtime。本轮仅修改 MCP/固定提取器源码与测试、文档；没有替换 Revit DLL、启动 AutoCAD、启动视觉模型、创建/确认 Revit 计划或自动保存 RVT。真实图纸/图片与原生落模验收仍未完成。
