@@ -96,3 +96,7 @@ Revit 2025源码和程序集不修改；本批只改变Node MCP与元数据，�
 ## DWG/图片候选入口（受控候选，非原生落模验收）
 
 统一注册 `imports.dwg_candidate` / `imports.image_candidate` 已启用只读候选适配器，不开放任意源脚本、文件执行或直接模型导入。已有解析器迁入明确比例/原点/旋转/楼层/源坐标系、候选来源追踪和问题分类；原生类型/宿主校验仍须后续重新创建显式计划完成。合成输入的 MCP 验证不代表真实 AutoCAD 或视觉模型联调；所有旧 `.csx` 来源登记仍保持原独立验收状态。详见 `docs/candidate-imports.md`。
+
+## 2026-10-09：电气审计只读范围原生验收
+
+`audit-final.csx` 对应的 `electrical.audit` / `audit.electrical` 已通过加载指纹、UI 快照、有限预算截断披露、扩展预算和独立原生字段对照；来源状态更新为 implemented-and-accepted，并附带 acceptanceScope，明确仅限只读报告。旧任意脚本执行继续禁止，其他电气写入及保存/回滚项目保持各自未完成状态。此范围证据不能为全部照明/电气功能矩阵背书。

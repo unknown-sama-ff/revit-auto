@@ -116,3 +116,9 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 ### 集中原生验收准备
 
 原生桥与连接状态增加实际程序集 informationalVersion 和 moduleVersionId 读取，避免多个 `0.4.0` DLL 混淆。新增 `mcp/native-readonly-acceptance.mjs` 在指定构建/进程/项目上执行固定的通用/电气只读快照核验；旧能力、未知保存状态或统计、报告来源变化均拒绝，不创建/确认计划，也不自动重启。后续实际加载及写入/回滚验收仍等待用户手动重启并逐项批准；工具自身的测试不代替原生业务验收。说明见 `docs/native-batch-acceptance.md`。
+
+### 2026-10-09：候选版已加载，首次原生只读验收
+
+已核对实际宿主的完整 informationalVersion `0.4.0+ffa1d98f18983579c828cc36d7c17c9355fc0eca` 与 moduleVersionId，新收据/清理/审计/洞口/楼梯能力已加载。只读 batch 契约通过；电气默认预算截断如实返回，将参数预算明确提高到 128 后，声明范围的回路/成员/配电箱/参数均通过独立原生字段对照。查询前后 identity/revision/isModified/路径/元素统计不变，无计划提交或保存。
+
+仅将 audit-final 来源的只读报告范围标为原生已验收；新收据成功/失败路径、楼梯/洞口实际几何、完整其他专业能力、真实助手 UI 和磁盘持久性仍未完成。完整模型字段和验收 JSON 留在本机忽略目录，不随发布。

@@ -7,7 +7,8 @@ test('electrical audit workflows are discoverable read adapters, not model opera
   const workflow=getWorkflow(id);assert.ok(workflow,id);
   assert.equal(workflow.enabled,true);assert.equal(workflow.destructiveLevel,'read-only');assert.equal(workflow.operationBuilder,null);assert.equal(workflow.readAdapter,id);
   assert.ok(workflow.legacySources.includes('audit-final.csx'));
-  assert.notEqual(workflow.acceptanceStatus,'implemented-and-accepted');
+  assert.equal(workflow.acceptanceStatus,'implemented-and-accepted');
+  assert.equal(workflow.acceptanceScope.readOnly,true);assert.equal(workflow.acceptanceScope.fullElectricalWriteParityVerified,false);
  }
 });
 
@@ -116,9 +117,9 @@ test('native electrical audit is UI-snapshotted bounded read-only code without t
  const router=await fs.readFile(path.join(root,'v27/RevitCommandRouter.cs'),'utf8');assert.match(router,/"electrical-circuit-audit"/);assert.match(router,/"revit.electrical.audit" => CommandResult.Success\(ElectricalAuditService.Run/);
 });
 
-test('audit-final migration row records read-only circuit coverage but not native acceptance',async()=>{
+test('audit-final native acceptance is explicitly limited to read-only circuit evidence',async()=>{
  const matrix=JSON.parse(await fs.readFile(path.join(root,'mcp/legacy-source-matrix.json'),'utf8'));
  const row=matrix.sources.find(row=>row.legacyScript==='audit-final.csx');
- assert.equal(row.newWorkflow,'electrical.audit');assert.equal(row.acceptanceStatus,'implemented-not-accepted');assert.equal(row.runtimeExecutionAllowed,false);
+ assert.equal(row.newWorkflow,'electrical.audit');assert.equal(row.acceptanceStatus,'implemented-and-accepted');assert.equal(row.acceptanceScope.readOnly,true);assert.equal(row.acceptanceScope.fullElectricalWriteParityVerified,false);assert.equal(row.acceptanceScope.persistenceVerified,false);assert.equal(row.runtimeExecutionAllowed,false);
  assert.deepEqual(row.generatedOperations,[]);assert.ok(row.readOnlyQueries.includes('revit.electrical.audit'));
 });

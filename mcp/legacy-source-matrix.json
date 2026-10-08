@@ -50,8 +50,8 @@
         "revit.electrical.audit"
       ],
       "writeCategories": "none in current source port",
-      "rollbackScope": "not-applicable-reference-or-read",
-      "acceptanceStatus": "implemented-not-accepted",
+      "rollbackScope": "not-applicable-read-only; query state and native fields independently checked",
+      "acceptanceStatus": "implemented-and-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
         "originalUsesTransaction": false,
@@ -59,8 +59,18 @@
         "originalAutoSaves": false,
         "originalUsesFixedWindowsPath": false
       },
-      "acceptanceEvidence": null,
-      "migrationNotes": "Controlled native circuit/member/panel/parameter and counts/warnings snapshot implemented and independently compiled; native loaded acceptance is pending. Raw internal values and unknown/truncated reads are explicit, no capacity inference or script execution."
+      "acceptanceEvidence": "Native UI-thread snapshot and direct/unified SDK contract, full declared parameter budget and independent revit.inspect field comparisons passed on 2026-10-09. See docs/electrical-audit.md.",
+      "migrationNotes": "Accepted only for the declared current-document read-only audit scope. The default 64-parameter budget correctly reports truncation; expanded 128-parameter reads were independently compared with native inspector. This acceptance does not certify electrical model creation, repairs, capacities, saves/reopen, real assistant UI setup, or other feature-matrix rows.",
+      "acceptanceScope": {
+        "nativeBuild": "0.4.0+ffa1d98f18983579c828cc36d7c17c9355fc0eca",
+        "verifiedAt": "2026-10-09",
+        "readOnly": true,
+        "circuitMemberPanelParameterCountWarningEvidenceVerified": true,
+        "fullElectricalWriteParityVerified": false,
+        "transactionRollbackVerified": false,
+        "persistenceVerified": false,
+        "engineeringComplianceVerified": false
+      }
     },
     {
       "legacyFeature": "外部样板族目录",
