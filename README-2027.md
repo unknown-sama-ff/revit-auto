@@ -33,6 +33,8 @@
 - `imports.parameter_table`：CSV/TSV/XLSX/JSON 显式字段映射和计划预览；不猜测族、类型、楼层，不自动保存。`architecture.stairs`：显式上下标高、直跑几何、宽度和平台策略，使用专用 `StairsEditScope` 原子路径。
 
 当前仓库提交为 `942530f`，已推送到私人 GitHub 仓库。实机验收仍需使用项目副本；自动化测试不等于真实 Revit 业务验收。
+族加载目录保护：计划绑定 RFA 哈希和整个 `library.json` 的 `catalogSha256`；目录改变需要重新预览。没有 `family-catalog-snapshot` 能力的旧插件不能创建新版族加载计划。加载提示弹窗不作为版本证据，应以原生 `revit.bridge.info` 能力查询为准。目录哈希错误的原生预览拒绝已验证，真实新 RFA 加载/替换仍待验收。
+
 ## 工具和安全
 
 逻辑 API 保留 `revit.context.get` 等点号命名；MCP 实际工具名使用 `revit_context_get` 等下划线，以兼容不同助手。工具描述给出对应逻辑 API。

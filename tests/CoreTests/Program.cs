@@ -259,6 +259,51 @@ Test("Windows approved asset stream holds a deny-write lock",()=>{
  if(!OperatingSystem.IsWindows())return;var root=Path.Combine(Path.GetTempPath(),"revit-family-core-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);var path=Path.Combine(root,"asset.rfa");try{File.WriteAllBytes(path,[1]);var hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();using(var stream=FamilyLibraryRules.OpenVerified(root,familyCatalogAsset with{RelativePath="asset.rfa",Sha256=hash})){var refused=false;try{using var write=new FileStream(path,FileMode.Open,FileAccess.Write,FileShare.ReadWrite);}catch(IOException){refused=true;}if(!refused)throw new Exception("Reviewed RFA could be rewritten while loading");}}finally{if(!root.StartsWith(Path.Combine(Path.GetTempPath(),"revit-family-core-"),StringComparison.Ordinal))throw new Exception("Unsafe cleanup");Directory.Delete(root,true);}
 });
 
+
+void WithManifestTest(Action<string> action)
+{
+ var temp=Path.GetFullPath(Path.GetTempPath());
+ var root=Path.Combine(temp,"revit-family-snapshot-core-"+Guid.NewGuid().ToString("N"));
+ Directory.CreateDirectory(root);
+ try { action(Path.Combine(root,"library.json")); }
+ finally {
+  var resolved=Path.GetFullPath(root);
+  if(Path.GetDirectoryName(resolved)!=temp.TrimEnd(Path.DirectorySeparatorChar)||!Path.GetFileName(resolved).StartsWith("revit-family-snapshot-core-",StringComparison.Ordinal))throw new Exception("Unsafe cleanup");
+  Directory.Delete(resolved,true);
+ }
+}
+Test("catalog snapshot UTF8 BOM bytes are hashed without corrupting parsed assets",()=>WithManifestTest(path=>{
+ var json=JsonSerializer.Serialize(new{schemaVersion=1,assets=new[]{familyCatalogAsset}},JsonDefaults.Options);
+ var utf8=System.Text.Encoding.UTF8.GetBytes(json);var bytes=new byte[]{0xef,0xbb,0xbf}.Concat(utf8).ToArray();File.WriteAllBytes(path,bytes);
+ using var snapshot=FamilyCatalogSnapshot.Open(path);
+ var expected=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+ if(snapshot.Sha256!=expected||snapshot.Assets.Single().ExpectedFamilyName!=familyCatalogAsset.ExpectedFamilyName)throw new Exception("BOM snapshot mismatch");
+}));
+Test("catalog snapshot Windows lock prevents manifest rewrite deletion and exclusive open until disposed",()=>WithManifestTest(path=>{
+ if(!OperatingSystem.IsWindows())return;File.WriteAllText(path,"{\"schemaVersion\":1,\"assets\":[]}");
+ using(var snapshot=FamilyCatalogSnapshot.Open(path)){
+  bool refused=false;try{File.WriteAllText(path,"{}");}catch(IOException){refused=true;}if(!refused)throw new Exception("Manifest rewrite was allowed");
+  refused=false;try{File.Delete(path);}catch(IOException){refused=true;}if(!refused)throw new Exception("Manifest deletion was allowed");
+  refused=false;try{using var exclusive=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None);}catch(IOException){refused=true;}if(!refused)throw new Exception("Exclusive manifest access was allowed");
+ }
+ File.WriteAllText(path,"{\"schemaVersion\":1,\"assets\":[]}");
+}));
+Test("catalog invalid missing empty oversized JSON errors remain sanitized and release file handles",()=>WithManifestTest(path=>{
+ Throws("family_catalog_unavailable",()=>{using var ignored=FamilyCatalogSnapshot.Open(path);});
+ foreach(var bytes in new byte[][]{[],System.Text.Encoding.UTF8.GetBytes("{"),new byte[2*1024*1024+1]}){
+  File.WriteAllBytes(path,bytes);bool rejected=false;
+  try{using var ignored=FamilyCatalogSnapshot.Open(path);}catch(BridgeException e){if(e.Code!="invalid_family_library"||e.Message.Contains(path,StringComparison.Ordinal))throw new Exception("Unsanitized manifest error");rejected=true;}
+  if(!rejected)throw new Exception("Invalid catalog accepted");using var exclusive=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None);
+ }
+}));
+Test("catalog path metadata change requires new review even when RFA hash is unchanged",()=>WithManifestTest(path=>{
+ var before=familyCatalogAsset;var after=familyCatalogAsset with{RelativePath="different/approved.rfa"};string reviewedHash;
+ File.WriteAllText(path,JsonSerializer.Serialize(new{schemaVersion=1,assets=new[]{before}},JsonDefaults.Options));using(var snapshot=FamilyCatalogSnapshot.Open(path)){reviewedHash=snapshot.Sha256;}
+ File.WriteAllText(path,JsonSerializer.Serialize(new{schemaVersion=1,assets=new[]{after}},JsonDefaults.Options));using var changed=FamilyCatalogSnapshot.Open(path);
+ if(changed.Assets[0].Sha256!=before.Sha256)throw new Exception("Fixture RFA hash changed");
+ Throws("family_catalog_changed",()=>FamilyLibraryRules.MatchCatalogHash(changed.Sha256,reviewedHash));
+}));
+
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }
