@@ -63,6 +63,8 @@
 
 保存核验边界：`revit.saved.verify` 与 `verification.saved` 返回同一只读证据。查询后再次核对文档身份、revision、路径和修改状态；未知状态返回 `null/unknown`，历史截断单独披露。`saved=true` 只表示当前会话没有待保存修改，`persistenceVerified=false`，不能代替磁盘内容验证或关闭/重开验收。
 
+泵房规划前置层：`build/route/connect` 均支持 `explicit/ask/assisted`，缺少关键参数时返回问题而不建计划。必须声明 `clearanceCheck` 为带原因的 `skip` 或指定现有元素范围的 `screen_existing`；粗筛有碰撞、候选、未知或截断时不继续建计划。新路线实体、链接模型、水力和工程规范仍未验证。详见 `docs/pump-planning-contract.md`。
+
 ## 表格、DWG 和图片
 
 - CSV/TSV/JSON/XLSX：显式字段映射、单位、默认操作类型及计划校验。
