@@ -55,3 +55,14 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 每次推送到 `main` 或创建 Pull Request 时，GitHub Actions 会在 Windows/Linux 上运行 MCP 契约测试、.NET 核心安全测试和仓库卫生检查。CI 不编译 Revit 插件本体，因为 Autodesk Revit API DLL 不能随仓库分发；带有本机 Revit 2027.3 的 Windows 环境仍需按上面的可移植构建命令做发布候选构建。
 
 仓库卫生检查仅检查当前 Git 跟踪的路径及新版部署入口，不是完整的密钥、内容或 Git 历史扫描。旧版生成的 `audit.json`、`preflight.json` 已停止跟踪，本地文件保留；历史提交可能仍包含报告或项目细节。仓库公开前必须另行审查历史及文档中的私有验收内容，不能仅凭这项检查宣布可公开。
+
+## 2026-10-08 验证记录与剩余边界
+
+- 发布入口改动提交：`222880d`；跨平台 CI/资产门禁提交：`e25819c`。
+- 本机 Revit API 27.3.0.28 的独立暂存构建：0 警告、0 错误。暂存 DLL 未安装到当前 Revit。
+- 工作区完整测试：144 项核心测试、307 项 MCP 测试通过。
+- 独立源码克隆重新安装依赖，从 `mcp` 目录调用仓库构建脚本：144 项核心测试、304 项 MCP 测试通过，3 项依赖私有原生捕获的测试显式跳过；构建与安装检查不依赖原仓库的私有配置。
+- 干净克隆 `install-v27.ps1 -CheckOnly` 通过，未创建 `runtime` 或生成 `.addin`。这属于同一台开发机上的独立源码验证，不是独立 Windows 机器的安装认证。
+- GitHub Actions run `37775132193`：Windows/Linux 的契约测试和仓库卫生共 4 个任务全部成功；云端使用 Node 22 和 .NET 10，未启动 Revit。
+
+以上不是稳定版发布承诺。功能矩阵逐项原生验收、实际安装/双客户端联调、Claude Code 启动入口的干净包核验、仓库历史隐私检查以及许可证仍待完成。新增变更收据与楼梯清理证据能力只有源码/暂存构建验证，尚未在运行中的 Revit 插件上验收；本轮没有模型写入或应用重启。
