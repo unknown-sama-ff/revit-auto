@@ -15,8 +15,8 @@ test('lighting workflow preserves explicit order and validates', () => assert.eq
 test('architecture workflow generates walls', () => assert.equal(workflowOperations('architecture.build',{walls:[{wallTypeId:1,levelId:2,start:{xMm:0,yMm:0},end:{xMm:1000,yMm:0},heightMm:3000}]}).length,1));
 test('pump workflow generates pipes', () => assert.equal(workflowOperations('pump_room.build',{pipes:[{pipeTypeId:1,systemTypeId:2,levelId:3,start:{xMm:0,yMm:0},end:{xMm:1000,yMm:0},diameterMm:50}]}).length,1));
 
-test('stair workflow validates explicit straight runs and landing mode', () => assert.equal(workflowOperations('architecture.stairs',{stairs:[{baseLevelId:1,topLevelId:2,landingMode:'automaticBetweenRuns',runs:[{start:{xMm:0,yMm:0},end:{xMm:0,yMm:3000},widthMm:1200},{start:{xMm:1500,yMm:3000},end:{xMm:1500,yMm:0},widthMm:1200}]}]}).length,1));
-test('stair operation rejects guessed or incomplete platform inputs', () => assert.throws(() => validateOperations([{operationType:'create_stair',baseLevelId:1,topLevelId:2,landingMode:'automaticBetweenRuns',runs:[{start:{xMm:0,yMm:0},end:{xMm:0,yMm:3000},widthMm:1200}]}]), /at least two runs/));
+test('stair workflow validates explicit straight runs and landing mode', () => assert.equal(workflowOperations('architecture.stairs',{stairs:[{stairTypeId:9,baseLevelId:1,topLevelId:2,desiredRisersNumber:20,treadDepthMm:280,geometryToleranceMm:1,landingMode:'automaticBetweenRuns',runs:[{start:{xMm:0,yMm:0,zMm:0},end:{xMm:0,yMm:3000,zMm:0},widthMm:1200,risersNumber:10},{start:{xMm:1500,yMm:3000,zMm:1500},end:{xMm:1500,yMm:0,zMm:1500},widthMm:1200,risersNumber:10}]}]}).length,1));
+test('stair operation rejects guessed or incomplete platform inputs', () => assert.throws(() => validateOperations([{operationType:'create_stair',stairTypeId:9,baseLevelId:1,topLevelId:2,desiredRisersNumber:20,treadDepthMm:280,geometryToleranceMm:1,landingMode:'automaticBetweenRuns',runs:[{start:{xMm:0,yMm:0,zMm:0},end:{xMm:0,yMm:3000,zMm:0},widthMm:1200,risersNumber:20}]}]), /at least two runs/));
 
 test('pump route expands only explicit points into straight pipe segments', () => {
   const ops=workflowOperations('pump_room.route',{routes:[{id:'r',pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80,flowIntent:'supply',points:[{xMm:0,yMm:0,zMm:1000},{xMm:1000,yMm:0,zMm:1000},{xMm:1000,yMm:500,zMm:1000}]}]});
@@ -33,5 +33,3 @@ test('pump connection workflow preserves explicit connector criteria and rejects
 
 
 test('pump route and connect reject omitted flow intent',()=>{ assert.throws(()=>workflowOperations('pump_room.route',{routes:[{pipeTypeId:1,systemTypeId:2,levelId:3,diameterMm:80,points:[{xMm:0,yMm:0,zMm:0},{xMm:100,yMm:0,zMm:0}]}]}),/flowIntent/); assert.throws(()=>workflowOperations('pump_room.connect',{connections:[{firstElementId:1,secondElementId:2,flowIntent:'unknown',firstConnectorId:1,secondConnectorId:2}]}),/flowIntent/); });
-
-

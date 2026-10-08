@@ -1,0 +1,53 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {previewStairWorkflow} from '../stair-planning.mjs';import {workflowOperations,validateOperations} from '../workflows.mjs';
+const run={start:{xMm:0,yMm:0,zMm:0},end:{xMm:0,yMm:3000,zMm:0},widthMm:1200,risersNumber:10};const stair={stairTypeId:9,baseLevelId:1,topLevelId:2,desiredRisersNumber:20,treadDepthMm:280,geometryToleranceMm:1,landingMode:'automaticBetweenRuns',runs:[run,{start:{xMm:1500,yMm:3000,zMm:1500},end:{xMm:1500,yMm:0,zMm:1500},widthMm:1200,risersNumber:10}]};
+test('stair workflow requires explicit native type and riser/tread geometry',()=>{assert.doesNotThrow(()=>validateOperations(workflowOperations('architecture.stairs',{stairs:[stair]})));for(const field of ['stairTypeId','desiredRisersNumber','treadDepthMm','geometryToleranceMm']){const copy=structuredClone(stair);delete copy[field];assert.throws(()=>validateOperations(workflowOperations('architecture.stairs',{stairs:[copy]})),/stair|required|explicit/i);}});
+test('stair planning asks before native calls and returns candidate-only only with assumptions',async()=>{const calls=[];const call=async(method,args)=>{calls.push({method,args});return{status:'pending',planId:'stair-plan',operations:args.operations}};const ask=await previewStairWorkflow({documentIdentity:'doc',input:{stairs:[{stairTypeId:9}]}},call);assert.equal(ask.requiresClarification,true);assert.equal(calls.length,0);const assisted=await previewStairWorkflow({documentIdentity:'doc',planningMode:'assisted',assumptions:['用户允许根据现有楼梯类型提出候选'],input:{stairs:[stair]}},call);assert.equal(assisted.candidateOnly,true);assert.equal(calls.length,1);assert.equal(calls[0].method,'revit.plan.create');});
+test('stair planning rejects scripts files hidden operation lists and unreviewed landing values',async()=>{for(const input of [{code:'unsafe'},{filePath:'stairs.csx'},{operations:[]}])await assert.rejects(previewStairWorkflow({documentIdentity:'doc',planningMode:'explicit',input},async()=>{throw new Error('native must not run')}));});
+
+import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import net from 'node:net';import {Client} from '@modelcontextprotocol/sdk/client/index.js';import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
+const root=path.resolve(import.meta.dirname,'../..');
+const landing={elevationMm:1500,boundary:[{xMm:-600,yMm:3000,zMm:1500},{xMm:2100,yMm:3000,zMm:1500},{xMm:2100,yMm:4200,zMm:1500},{xMm:-600,yMm:4200,zMm:1500}]};
+test('stairs keep distinct none/automatic/sketched platform modes and refuse ignored profiles',()=>{
+ assert.doesNotThrow(()=>validateOperations([{...stair,operationType:'create_stair',landingMode:'sketched',landings:[landing]}]));
+ assert.doesNotThrow(()=>validateOperations([{...stair,operationType:'create_stair',landingMode:'none'}]));
+ for(const op of [{...stair,landings:[landing]},{...stair,landingMode:'sketched',landings:[]},{...stair,runs:[{...run,start:{xMm:0,yMm:0}}]},{...stair,runs:[{...run,end:{...run.end,zMm:3000}}]},{...stair,stairTypeId:'@type'},{...stair,parameters:{Comments:'ignored'}},{...stair,desiredRisersNumber:21},{...stair,landingMode:'sketched',landings:[{...landing,elevationMm:1600}]}])assert.throws(()=>validateOperations([{operationType:'create_stair',...op}]));
+});
+test('missing sketched profile returns clarification rather than a default landing or a native request',async()=>{
+ let calls=0;const result=await previewStairWorkflow({documentIdentity:'doc',planningMode:'explicit',input:{stairs:[{...stair,landingMode:'sketched'}]}},async()=>{calls++});assert.equal(result.planCreated,false);assert.equal(result.requiresClarification,true);assert.ok(result.missingInputs.includes('stairs[0].landings'));assert.equal(calls,0);
+});
+test('stair explicit preview is pinned to revision zero and does not submit or mutate type definitions',async()=>{
+ const calls=[];const result=await previewStairWorkflow({documentIdentity:'doc-a',expectedRevision:0,planningMode:'explicit',input:{stairs:[stair]}},async(method,args)=>{calls.push({method,args});return{status:'pending',documentIdentity:args.documentIdentity,documentRevision:args.expectedRevision}});assert.equal(result.plan.documentRevision,0);assert.equal(result.candidateOnly,false);assert.equal(calls.length,1);assert.equal(calls[0].method,'revit.plan.create');assert.equal(calls[0].args.operations[0].stairTypeId,9);
+});
+async function clientFixture(t,features){
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'strict-stair-mcp-'));const token='explicit-stair-test-token-'.repeat(3);const requests=[];const sockets=new Set();
+ const bridge=net.createServer(socket=>{sockets.add(socket);socket.on('close',()=>sockets.delete(socket));let text='';socket.on('data',chunk=>{text+=chunk.toString('utf8');const n=text.indexOf('\n');if(n<0)return;const request=JSON.parse(text.slice(0,n));assert.equal(request.token,token);requests.push({method:request.method,args:request.params});const result=request.method==='revit.bridge.info'?{protocol:'revit-auto-2027-v2',features,confirmationMode:'chat'}:{planId:'strict-stair-plan',status:'pending',operations:request.params.operations,documentIdentity:request.params.documentIdentity,documentRevision:request.params.expectedRevision,requiresConfirmation:true,requiresRevitConfirmation:false};socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',ok:true,result})+'\n');});});
+ t.after(async()=>{for(const socket of sockets)socket.destroy();await new Promise(resolve=>bridge.close(resolve));assert.equal(path.dirname(dir),path.resolve(os.tmpdir()));assert.ok(path.basename(dir).startsWith('strict-stair-mcp-'));await fs.rm(dir,{recursive:true,force:true});});
+ await new Promise(resolve=>bridge.listen(0,'127.0.0.1',resolve));const file=path.join(dir,'bridge.json');await fs.writeFile(file,JSON.stringify({port:bridge.address().port,token}));const client=new Client({name:'strict-stair-sdk-contract',version:'1.0'});t.after(()=>client.close());await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(root,'mcp/revit-custom.mjs')],env:{REVIT_AI_CONFIG:file},stderr:'pipe'}));return{client,requests};
+}
+const decode=r=>JSON.parse(r.content[0].text);
+test('SDK old stair-capable host cannot silently ignore explicit type and new geometry fields',async t=>{
+ const {client,requests}=await clientFixture(t,['controlled-stairs-edit-scope']);const result=await client.callTool({name:'revit_workflow_run',arguments:{name:'architecture.stairs',documentIdentity:'doc-a',expectedRevision:0,planningMode:'explicit',input:{stairs:[stair]}}});assert.equal(result.isError,true);assert.equal(decode(result).code,'feature_not_loaded');assert.ok(decode(result).details.requiredFeatures.includes('explicit-stair-geometry'));assert.deepEqual(requests.map(x=>x.method),['revit.bridge.info']);
+});
+test('SDK strict-stair preview forwards sketched data and preserves one chat confirmation with no commit',async t=>{
+ const {client,requests}=await clientFixture(t,['controlled-stairs-edit-scope','explicit-stair-geometry']);const result=await client.callTool({name:'revit_workflow_run',arguments:{name:'architecture.stairs',documentIdentity:'doc-a',expectedRevision:0,planningMode:'explicit',input:{stairs:[{...stair,landingMode:'sketched',landings:[landing]}]}}});assert.notEqual(result.isError,true);const preview=decode(result);assert.equal(preview.plan.status,'pending');assert.equal(preview.plan.documentRevision,0);assert.equal(preview.plan.requiresConfirmation,true);assert.equal(preview.plan.requiresRevitConfirmation,false);assert.deepEqual(preview.plan.operations[0].landings,[landing]);assert.deepEqual(requests.map(x=>x.method),['revit.bridge.info','revit.plan.create']);
+});
+test('SDK stair ask mode and incomplete fields create no native plan or capability request',async t=>{
+ const {client,requests}=await clientFixture(t,[]);for(const args of [{planningMode:'ask',input:{stairs:[stair]}},{planningMode:'explicit',input:{stairs:[{baseLevelId:1,topLevelId:2}]}}]){const result=await client.callTool({name:'revit_workflow_run',arguments:{name:'architecture.stairs',documentIdentity:'doc-a',...args}});assert.notEqual(result.isError,true);assert.equal(decode(result).planCreated,false);}assert.deepEqual(requests,[]);
+});
+test('native typed stairs configure before runs, verify both commit boundaries, and keep honest cleanup semantics (source contract)',async()=>{
+ const executor=await fs.readFile(path.join(root,'v27/ModelExecutor.cs'),'utf8');const code=executor.slice(executor.indexOf('internal OperationReceipt ExecuteStair('),executor.indexOf('private sealed class StairFailures'));assert.ok(code.indexOf('StairGeometryService.Configure')<code.indexOf('StairsRun.CreateStraightRun'));assert.ok(code.indexOf('StairGeometryService.Verify')<code.indexOf('transaction.Commit()'));assert.ok(code.lastIndexOf('StairGeometryService.Verify')>code.indexOf('cleanup.ScopeCommitReturned()'));assert.match(code,/landingIds\.AddRange/);assert.match(code,/CreateSketchedLandings/);assert.match(code,/GetAssociatedRailings/);assert.match(code,/completeStairConnectionsVerified=false/);assert.doesNotMatch(code,/Doc\.Save|rolledBack\s*=\s*true/);
+ const service=await fs.readFile(path.join(root,'v27/StairGeometryService.cs'),'utf8');assert.match(service,/stair\.ChangeTypeId\(requested\)/);assert.doesNotMatch(service,/type\.RunType\s*=|type\.LandingType\s*=|GetDefaultElementTypeId/);assert.match(service,/stair\.ActualRisersNumber/);assert.match(service,/opening|OpeningRules\.EdgesMatch/);assert.match(service,/stair\.TopElevation/);assert.match(service,/GetStairsSupports/);
+});
+
+test('missing run XYZ or riser fields produces concrete clarification without any native call',async()=>{
+ let calls=0;
+ const missing=structuredClone(stair);delete missing.runs[0].start.zMm;delete missing.runs[1].risersNumber;
+ const result=await previewStairWorkflow({documentIdentity:'doc',planningMode:'explicit',input:{stairs:[missing]}},async()=>{calls++});
+ assert.equal(result.planCreated,false);assert.equal(result.requiresClarification,true);
+ assert.ok(result.missingInputs.includes('stairs[0].runs[0].start.zMm'));assert.ok(result.missingInputs.includes('stairs[0].runs[1].risersNumber'));assert.equal(calls,0);
+});
+test('multiple stairs and ignored landing profiles are refused before entering native atomic scope',async()=>{
+ let calls=0;
+ for(const rows of [[stair,stair],[{...stair,landings:[landing]}]])await assert.rejects(previewStairWorkflow({documentIdentity:'doc',planningMode:'explicit',input:{stairs:rows}},async()=>{calls++}),e=>e.code==='invalid_stair_input');
+ assert.equal(calls,0);
+});

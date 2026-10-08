@@ -454,6 +454,22 @@ Test("opening floor shaft profiles preserve explicit direction level scope and s
  foreach(var bad in new[]{floor.GetRawText().Replace("vertical","unknown"),shaft.Replace("\"topLevelId\":11","\"topLevelId\":10"),floor.GetRawText().Replace("\"hostElementId\":10","\"hostElementId\":\"@wall\""),floor.GetRawText().Replace("\"hostToleranceMm\":1","\"hostToleranceMm\":101"),floor.GetRawText().Replace("\"hostToleranceMm\":1","\"hostToleranceMm\":1,\"code\":\"unsafe\"")})
  {try{OpeningRules.Validate(Json(bad));throw new Exception("Unsafe scope/field accepted");}catch(BridgeException){}}
 });
+var explicitStairJson="""{"operationType":"create_stair","stairTypeId":9,"baseLevelId":1,"topLevelId":2,"desiredRisersNumber":20,"treadDepthMm":280,"geometryToleranceMm":1,"landingMode":"automaticBetweenRuns","runs":[{"start":{"xMm":0,"yMm":0,"zMm":0},"end":{"xMm":0,"yMm":3000,"zMm":0},"widthMm":1200,"risersNumber":10},{"start":{"xMm":1500,"yMm":3000,"zMm":1500},"end":{"xMm":1500,"yMm":0,"zMm":1500},"widthMm":1200,"risersNumber":10}]}""";
+Test("explicit stairs validate reviewed type total risers tread depth and full horizontal paths",()=>{StairRules.Validate(Json(explicitStairJson));StairRules.VerifyRunElevations(Json(explicitStairJson),0,3000);});
+Test("stairs refuse unknown types implicit XYZ tilted paths and native riser-count guessing",()=>{
+ foreach(var invalid in new[]{explicitStairJson.Replace("\"stairTypeId\":9,",""),explicitStairJson.Replace("\"stairTypeId\":9","\"stairTypeId\":\"@type\""),explicitStairJson.Replace("\"desiredRisersNumber\":20","\"desiredRisersNumber\":21"),explicitStairJson.Replace("\"treadDepthMm\":280","\"treadDepthMm\":0"),explicitStairJson.Replace("\"zMm\":0","\"elevation\":0"),explicitStairJson.Replace("\"geometryToleranceMm\":1","\"geometryToleranceMm\":101"),explicitStairJson.Replace("\"stairTypeId\":9","\"stairTypeId\":9,\"code\":\"unsafe\"")}){try{StairRules.Validate(Json(invalid));throw new Exception("Unsafe stair values accepted");}catch(BridgeException){}}
+});
+Test("stairs do not silently overlap both runs at the base or accept unknown native levels",()=>{
+ var overlapping=Json(explicitStairJson.Replace("\"zMm\":1500","\"zMm\":0"));Throws("invalid_stair",()=>StairRules.VerifyRunElevations(overlapping,0,3000));Throws("invalid_stair",()=>StairRules.VerifyRunElevations(Json(explicitStairJson),double.NaN,3000));Throws("invalid_stair",()=>StairRules.VerifyRunElevations(Json(explicitStairJson),3000,0));
+});
+Test("sketched landing data must be horizontal explicit and aligned with riser grid",()=>{
+ var sketch=explicitStairJson.Replace("automaticBetweenRuns","sketched").Replace("\"runs\":", "\"landings\":[{\"elevationMm\":1500,\"boundary\":[{\"xMm\":-600,\"yMm\":3000,\"zMm\":1500},{\"xMm\":2100,\"yMm\":3000,\"zMm\":1500},{\"xMm\":2100,\"yMm\":4200,\"zMm\":1500},{\"xMm\":-600,\"yMm\":4200,\"zMm\":1500}]}],\"runs\":");StairRules.Validate(Json(sketch));StairRules.VerifyRunElevations(Json(sketch),0,3000);
+ Throws("invalid_stair",()=>StairRules.Validate(Json(sketch.Replace("\"elevationMm\":1500","\"elevationMm\":1600"))));
+ var offGrid=sketch.Replace("\"elevationMm\":1500","\"elevationMm\":1600").Replace("\"zMm\":1500","\"zMm\":1600");Throws("invalid_stair",()=>StairRules.VerifyRunElevations(Json(offGrid),0,3000));
+});
+Test("non-sketched stair modes reject landings that would otherwise be silently ignored",()=>{
+ Throws("invalid_stair",()=>StairRules.Validate(Json(explicitStairJson.Replace("\"runs\":","\"landings\":[],\"runs\":"))));
+});
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }

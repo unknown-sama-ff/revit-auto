@@ -59,12 +59,22 @@ test('bridge errors propagate as actionable codes',async t=>{
   const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
   await assert.rejects(callRevit('revit.plan.confirm',{planId:'x'}),error=>error.code==='stale_plan');
 });
-test('cancellation closes TCP connection instead of leaving a queued request',async t=>{
-  let closed;const disconnect=new Promise(resolve=>closed=resolve);
-  const f=await fixture((_,socket)=>socket.on('close',closed));t.after(f.close);
+test('cancellation closes a dispatched TCP request instead of leaving a queued write', {timeout:10000},async t=>{
+  let received,closed;
+  const dispatched=new Promise(resolve=>received=resolve),disconnect=new Promise(resolve=>closed=resolve);
+  const f=await fixture((request,socket)=>{assert.equal(request.method,'revit.plan.confirm');socket.on('close',closed);received();});t.after(f.close);
   const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
-  const abort=new AbortController();const pending=callRevit('revit.plan.confirm',{planId:'x'},abort.signal);
-  setTimeout(()=>abort.abort(),40);await assert.rejects(pending,/cancelled/);await disconnect;
+  const abort=new AbortController();t.after(()=>abort.abort());
+  const pending=callRevit('revit.plan.confirm',{planId:'x'},abort.signal);
+  const rejected=assert.rejects(pending,/cancelled/);
+  let timer;
+  try{
+    await Promise.race([dispatched,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Mock native request was not dispatched')),5000);})]);
+  }finally{clearTimeout(timer);abort.abort();}
+  await rejected;
+  try{
+    await Promise.race([disconnect,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Cancelled socket did not close')),5000);})]);
+  }finally{clearTimeout(timer);}
 });
 
 test('old unauthenticated bridge is blocked before any model command is sent',async t=>{
@@ -156,7 +166,7 @@ test('stair capability is required before any preview reaches an old native host
  assert.equal(forwarded,0);
 });
 test('matching stair capability forwards exactly one preview and no commit',async t=>{
- const methods=[];const f=await fixture((request,socket)=>{methods.push(request.method);send(socket,{status:'pending'});},{features:['controlled-stairs-edit-scope']});t.after(f.close);
+ const methods=[];const f=await fixture((request,socket)=>{methods.push(request.method);send(socket,{status:'pending'});},{features:['controlled-stairs-edit-scope','explicit-stair-geometry']});t.after(f.close);
  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
  assert.equal((await callRevit('revit.plan.create',{operations:[{operationType:'create_stair'}]})).status,'pending');assert.deepEqual(methods,['revit.plan.create']);
 });

@@ -46,6 +46,9 @@
 ## 洞口工作流（暂存版）
 
 新增受控 `openings.create`，支持明确的墙矩形洞口、楼板/屋面/天花板轮廓洞口和跨层竖井；原有 `architecture.openings` 仍只表示门窗。所有洞口先预览、聊天确认后执行，结构/净距/防火合规不由插件猜测。源码与暂存编译已完成，当前运行插件尚未加载，详见 `docs/openings.md`。
+## 楼梯显式类型与平台（暂存版）
+
+`architecture.stairs` 不再默用原生默认类型：必须明确 stairTypeId、总/每跑踢面数、踏面深度、完整绝对坐标和几何容差。保留 none/automaticBetweenRuns，并新增 sketched 平台轮廓；缺字段先澄清，所有候选仍预览后聊天确认。新严格契约仅源码/暂存验证，旧楼梯验收不能代替新契约的实机验收，详见 `docs/stairs-explicit.md`。
 ## v0.4.0 新增工作流
 
 - `families.load`：只允许管理员登记的本地 RFA 白名单；支持 `reject`、`keep_existing`、`replace`，所有写入都必须先预览并在聊天中确认。`keep_existing` 分支已在 Revit 2027.3 验收；实际新 RFA 加载和 replace 仍需独立测试副本验收。

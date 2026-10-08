@@ -13,6 +13,7 @@ import { buildRegisteredWorkflow } from './workflow-adapter.mjs';
 import { auditFamilies, familyAuditSchema } from './family-audit.mjs';
 import {runModelAuditWorkflow} from './model-audit.mjs';
 import {previewOpeningsWorkflow} from './opening-planning.mjs';
+import {previewStairWorkflow} from './stair-planning.mjs';
 import {auditElectrical,electricalAuditSchema,runElectricalAuditWorkflow} from './electrical-audit.mjs';
 import { previewFamilyLoads } from './family-load.mjs';
 import {pumpWorkflowIds,previewPumpWorkflow} from './pump-planning.mjs';
@@ -76,6 +77,7 @@ register('revit.workflow.run','Run a registered read-only audit/verification or 
   if(args.planningMode && !workflow.planningModes.includes(args.planningMode)) throw new Error('Planning mode '+args.planningMode+' is not supported by workflow '+args.name+'.');
   if(pumpWorkflowIds.includes(args.name))return previewPumpWorkflow(args,callRevit,signal);
   if(args.name==='openings.create')return previewOpeningsWorkflow(args,callRevit,signal);
+  if(args.name==='architecture.stairs')return previewStairWorkflow(args,callRevit,signal);
   if(args.name==='audit')return runModelAuditWorkflow(args,callRevit,signal);
   if(['electrical.audit','audit.electrical'].includes(args.name))return runElectricalAuditWorkflow(args,callRevit,signal);
   if(args.name==='families.load')return previewFamilyLoads(args,callRevit,signal);

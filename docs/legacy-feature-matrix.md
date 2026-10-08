@@ -88,3 +88,7 @@ Revit 2025源码和程序集不修改；本批只改变Node MCP与元数据，�
 ## 2026-10-08：洞口能力边界
 
 旧 `openings.csx` 仍登记为 `architecture.openings`，范围只包括宿主门窗和类型复制。新增 `openings.create` 是独立受控 Revit Opening API 适配器，支持 wall rectangle、floor/roof/ceiling profile 和 shaft 三类显式计划；状态为“已实现但未验收”，不能回写旧来源为已完成。详见 `docs/openings.md`。
+
+## 2026-10-08：楼梯显式契约升级（未原生验收）
+
+`architecture.stairs` 新增显式楼梯类型、总/每跑踢面数、踏面深度、完整绝对 XYZ 和几何容差，平台策略增加明确草绘轮廓。源执行仍为 StairsEditScope，支持 typed instance 绑定与实际梯段/平台/支撑/栏杆读回；旧默认类型输入不再可写。此前 none-only 测试副本证据只属于旧契约，新合同必须独立实机验收；自动平台问题和完整连接仍未验收。详见 `docs/stairs-explicit.md`。

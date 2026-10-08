@@ -164,15 +164,7 @@ internal static class PlanRules
                     foreach (var p in JsonDefaults.Array(op, "boundary")) Point(p); break;
                 case "create_opening": OpeningRules.Validate(op); break;
                 case "create_room": Point(op); break;
-                case "create_stair":
-                    Require(op, "baseLevelId"); Require(op, "topLevelId"); Require(op, "landingMode");
-                    var stairMode = JsonDefaults.String(op, "landingMode");
-                    if (stairMode is not ("none" or "automaticBetweenRuns")) throw new BridgeException("invalid_stair", "landingMode must be none or automaticBetweenRuns.");
-                    var stairRuns = JsonDefaults.Array(op, "runs").ToList();
-                    if (stairRuns.Count is < 1 or > 8) throw new BridgeException("invalid_stair", "A stair needs 1..8 explicit straight runs.");
-                    if (stairMode == "automaticBetweenRuns" && stairRuns.Count < 2) throw new BridgeException("invalid_stair", "automaticBetweenRuns needs at least two runs.");
-                    foreach (var run in stairRuns) { Point(JsonDefaults.Get(run, "start")); Point(JsonDefaults.Get(run, "end")); Positive(run, "widthMm"); }
-                    break;
+                case "create_stair": StairRules.Validate(op); break;
                 case "delete_element": Require(op, "elementId"); break;
                 case "set_parameter": Require(op, "elementId"); Require(op, "parameter"); Require(op, "value"); break;
                 case "duplicate_type": Require(op, "sourceTypeId"); Require(op, "name"); break;

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
@@ -22,7 +23,7 @@ internal static class RevitQueryService
             units = new { coordinates = "mm", coordinateFrame = "Revit internal/project origin, absolute Z", parameterUnits = "Explicit value+unit required for doubles; BIP: names recommended" },
             levels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(l => l.Elevation).Select(l => new { id = l.Id.Value, name = l.Name, elevationMm = JsonDefaults.InternalToMm(l.Elevation) }).ToList(),
             familyTypes = new FilteredElementCollector(doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().Take(400).Select(s => new { id = s.Id.Value, category = s.Category?.Name, categoryId = s.Category?.Id.Value, family = s.FamilyName, type = s.Name, placement = s.Family.FamilyPlacementType.ToString() }).ToList(),
-            elementTypes = new FilteredElementCollector(doc).WhereElementIsElementType().Where(e => e is WallType or FloorType or PipeType or DuctType or PipingSystemType or MechanicalSystemType or WireType or ViewFamilyType or DistributionSysType).Take(400).Select(Summary).ToList(),
+            elementTypes = new FilteredElementCollector(doc).WhereElementIsElementType().Where(e => e is WallType or FloorType or PipeType or DuctType or PipingSystemType or MechanicalSystemType or WireType or ViewFamilyType or DistributionSysType or StairsType or StairsRunType or StairsLandingType).Take(400).Select(Summary).ToList(),
             counts = Counts(doc), pagination = "Use revit.search with types=true to read additional types and specific family names."
         };
     }
@@ -129,6 +130,8 @@ internal static class RevitQueryService
     }
     private static object? DrawingRelations(Element element) => element switch
     {
+        Stairs stair => StairGeometryService.Snapshot(stair.Document,stair),
+        StairsType stairType => new {runTypeId=stairType.RunType.Value,landingTypeId=stairType.LandingType.Value,typeMutationRequested=false},
         Opening opening => OpeningService.Snapshot(opening),
         ViewPlan plan => ViewConfigurationService.Snapshot(plan),
         PanelScheduleView panelSchedule => new { panelId = panelSchedule.GetPanel().Value },

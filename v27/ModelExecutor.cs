@@ -71,23 +71,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         if (start.DistanceTo(end) < Doc.Application.ShortCurveTolerance) throw Invalid("The line is shorter than Revit's ShortCurveTolerance.");
         return Autodesk.Revit.DB.Line.CreateBound(start, end);
     }
-    private void ValidateStair(JsonElement op)
-    {
-        var bottom = Check<Level>(op, "baseLevelId");
-        var top = Check<Level>(op, "topLevelId");
-        if (bottom is not null && top is not null && top.Elevation <= bottom.Elevation)
-            throw Invalid("topLevelId must be above baseLevelId.");
-        var mode = JsonDefaults.String(op, "landingMode");
-        var runs = JsonDefaults.Array(op, "runs").ToList();
-        if (mode == "automaticBetweenRuns" && runs.Count < 2) throw Invalid("automaticBetweenRuns needs at least two runs.");
-        foreach (var run in runs)
-        {
-            var start = Point(JsonDefaults.Get(run, "start"));
-            var end = Point(JsonDefaults.Get(run, "end"));
-            if (start.DistanceTo(end) < Doc.Application.ShortCurveTolerance) throw Invalid("A stair run is shorter than Revit's ShortCurveTolerance.");
-            if (PlanRules.Number(run, "widthMm") <= 0) throw Invalid("Stair run width must be positive.");
-        }
-    }
+    private void ValidateStair(JsonElement op)=>StairGeometryService.Validate(Doc,op);
     public void Validate(JsonElement op)
     {
         var kind = JsonDefaults.String(op, "operationType")!;
@@ -208,6 +192,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         using var scope = new StairsEditScope(Doc, "AI 受控楼梯");
         var stairId = ElementId.InvalidElementId;
         var runIds = new List<ElementId>();
+        var landingIds = new List<long>();
         var failureCapture = new StairFailures();
         var cleanup = new StairExecutionCleanup();
         try
@@ -220,6 +205,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             {
                 if (transaction.Start() != TransactionStatus.Started) throw Invalid("Unable to start stair transaction.");
                 transaction.SetFailureHandlingOptions(transaction.GetFailureHandlingOptions().SetFailuresPreprocessor(failureCapture).SetClearAfterRollback(true).SetForcedModalHandling(true));
+                StairGeometryService.Configure(Doc,stairId,op);
                 foreach (var run in JsonDefaults.Array(op, "runs"))
                 {
                     cancellation.ThrowIfCancellationRequested();
@@ -236,9 +222,19 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                         cancellation.ThrowIfCancellationRequested();
                         if (!StairsLanding.CanCreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]))
                             throw Invalid($"Revit cannot create an automatic landing between runs {index + 1} and {index + 2}.");
-                        StairsLanding.CreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]);
+                        var createdLandings=StairsLanding.CreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]);
+                        if(createdLandings.Count==0)throw Invalid("Native automatic landing returned no component IDs.");
+                        landingIds.AddRange(createdLandings.Select(id=>id.Value));
                     }
                 }
+                if(JsonDefaults.String(op,"landingMode")=="sketched")
+                {
+                    cleanup.Phase=StairExecutionPhase.BuildingLandings;
+                    cancellation.ThrowIfCancellationRequested();
+                    landingIds.AddRange(StairGeometryService.CreateSketchedLandings(Doc,stairId,op,cancellation));
+                }
+                Doc.Regenerate();
+                StairGeometryService.Verify(Doc,(Stairs)Doc.GetElement(stairId),op,runIds.Select(id=>id.Value).ToArray(),landingIds.ToArray());
                 cleanup.Phase = StairExecutionPhase.CommittingTransaction;
                 cancellation.ThrowIfCancellationRequested();
                 if (transaction.Commit() != TransactionStatus.Committed) throw Invalid("Revit rejected the stair transaction.");
@@ -249,12 +245,15 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             // Do not throw cancellation after a potentially committed scope; return/read its exact receipt.
             cleanup.ScopeCommitReturned();
             var stair = Doc.GetElement(stairId) as Stairs ?? throw Invalid("Revit did not return the created stair.");
+            StairGeometryService.Verify(Doc,stair,op,runIds.Select(id=>id.Value).ToArray(),landingIds.ToArray());
             var created = new List<long> { stair.Id.Value };
             created.AddRange(stair.GetStairsRuns().Select(id => id.Value));
             created.AddRange(stair.GetStairsLandings().Select(id => id.Value));
+            created.AddRange(stair.GetStairsSupports().Select(id=>id.Value));
+            created.AddRange(stair.GetAssociatedRailings().Select(id=>id.Value));
             return new(created.Distinct().ToList(), [])
             {
-                Evidence = new { stairId = stair.Id.Value, runIds = stair.GetStairsRuns().Select(id => id.Value).ToArray(), landingIds = stair.GetStairsLandings().Select(id => id.Value).ToArray(), landingMode = JsonDefaults.String(op, "landingMode"), warnings = failureCapture.Messages.ToArray(), note = "Native StairsEditScope result; no automatic save." }
+                Evidence = new { stairId = stair.Id.Value, runIds = stair.GetStairsRuns().Select(id => id.Value).ToArray(), landingIds = stair.GetStairsLandings().Select(id => id.Value).ToArray(), landingMode = JsonDefaults.String(op, "landingMode"),native=StairGeometryService.Snapshot(Doc,stair),reviewedTypeAndGeometryVerified=true,completeStairConnectionsVerified=false,engineeringComplianceVerified=false, warnings = failureCapture.Messages.ToArray(), note = "Native StairsEditScope result; no automatic save." }
             };
         }
         catch (Exception ex)

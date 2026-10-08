@@ -938,7 +938,7 @@
       "legacyScript": "stairs.csx",
       "newWorkflow": "architecture.stairs",
       "sourceRole": "production",
-      "supportedInputs": "baseLevelId/topLevelId, explicit straight-run start/end/widthMm, landingMode none|automaticBetweenRuns",
+      "supportedInputs": "explicit stairTypeId/baseLevelId/topLevelId, desiredRisersNumber, treadDepthMm, geometryToleranceMm, full absolute XYZ per run with widthMm/risersNumber, landingMode none|automaticBetweenRuns|sketched and explicit landing profiles",
       "generatedOperations": [
         "create_stair"
       ],
@@ -947,7 +947,7 @@
         "revit.inspect"
       ],
       "writeCategories": "adapter-declared affectedCategories",
-      "rollbackScope": "single approved TransactionGroup, original baseline and receipt",
+      "rollbackScope": "one approved StairsEditScope, cancellation/commit uncertainty evidence and independent native baseline verification",
       "acceptanceStatus": "implemented-not-accepted",
       "runtimeExecutionAllowed": false,
       "sideEffectReview": {
@@ -957,7 +957,7 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": "acceptance/stairs-native-acceptance-20261007.json",
-      "migrationNotes": "Native landingMode=none branch accepted in Revit 2027.3: one stair and two runs created through StairsEditScope, manual save and saved-state verification passed. automaticBetweenRuns branch was rejected by native Revit and rolled back completely; full stairs parity, warning resolution and save/reopen remain required."
+      "migrationNotes": "Prior none-only native fixture evidence belongs to the older implicit-type contract. New typed instance, per-run risers/tread/full XYZ and sketched landing contract is implemented in source/staged builds but has not been loaded/accepted. Automatic landing and full connectivity require independent native acceptance; no autosave or default type selection."
     },
     {
       "legacyFeature": "220V配电类型事务探针",
