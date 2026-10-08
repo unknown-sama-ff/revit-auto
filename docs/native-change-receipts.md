@@ -22,7 +22,7 @@
 
 ## 普通与楼梯执行
 
-普通 TransactionGroup 和专用 StairsEditScope 的成功/失败回执均附 nativeChanges。失败后的观察可能含曾提交、后回滚的事件；失败回执仍不得凭事件集合重新提交计划。此前 rolledBack 字段由既有执行器决定，新证据本身不认定它已得到独立模型复查证实。
+普通 TransactionGroup 和专用 StairsEditScope 的成功/失败回执均附 nativeChanges。失败后的观察可能含曾提交、后回滚的事件；失败回执仍不得凭事件集合重新提交计划。普通执行器的 rolledBack 字段仍由既有原生事务状态判定。楼梯暂存版本已取消硬编码成功，返回 cleanupEvidence / rollbackStatus / rollbackVerified=false，详见 docs/stair-cleanup-evidence.md。新事件证据不将取消正常返回认定为已独立模型恢复。
 
 捕获器不会修改模型、创建额外事务、保存、删除警告、阻断人工操作或将未知元素作为默认安全类别。对象分类/参数/连接器副作用需要对当前元素作独立只读检查；删除对象只能保留历史ID，不保证可重新检查其内容。
 

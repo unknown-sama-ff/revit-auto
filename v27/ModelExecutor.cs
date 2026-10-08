@@ -198,8 +198,9 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             predictedOperations[key] = op.Clone();
         }
     }
-    internal OperationReceipt ExecuteStair(JsonElement op)
+    internal OperationReceipt ExecuteStair(JsonElement op, CancellationToken cancellation)
     {
+        cancellation.ThrowIfCancellationRequested();
         ValidateStair(op);
         var baseLevel = Required<Level>(op, "baseLevelId");
         var topLevel = Required<Level>(op, "topLevelId");
@@ -207,15 +208,20 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         var stairId = ElementId.InvalidElementId;
         var runIds = new List<ElementId>();
         var failureCapture = new StairFailures();
+        var cleanup = new StairExecutionCleanup();
         try
         {
+            cancellation.ThrowIfCancellationRequested();
+            cleanup.StartingScope();
             stairId = scope.Start(baseLevel.Id, topLevel.Id);
+            cleanup.ScopeStarted();
             using (var transaction = new Transaction(Doc, "AI 楼梯梯段与平台"))
             {
                 if (transaction.Start() != TransactionStatus.Started) throw Invalid("Unable to start stair transaction.");
                 transaction.SetFailureHandlingOptions(transaction.GetFailureHandlingOptions().SetFailuresPreprocessor(failureCapture).SetClearAfterRollback(true).SetForcedModalHandling(true));
                 foreach (var run in JsonDefaults.Array(op, "runs"))
                 {
+                    cancellation.ThrowIfCancellationRequested();
                     var line = Autodesk.Revit.DB.Line.CreateBound(Point(JsonDefaults.Get(run, "start")), Point(JsonDefaults.Get(run, "end")));
                     var stairRun = StairsRun.CreateStraightRun(Doc, stairId, line, StairsRunJustification.Center);
                     stairRun.ActualRunWidth = Mm(PlanRules.Number(run, "widthMm"));
@@ -225,14 +231,22 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 {
                     for (var index = 0; index < runIds.Count - 1; index++)
                     {
+                        cleanup.Phase = StairExecutionPhase.BuildingLandings;
+                        cancellation.ThrowIfCancellationRequested();
                         if (!StairsLanding.CanCreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]))
                             throw Invalid($"Revit cannot create an automatic landing between runs {index + 1} and {index + 2}.");
                         StairsLanding.CreateAutomaticLanding(Doc, runIds[index], runIds[index + 1]);
                     }
                 }
+                cleanup.Phase = StairExecutionPhase.CommittingTransaction;
+                cancellation.ThrowIfCancellationRequested();
                 if (transaction.Commit() != TransactionStatus.Committed) throw Invalid("Revit rejected the stair transaction.");
             }
+            cleanup.Phase = StairExecutionPhase.CommittingScope;
+            cancellation.ThrowIfCancellationRequested();
             scope.Commit(failureCapture);
+            // Do not throw cancellation after a potentially committed scope; return/read its exact receipt.
+            cleanup.ScopeCommitReturned();
             var stair = Doc.GetElement(stairId) as Stairs ?? throw Invalid("Revit did not return the created stair.");
             var created = new List<long> { stair.Id.Value };
             created.AddRange(stair.GetStairsRuns().Select(id => id.Value));
@@ -242,10 +256,10 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 Evidence = new { stairId = stair.Id.Value, runIds = stair.GetStairsRuns().Select(id => id.Value).ToArray(), landingIds = stair.GetStairsLandings().Select(id => id.Value).ToArray(), landingMode = JsonDefaults.String(op, "landingMode"), warnings = failureCapture.Messages.ToArray(), note = "Native StairsEditScope result; no automatic save." }
             };
         }
-        catch
+        catch (Exception ex)
         {
-            try { scope.Cancel(); } catch { }
-            throw;
+            var evidence = cleanup.AfterFailure(() => scope.Cancel());
+            throw new StairExecutionFailure(ex, evidence, failureCapture.Messages);
         }
     }
     private sealed class StairFailures : IFailuresPreprocessor

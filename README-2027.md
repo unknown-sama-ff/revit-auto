@@ -90,6 +90,8 @@ v0.3.1 使用 Document.Equals 匹配同一底层文档，并在成功 DocumentCl
 
 真实验收步骤、独立副本及失败进度核验见 `docs/identity-acceptance.md`。新增错误收据包含 completedOperationCount 和一基 failedOperationIndex。
 
+楼梯失败清理：新暂存版不再硬编码 `rolledBack=true`；通过 `rollbackStatus/cleanupEvidence` 区分取消返回、取消失败和提交返回后读回异常，保持 `rollbackVerified=false`，需要独立模型恢复核验。诊断不会自动重试取消或重建计划，详见 `docs/stair-cleanup-evidence.md`；原生实机回归仍未完成。
+
 ## 构建与验收
 
 需要 .NET 10 SDK、Node 20.11+。开发测试运行 `build-v27.ps1`。

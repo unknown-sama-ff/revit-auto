@@ -52,7 +52,7 @@ internal static class RevitCommandRouter
         {
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "native-change-receipts", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "native-change-receipts", "stair-cleanup-evidence", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
                 "revit.type.resolve" => CommandResult.Success(TypeService.Resolve(app,parameters)),
@@ -228,7 +228,7 @@ internal static class RevitCommandRouter
         {
             plan.Status = "executing";
             cancellation.ThrowIfCancellationRequested();
-            var receipt = executor.ExecuteStair(operation);
+            var receipt = executor.ExecuteStair(operation, cancellation);
             if (JsonDefaults.String(operation, "id") is { } key && receipt.Created.FirstOrDefault() > 0) references[key] = new ElementId(receipt.Created[0]);
             plan.Status = "committed";
             plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = 1, createdElementIds = receipt.Created.Distinct(), changedElementIds = receipt.Changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence = receipt.Evidence is null ? Array.Empty<object>() : new[] { new { operationIndex = 1, operationType = failedOperationType, evidence = receipt.Evidence } }, nativeChanges = capture.Snapshot(Revision(doc), "committed", receipt.Created, receipt.Changed), warnings = plan.Warnings.ToArray(), confirmationMode = "chat", saved = false, atomicScope = "StairsEditScope" };
@@ -238,8 +238,10 @@ internal static class RevitCommandRouter
         catch (Exception ex)
         {
             plan.Status = "failed";
-            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack = true, completedOperationCount = 0, failedOperationIndex = 1, failedOperationType, createdElementIds = Array.Empty<long>(), nativeChanges = capture.Snapshot(Revision(doc), "failed", [], []), warnings = plan.Warnings, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message, atomicScope = "StairsEditScope" };
-            Log.Write($"Failed stair plan={plan.PlanId}; rolledBack=true; error={ex}");
+            var cleanupEvidence = (ex as StairExecutionFailure)?.Cleanup ?? StairCleanupEvidence.Unknown();
+            var original = ex is StairExecutionFailure failure ? failure.InnerException ?? ex : ex;
+            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rollbackStatus = cleanupEvidence.RollbackStatus, rollbackVerified = false, cleanupEvidence, completedOperationCount = 0, failedOperationIndex = 1, failedOperationType, createdElementIds = Array.Empty<long>(), nativeChanges = capture.Snapshot(Revision(doc), "failed", [], []), warnings = plan.Warnings.Concat((ex as StairExecutionFailure)?.Warnings ?? []).Distinct().ToArray(), code = "execution_failed", causeCode = (ex as StairExecutionFailure)?.CauseCode ?? (original as BridgeException)?.Code, causeDetails = (ex as StairExecutionFailure)?.CauseDetails ?? (original as BridgeException)?.Details, message = ex.Message, atomicScope = "StairsEditScope" };
+            Log.Write($"Failed stair plan={plan.PlanId}; rollbackStatus={cleanupEvidence.RollbackStatus}; rollbackVerified=false; error={ex}");
             return CommandResult.Failure("execution_failed", ex.Message, plan.Receipt);
         }
     }

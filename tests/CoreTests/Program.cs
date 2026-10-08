@@ -355,6 +355,38 @@ Test("receipt metadata truncation does not hide independent element coverage sta
  if(!e.ElementEvidenceComplete||e.CaptureComplete||!e.EventMetadataTruncated)throw new Exception("Metadata and element completeness were conflated");
 });
 
+
+Test("stair cancel returns action evidence but never declares rollback verified",()=>{
+ var state=new StairExecutionCleanup();state.StartingScope();state.ScopeStarted();state.Phase=StairExecutionPhase.BuildingLandings;int calls=0;var e=state.AfterFailure(()=>calls++);
+ if(calls!=1||e.CancelCallSucceeded!=true||e.CancelAttempted!=true||e.RollbackVerified||!e.RequiresNativeInspection||e.RollbackStatus!="cancel-returned-unverified"||e.Stage!="BuildingLandings")throw new Exception("Stair cancel return became rollback proof");
+});
+Test("stair cancellation failure retains diagnostic exception type and cannot report success",()=>{
+ var state=new StairExecutionCleanup();state.StartingScope();state.ScopeStarted();var e=state.AfterFailure(()=>throw new InvalidOperationException("cleanup failed"));
+ if(e.CancelErrorType!="InvalidOperationException"||e.CancelCallSucceeded!=false||e.CancelAttempted!=true||e.RollbackVerified||e.RollbackStatus!="cancel-failed")throw new Exception("Cleanup exception was hidden");
+});
+Test("stair startup failure still attempts cancellation once without assuming no native changes",()=>{
+ var state=new StairExecutionCleanup();state.StartingScope();var e=state.AfterFailure(()=>{});if(e.ScopeStartReturned!=false||e.CancelAttempted!=true||!e.RequiresNativeInspection||e.RollbackVerified)throw new Exception("Startup failure assumed no model impact");
+});
+Test("stair failure before scope startup does not invoke cancel or assert rollback",()=>{
+ int calls=0;var e=new StairExecutionCleanup().AfterFailure(()=>calls++);if(calls!=0||e.CancelAttempted!=false||e.RollbackStatus!="not-started"||e.RollbackVerified||e.RequiresNativeInspection)throw new Exception("Prestart cleanup performed native action");
+});
+Test("stair readback failure after commit return cannot cancel a possibly committed result",()=>{
+ int calls=0;var state=new StairExecutionCleanup();state.StartingScope();state.ScopeStarted();state.ScopeCommitReturned();var e=state.AfterFailure(()=>calls++);
+ if(calls!=0||e.CancelAttempted!=false||e.ScopeCommitReturned!=true||e.RollbackVerified||!e.RequiresNativeInspection||e.RollbackStatus!="scope-commit-returned-unverified")throw new Exception("Readback exception falsely cancelled committed scope");
+});
+Test("stair cleanup diagnostic queries never repeat cancel or overwrite first failure evidence",()=>{
+ int calls=0;var state=new StairExecutionCleanup();state.StartingScope();var first=state.AfterFailure(()=>{calls++;throw new IOException("cancel failed");});var second=state.AfterFailure(()=>calls++);
+ if(calls!=1||!ReferenceEquals(first,second)||second.CancelErrorType!="IOException"||second.CancelCallSucceeded!=false)throw new Exception("Cleanup retried a native action");
+});
+Test("stair execution failure preserves original bridge cause and transaction warnings",()=>{
+ var cause=new BridgeException("invalid_operation","landing rejected",new{target=42});var e=new StairExecutionFailure(cause,StairCleanupEvidence.Unknown(),["native warning"]);
+ if(e.CauseCode!="invalid_operation"||e.Message!="landing rejected"||!ReferenceEquals(e.InnerException,cause)||e.CauseDetails is null||e.Warnings.Single()!="native warning")throw new Exception("Original failure evidence was overwritten");
+});
+Test("stair cancelled execution has a stable cause and no fabricated rollback fields",()=>{
+ var e=new StairExecutionFailure(new OperationCanceledException(),StairCleanupEvidence.Unknown(),[]);var json=JsonSerializer.SerializeToElement(e.Cleanup,JsonDefaults.Options);
+ if(e.CauseCode!="execution_cancelled"||json.GetProperty("rollbackVerified").GetBoolean()||json.GetProperty("rollbackStatus").GetString()!="unknown"||json.TryGetProperty("rolledBack",out _))throw new Exception("Unknown/cancelled state fabricated rollback");
+});
+
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }
