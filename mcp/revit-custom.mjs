@@ -11,6 +11,7 @@ import { resolvePlanningMode } from './planning-mode.mjs';
 import { assertWorkflowEnabled, listWorkflows } from './workflow-registry.mjs';
 import { buildRegisteredWorkflow } from './workflow-adapter.mjs';
 import { auditFamilies, familyAuditSchema } from './family-audit.mjs';
+import {runModelAuditWorkflow} from './model-audit.mjs';
 import { previewFamilyLoads } from './family-load.mjs';
 import {pumpWorkflowIds,previewPumpWorkflow} from './pump-planning.mjs';
 import { savedVerificationSchema, savedVerificationInputSchema, verifySaved } from './saved-verification.mjs';
@@ -68,11 +69,11 @@ register('revit.plan.create','Validate and preview a proposed plan without chang
 register('revit.plan.get','Get status of an existing plan, especially after a timeout. Committed plans return their receipt; pending plans never write.',{planId:z.string().min(1)},(args,signal)=>callRevit('revit.plan.get',args,signal));
 register('revit.plan.confirm','After explicit user chat approval of the unchanged previewed plan, execute once without any Revit confirmation dialog. No second approval flag or prompt. One transaction group, no automatic save.',{planId:z.string().min(1)},(args,signal)=>callRevit('revit.plan.confirm',args,signal),{readOnly:false});
 register('revit.plan.cancel','Cancel a pending preview. A committed plan cannot be cancelled; use Revit Undo instead.',{planId:z.string().min(1)},(args,signal)=>callRevit('revit.plan.cancel',args,signal));
-register('revit.workflow.run','Create a preview only from the controlled legacy-to-Revit-2027 workflow registry. For pump_room.build/route/connect use planningMode=explicit when the user supplied all key constraints; use planningMode=ask when intent is ambiguous; use planningMode=assisted only when the user allows inference and provides assumptions. Ask mode returns questions and creates no plan. Assisted mode returns a candidate preview with assumptions and still requires chat approval.',{name:z.string().min(1),summary:z.string().optional(),documentIdentity:z.string().min(1),expectedRevision:z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),planningMode:z.enum(['explicit','ask','assisted']).optional(),assumptions:z.array(z.string().min(1)).max(50).optional(),input:obj.optional()},async(args,signal)=>{
+register('revit.workflow.run','Run a registered read-only audit/verification or create a preview only from the controlled legacy-to-Revit-2027 workflow registry. The audit workflow pins the reviewed identity/revision and rejects project, revision, path or saved-state changes during reads. For pump_room.build/route/connect use planningMode=explicit when the user supplied all key constraints; use planningMode=ask when intent is ambiguous; use planningMode=assisted only when the user allows inference and provides assumptions. Ask mode returns questions and creates no plan. Assisted mode returns a candidate preview with assumptions and still requires chat approval.',{name:z.string().min(1),summary:z.string().optional(),documentIdentity:z.string().min(1),expectedRevision:z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),planningMode:z.enum(['explicit','ask','assisted']).optional(),assumptions:z.array(z.string().min(1)).max(50).optional(),input:obj.optional()},async(args,signal)=>{
   const workflow=assertWorkflowEnabled(args.name);
   if(args.planningMode && !workflow.planningModes.includes(args.planningMode)) throw new Error('Planning mode '+args.planningMode+' is not supported by workflow '+args.name+'.');
   if(pumpWorkflowIds.includes(args.name))return previewPumpWorkflow(args,callRevit,signal);
-  if(args.name==='audit')return callRevit('revit.audit.run',{},signal);
+  if(args.name==='audit')return runModelAuditWorkflow(args,callRevit,signal);
   if(args.name==='families.load')return previewFamilyLoads(args,callRevit,signal);
   if(args.name==='imports.parameter_table') {
     return previewParameterImport({documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,summary:args.summary,input:args.input||{}},callRevit,signal);

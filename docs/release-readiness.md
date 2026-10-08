@@ -70,3 +70,9 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 ### Claude Code 便携式入口进展
 
 `start-claude-2027.ps1` 已按包位置生成专用配置，不再要求开发机绝对路径。源码模板只有单一 `revit-custom`；只检查模式无配置写入，正常启动不改全局配置、不添加权限绕过、不重试客户端失败。新增 17 项启动器测试及本机 Claude Code 2.1.292 配置检查通过，完整测试为 144 核心 + 324 MCP。实际客户端工具发现仍须真实会话验收；详见 `docs/claude-code.md`。
+
+### 固定上下文的通用审计
+
+通用 `audit` 工作流已修复忽略 identity/revision 的缺口：校验嵌套输入与报告来源，查询前后检查项目、revision、路径和保存状态，变化时拒绝报告、不自动重试。新增 17 项公开 MCP 契约用例，完整 MCP 测试 341 项通过；直接无参数审计保持兼容。
+
+实际 SDK/stdio 只读核验通过，identity/revision/isModified/元素统计均不变，直接接口与工作流的原生集合内容一致，只有端口顺序变化。结果保留未知/截断，并明确不验证工程合规、磁盘持久性或完整专业审计对等；详见 `docs/model-audit.md`。本轮没有修改 Revit DLL 或模型。

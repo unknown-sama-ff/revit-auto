@@ -37,6 +37,9 @@
 ```
 
 只检查模式不启动聊天、不写配置；正常启动去掉 `-CheckOnly`，按本包实际路径生成专用 MCP 配置，不修改全局客户端配置。客户端无法被 PATH 找到时可提供 `-ClaudePath` 绝对路径。完整说明与只读接入验收边界见 `docs/claude-code.md`。
+## 当前项目审计的固定上下文入口
+
+统一工作流 `revit.workflow.run` 的 `name: "audit"` 会校验已读取的 identity/revision，并在查询后复查文档、版本和保存状态。变化时丢弃报告，不自动重试、不创建计划；未知端口和截断证据保留。原始无参数 `revit.audit.run` 保持兼容。具体范围及尚未完成的专业审计迁移见 `docs/model-audit.md`。
 ## v0.4.0 新增工作流
 
 - `families.load`：只允许管理员登记的本地 RFA 白名单；支持 `reject`、`keep_existing`、`replace`，所有写入都必须先预览并在聊天中确认。`keep_existing` 分支已在 Revit 2027.3 验收；实际新 RFA 加载和 replace 仍需独立测试副本验收。
