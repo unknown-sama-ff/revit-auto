@@ -92,3 +92,5 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 新增 `openings.create`，与旧版 `architecture.openings` 的门窗能力分离。支持显式 wall rectangle、floor/roof/ceiling profile 和 shaft 三种 `Document.NewOpening` 路径；加入完整 XYZ、宿主/标高存在性、平面/面积/自交/短边/容差、墙类型与位置、原生轮廓边段回读校验，以及宿主/竖井候选影响预览。模糊输入使用 ask，明确输入才生成预览，允许推断时保留 candidate-only；结构、防火、加固、净距和精确副作用不由插件认证。
 
 洞口暂存版编译：Revit 27.3.0.28 API，0 警告、0 错误；157 项核心测试、372 项 MCP 测试通过。当前运行插件未部署 `native-opening`，因此墙/楼板/竖井的原生创建仍未验收；旧 `openings.csx` 的门窗实机证据不替代洞口验收。详见 `docs/openings.md`。
+
+洞口提交 `7af50de` 的 GitHub Actions run `37794876557` 已完成，Windows/Linux 四项任务全部成功。独立源码克隆重新构建通过：157 核心测试、369 MCP 测试通过，3 项私有原生记录测试明确跳过；未创建 runtime。暂存安装只检查通过，当前旧运行插件的真实 SDK 请求在新洞口预览创建前被能力门禁拒绝，前后项目状态/元素统计不变。新洞口实际创建、回滚及原生副作用验收仍未完成，不用这些门禁测试替代业务验收。
