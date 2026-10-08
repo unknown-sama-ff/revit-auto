@@ -144,3 +144,5 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 源码修正只影响 set_parameter 的操作结果：同值输出空主要变化 ID 和 no_change，实际 setter 成功仍输出修改 ID；失败继续回滚，事件捕获规则不放宽，不自动认证净差异、副作用或参数读回。新增回归覆盖普通写入、空事件 no-op、虚构修改不能完整、真实内部事件不能被掩盖和 SDK 回执透传。修复版尚需真实加载后的新计划/新聊天批准验收；旧 committed 计划不重试、不修复模型、不自动保存。
 
 no-op 误报的源码修复回归已通过：168 核心测试、424 MCP 测试。改动仅让参数 setter 的实际执行结果驱动主要变更 ID，同时保留操作完成数和 no_change 证据；NativeChangeReceipt 覆盖规则保持原样，不能通过强改 captureComplete 掩盖缺失事件。真实运行版的旧 no-op 记录仍保留为未通过，不自动重交、保存或篡改旧回执。
+
+no-op 修复提交 `386dfda` 的原生暂存构建 0 警告、0 错误，安装预检查通过；GitHub Actions run `37826245486` 的 Windows/Linux 四项检查全部成功。构建指纹为 `0.4.0+386dfda…`，独立目录保留旧版加载 DLL。旧原生同值测试保持“数据不变但回执误报、验收未通过”的事实记录；下一加载/新计划回归与副作用、持久性等门槛仍单独完成，不重交旧 committed 计划。
