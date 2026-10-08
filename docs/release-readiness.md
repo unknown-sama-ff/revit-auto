@@ -112,3 +112,7 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 候选工作流的最终工作区回归：414 项 MCP 测试、162 项核心测试通过。实际 SDK/stdio 对当前 Revit 的合成 DWG/图片源转换均返回 candidateOnly，没有原生 planId，identity/revision/isModified/路径/元素统计不变；不以合成候选证明真实 AutoCAD 提取、图片视觉识别或原生落模验收。所有源文本都按不可信数据返回，候选指纹不作为批准令牌或原始文件稳定性证明。
 
 候选工作流提交 `a821d5c` 的 GitHub Actions run `37813451403` 已完成，Windows/Linux 四项检查全部成功。独立源码克隆验证为 411 项 MCP、162 核心测试通过，3 项私有原生捕获测试显式跳过，未创建私有 runtime。本轮仅修改 MCP/固定提取器源码与测试、文档；没有替换 Revit DLL、启动 AutoCAD、启动视觉模型、创建/确认 Revit 计划或自动保存 RVT。真实图纸/图片与原生落模验收仍未完成。
+
+### 集中原生验收准备
+
+原生桥与连接状态增加实际程序集 informationalVersion 和 moduleVersionId 读取，避免多个 `0.4.0` DLL 混淆。新增 `mcp/native-readonly-acceptance.mjs` 在指定构建/进程/项目上执行固定的通用/电气只读快照核验；旧能力、未知保存状态或统计、报告来源变化均拒绝，不创建/确认计划，也不自动重启。后续实际加载及写入/回滚验收仍等待用户手动重启并逐项批准；工具自身的测试不代替原生业务验收。说明见 `docs/native-batch-acceptance.md`。
