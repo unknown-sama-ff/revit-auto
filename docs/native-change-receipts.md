@@ -49,3 +49,11 @@ MCP SDK模拟宿主验证 nativeChanges 完整透传、失败证据保留且不�
 用户报告手动保存后，仅查询同一测试副本、已提交计划和目标原生字段：isModified=false，原计划回执不变，已批准的注释和目标读回证据保持一致，分类统计未变化；没有第二次 plan.confirm、模型写入或自动保存。此证据证明当前会话无待保存修改，不证明关闭重开后的磁盘持久性，也没有消除两个额外内部元素变化的未知副作用。
 
 下一失败/回滚测试使用新预览，先创建临时标高，再对该临时元素的已核实只读参数触发执行期错误。只生成预览，现有灯具/标高不修改；待单独聊天批准后才执行。预期回滚不是事实证据，必须核对失败阶段、回执/历史、临时元素消失和原模型基线；失败计划不可重试或自动清理。
+
+## 2026-10-09：失败/回滚路径原生实测（限定基线）
+
+新的临时标高两步预览按本次明确聊天批准提交一次：第一步完成创建，第二步因新元素只读参数校验失败；failedOperationIndex=2、completedOperationCount=1、原生状态 rolledBack=true。随后按临时元素名称和真实失败消息中的 ID 独立查询，元素均不存在；原标高集合、分类统计和事先记录的保护对象读回与基线一致。原计划状态为 failed，没有重复提交、额外清理或自动保存；当前 isModified=false，revision 仍因原生回滚事件递增。
+
+DocumentChanged 与独立原生历史均记录一次 TransactionRolledBack，事件 ID 集合为空。临时元素在尚未提交事务中创建又被回滚，捕获器没有对应新增 ID 证据；revisionCoverageComplete=true，但 elementEvidenceComplete/captureComplete=false，未被改写为完整。声明基线恢复由独立名称/ID/集合/字段读回支持，不由空事件集合推断，netModelDiffVerified/sideEffectsVerified 仍为 false。此结果不是全模型恢复、楼梯/洞口回滚、其他业务写入或磁盘重开证明。
+
+下一 no-op 测试只生成新的同值参数预览，等待新的聊天批准；不沿用回滚批准，也不把 failed 计划重新提交。实际 no-op 的事件、revision、主要 changed IDs 与数据不变状态必须独立读取，不能事先假定。
