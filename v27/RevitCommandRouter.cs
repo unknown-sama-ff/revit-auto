@@ -13,6 +13,24 @@ internal static class RevitCommandRouter
     internal static string Identity(Document doc) => Documents.Get(doc).Id;
     internal static long Revision(Document doc) => Documents.Get(doc).Revision;
     private static readonly Dictionary<string,DocumentChangeJournal> Changes=new(StringComparer.Ordinal);
+    private static NativeChangeReceipt? activeReceiptCapture;
+    // ExternalEvent uses one UI command queue. Keep this capture scoped to one execution,
+    // and dispose it on every success/failure; it must not follow subsequent manual edits.
+    private sealed class ReceiptCaptureScope : IDisposable
+    {
+        public NativeChangeReceipt Recorder { get; }
+        public ReceiptCaptureScope(Document doc)
+        {
+            if (activeReceiptCapture is not null) throw new BridgeException("write_capture_busy", "Another native execution evidence capture is active.");
+            Recorder = new NativeChangeReceipt(Identity(doc), Revision(doc));
+            activeReceiptCapture = Recorder;
+        }
+        public void Dispose()
+        {
+            if (ReferenceEquals(activeReceiptCapture, Recorder)) activeReceiptCapture = null;
+        }
+    }
+
     internal static void Changed(DocumentChangedEventArgs args)
     {
         var doc=args.GetDocument();Documents.Changed(doc);var id=Identity(doc);
@@ -20,6 +38,7 @@ internal static class RevitCommandRouter
         var added=args.GetAddedElementIds().Select(e=>e.Value).ToArray();
         var modified=args.GetModifiedElementIds().Select(e=>e.Value).ToArray();
         var deleted=args.GetDeletedElementIds().Select(e=>e.Value).ToArray();
+        activeReceiptCapture?.Record(id,Revision(doc),args.Operation.ToString(),args.GetTransactionNames(),added,modified,deleted);
         journal.Record(Revision(doc),args.Operation.ToString(),args.GetTransactionNames(),added,modified,deleted);
         Log.Write($"Document change session={id}; revision={Revision(doc)}; operation={args.Operation}; transactions={string.Join("|",args.GetTransactionNames())}; added={added.Length}; modified={modified.Length}; deleted={deleted.Length}");
     }
@@ -33,7 +52,7 @@ internal static class RevitCommandRouter
         {
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", features = new[] { "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "native-change-receipts", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
                 "revit.type.resolve" => CommandResult.Success(TypeService.Resolve(app,parameters)),
@@ -142,8 +161,9 @@ internal static class RevitCommandRouter
         // Re-check the native document immediately before every write path, including StairsEditScope.
         if (!Documents.Same(app.ActiveUIDocument?.Document, doc) || plan.DocumentRevision != Revision(doc))
             return StalePlan(plan,Active(app));
+        using var capture = new ReceiptCaptureScope(doc);
         if (plan.Operations.Count == 1 && JsonDefaults.String(plan.Operations[0], "operationType") == "create_stair")
-            return ConfirmStair(app, plan, cancellation, executor);
+            return ConfirmStair(app, doc, plan, cancellation, executor, capture.Recorder);
         // The trusted MCP client calls Confirm only after approval of this preview in chat.
         // Do not add a second model confirmation dialog or another approval flag here.
         var created = new List<long>(); var changed = new List<long>();
@@ -177,7 +197,7 @@ internal static class RevitCommandRouter
             if (transaction.Commit() != TransactionStatus.Committed) throw new InvalidOperationException(string.Join("; ", failureCapture.Messages.Prepend("Revit rejected the transaction.")));
             if (group.Assimilate() != TransactionStatus.Committed) throw new InvalidOperationException("Unable to commit transaction group.");
             plan.Status = "committed";
-            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = created.Distinct(), changedElementIds = changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence, warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray(), confirmationMode = "chat", saved = false };
+            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = created.Distinct(), changedElementIds = changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence, nativeChanges = capture.Recorder.Snapshot(Revision(doc), "committed", created, changed), warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray(), confirmationMode = "chat", saved = false };
             Log.Write($"Committed plan={plan.PlanId}; created={created.Count}; changed={changed.Count}; confirmation=chat");
             foreach (var warning in failureCapture.Messages.Distinct()) Log.Write($"Plan={plan.PlanId}; warning={warning}");
             return CommandResult.Success(plan.Receipt);
@@ -194,12 +214,12 @@ internal static class RevitCommandRouter
             catch { rolledBack = false; }
             plan.Status = "failed";
             Log.Write($"Failed plan={plan.PlanId}; rolledBack={rolledBack}; error={ex}");
-            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack, completedOperationCount = progress.CompletedOperationCount, failedOperationIndex = progress.FailedOperationIndex, failedOperationType, failedElementId, createdElementIds = Array.Empty<long>(), warnings = failureCapture.Messages, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message };
+            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack, completedOperationCount = progress.CompletedOperationCount, failedOperationIndex = progress.FailedOperationIndex, failedOperationType, failedElementId, createdElementIds = Array.Empty<long>(), nativeChanges = capture.Recorder.Snapshot(Revision(doc), "failed", created, changed), warnings = failureCapture.Messages, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message };
             Log.Write($"Plan={plan.PlanId}; completed={progress.CompletedOperationCount}; failedOperationIndex={progress.FailedOperationIndex}");
             return CommandResult.Failure("execution_failed", ex.Message, plan.Receipt);
         }
     }
-    private static CommandResult ConfirmStair(UIApplication app, ModelPlan plan, CancellationToken cancellation, ModelExecutor executor)
+    private static CommandResult ConfirmStair(UIApplication app, Document doc, ModelPlan plan, CancellationToken cancellation, ModelExecutor executor, NativeChangeReceipt capture)
     {
         var operation = plan.Operations[0];
         var references = new Dictionary<string, ElementId>(StringComparer.Ordinal);
@@ -211,14 +231,14 @@ internal static class RevitCommandRouter
             var receipt = executor.ExecuteStair(operation);
             if (JsonDefaults.String(operation, "id") is { } key && receipt.Created.FirstOrDefault() > 0) references[key] = new ElementId(receipt.Created[0]);
             plan.Status = "committed";
-            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = 1, createdElementIds = receipt.Created.Distinct(), changedElementIds = receipt.Changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence = receipt.Evidence is null ? Array.Empty<object>() : new[] { new { operationIndex = 1, operationType = failedOperationType, evidence = receipt.Evidence } }, warnings = plan.Warnings.ToArray(), confirmationMode = "chat", saved = false, atomicScope = "StairsEditScope" };
+            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = 1, createdElementIds = receipt.Created.Distinct(), changedElementIds = receipt.Changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence = receipt.Evidence is null ? Array.Empty<object>() : new[] { new { operationIndex = 1, operationType = failedOperationType, evidence = receipt.Evidence } }, nativeChanges = capture.Snapshot(Revision(doc), "committed", receipt.Created, receipt.Changed), warnings = plan.Warnings.ToArray(), confirmationMode = "chat", saved = false, atomicScope = "StairsEditScope" };
             Log.Write($"Committed stair plan={plan.PlanId}; created={receipt.Created.Count}; confirmation=chat");
             return CommandResult.Success(plan.Receipt);
         }
         catch (Exception ex)
         {
             plan.Status = "failed";
-            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack = true, completedOperationCount = 0, failedOperationIndex = 1, failedOperationType, createdElementIds = Array.Empty<long>(), warnings = plan.Warnings, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message, atomicScope = "StairsEditScope" };
+            plan.Receipt = new { planId = plan.PlanId, status = plan.Status, rolledBack = true, completedOperationCount = 0, failedOperationIndex = 1, failedOperationType, createdElementIds = Array.Empty<long>(), nativeChanges = capture.Snapshot(Revision(doc), "failed", [], []), warnings = plan.Warnings, code = "execution_failed", causeCode = (ex as BridgeException)?.Code, causeDetails = (ex as BridgeException)?.Details, message = ex.Message, atomicScope = "StairsEditScope" };
             Log.Write($"Failed stair plan={plan.PlanId}; rolledBack=true; error={ex}");
             return CommandResult.Failure("execution_failed", ex.Message, plan.Receipt);
         }

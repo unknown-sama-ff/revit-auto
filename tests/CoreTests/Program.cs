@@ -304,6 +304,57 @@ Test("catalog path metadata change requires new review even when RFA hash is unc
  Throws("family_catalog_changed",()=>FamilyLibraryRules.MatchCatalogHash(changed.Sha256,reviewedHash));
 }));
 
+
+Test("native receipt preserves eight actual additions and three unreported modifications behind three primary elements",()=>{
+ var c=new NativeChangeReceipt("doc",0);
+ c.Record("doc",1,"TransactionCommitted",["approved test"],[10,11,12,13,14,15,16,17],[100,101,102],[]);
+ var e=c.Snapshot(1,"committed",[10,11,12],[]);
+ if(e.ObservedAddedElementIds.Length!=8||e.AdditionalAddedElementIds.Length!=5||e.UnreportedModifiedElementIds.Length!=3||!e.CaptureComplete||e.SideEffectsVerified||e.NetModelDiffVerified)throw new Exception("Primary-only receipt concealed native side effects");
+});
+Test("native receipt ignores another document events and deduplicates same-session ids",()=>{
+ var c=new NativeChangeReceipt("doc",0);c.Record("other",10,"TransactionCommitted",["unrelated"],[999],[998],[997]);c.Record("doc",1,"TransactionCommitted",["one"],[10,10],[10,20,20],[]);c.Record("doc",2,"TransactionCommitted",["two"],[11],[20],[]);
+ var e=c.Snapshot(2,"committed",[10,11],[20]);if(!e.CaptureComplete||e.ObservedEventCount!=2||!e.ObservedAddedElementIds.SequenceEqual(new long[]{10,11})||e.UnreportedModifiedElementIds.Length!=0)throw new Exception("Native receipt crossed sessions or duplicated ids");
+});
+Test("native receipt preserves deletions and transient added-deleted elements without asserting net or rollback success",()=>{
+ var c=new NativeChangeReceipt("doc",2);c.Record("doc",3,"TransactionCommitted",["temporary"],[10],[],[20]);c.Record("doc",4,"TransactionGroupRolledBack",["rollback"],[],[],[10]);var e=c.Snapshot(4,"failed",[],[]);
+ if(!e.ObservedDeletedElementIds.SequenceEqual(new long[]{10,20})||!e.ObservedThenDeletedElementIds.SequenceEqual(new long[]{10})||e.NetModelDiffVerified||e.SideEffectsVerified||e.ExecutionOutcome!="failed")throw new Exception("Rollback trace was misrepresented as final model contents");
+});
+Test("native receipt id cap explicitly rejects complete evidence and retains bounded arrays",()=>{
+ var c=new NativeChangeReceipt("doc",0,elementLimit:2);c.Record("doc",1,"TransactionCommitted",["batch"],[1,2,3,4],[],[]);var e=c.Snapshot(1,"committed",[1],[]);if(!e.ElementIdsTruncated||e.CaptureComplete||e.ObservedAddedElementIds.Length!=2||e.Events.Single().AddedCount!=4)throw new Exception("ID cap was hidden");
+});
+Test("native receipt metadata cap and long labels never silently claim complete capture",()=>{
+ var c=new NativeChangeReceipt("doc",0,eventLimit:1);c.Record("doc",1,"TransactionCommitted",[new string('x',600)],[1],[],[]);c.Record("doc",2,"TransactionCommitted",["second"],[2],[],[]);var e=c.Snapshot(2,"committed",[1,2],[]);if(!e.EventMetadataTruncated||e.CaptureComplete||e.Events.Length!=1||e.Events[0].TransactionNames[0].Length!=500||e.ObservedEventCount!=2)throw new Exception("Event truncation was hidden");
+});
+Test("native receipt missing event revision or primary evidence cannot certify completeness",()=>{
+ var c=new NativeChangeReceipt("doc",0);c.Record("doc",2,"TransactionCommitted",["gap"],[1],[],[]);if(c.Snapshot(2,"committed",[1],[]).RevisionCoverageComplete)throw new Exception("Missing event not detected");
+ var empty=new NativeChangeReceipt("doc",0);if(empty.Snapshot(0,"committed",[1],[]).CaptureComplete)throw new Exception("Primary creation without native events was accepted");if(!empty.Snapshot(0,"committed",[],[]).CaptureComplete)throw new Exception("Noop was not preserved");
+});
+Test("native receipt snapshot is immutable after subsequent events",()=>{
+ var c=new NativeChangeReceipt("doc",0);c.Record("doc",1,"TransactionCommitted",["first"],[1],[],[]);var e=c.Snapshot(1,"committed",[1],[]);c.Record("doc",2,"TransactionCommitted",["later"],[2],[],[]);if(e.ObservedEventCount!=1||e.Events.Length!=1||e.ObservedAddedElementIds.Length!=1||e.EndRevision!=1)throw new Exception("Receipt changed after it was returned");
+});
+Test("native receipt flags invalid native ids instead of certifying a clean change set",()=>{
+ var c=new NativeChangeReceipt("doc",0);c.Record("doc",1,"TransactionCommitted",["invalid"],[-1,0,1],[],[]);var e=c.Snapshot(1,"committed",[1],[]);if(e.CaptureComplete||!e.ObservedAddedElementIds.SequenceEqual(new long[]{1}))throw new Exception("Malformed native evidence became complete");
+});
+
+
+Test("native receipt evidence serializes all changed classes without asserting harmlessness",()=>{
+ var c=new NativeChangeReceipt("doc",0);c.Record("doc",1,"TransactionCommitted",["approved"],[1,2,3,4,5],[100],[]);
+ var e=c.Snapshot(1,"committed",[1,2,3],[]);var json=JsonSerializer.SerializeToElement(e,JsonDefaults.Options);
+ if(json.GetProperty("additionalAddedElementIds").GetArrayLength()!=2||json.GetProperty("unreportedModifiedElementIds").GetArrayLength()!=1||json.GetProperty("netModelDiffVerified").GetBoolean()||json.GetProperty("sideEffectsVerified").GetBoolean())throw new Exception("Receipt serialization concealed evidence");
+});
+
+
+Test("native receipt captures above old journal element cap without dropping observed ids",()=>{
+ var ids=Enumerable.Range(1,600).Select(x=>(long)x).ToArray();var c=new NativeChangeReceipt("doc",0);var journal=new DocumentChangeJournal();
+ c.Record("doc",1,"TransactionCommitted",["large"],ids,[],[]);journal.Record(1,"TransactionCommitted",["large"],ids,[],[]);
+ var e=c.Snapshot(1,"committed",[1],[]);var historical=JsonSerializer.SerializeToElement(journal.Since(0,1),JsonDefaults.Options);
+ if(e.ObservedAddedElementIds.Length!=600||!e.ElementEvidenceComplete||!e.CaptureComplete||!historical.GetProperty("changes")[0].GetProperty("elementIdsTruncated").GetBoolean())throw new Exception("Receipt inherited bounded history truncation");
+});
+Test("receipt metadata truncation does not hide independent element coverage state",()=>{
+ var c=new NativeChangeReceipt("doc",0,eventLimit:1);c.Record("doc",1,"TransactionCommitted",[new string('x',600)],[1],[],[]);c.Record("doc",2,"TransactionCommitted",["later"],[2],[],[]);var e=c.Snapshot(2,"committed",[1,2],[]);
+ if(!e.ElementEvidenceComplete||e.CaptureComplete||!e.EventMetadataTruncated)throw new Exception("Metadata and element completeness were conflated");
+});
+
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }
