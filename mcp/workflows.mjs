@@ -1,8 +1,9 @@
+import {validateOpening} from './opening-rules.mjs';
 import {loadFamilyOperationSchema} from './family-load.mjs';
 
 export const OPERATIONS = new Set([
   'create_family_instance','duplicate_type','set_parameter','delete_element','load_family',
-  'create_level','create_grid','create_wall','create_floor','create_room','create_stair',
+  'create_level','create_grid','create_wall','create_floor','create_opening','create_room','create_stair',
   'create_circuit','create_wire','create_view_plan','create_sheet','create_schedule',
   'create_panel_schedule','configure_view','place_viewport','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
 ]);
@@ -94,6 +95,7 @@ export function validateOperations(operations) {
       case 'create_floor':
         if (!Array.isArray(op.boundary) || op.boundary.length < 3) throw new Error('Floor needs at least three boundary points.');
         requireField(op,'floorTypeId'); op.boundary.forEach(point); break;
+      case 'create_opening': validateOpening(op); break;
       case 'create_room': point(op); break;
       case 'create_stair':
         ['baseLevelId','topLevelId','landingMode'].forEach(f=>requireField(op,f));
@@ -173,6 +175,9 @@ export function workflowOperations(name, input = {}) {
     add(input.schedules,'create_schedule','schedule');
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
+  } else if (name === 'openings.create') {
+    if(Object.keys(input).some(key=>key!=='openings')||!Array.isArray(input.openings)||!input.openings.length)throw new Error('openings.create requires only an explicit nonempty openings array.');
+    add(input.openings,'create_opening','opening');
   } else if (name === 'architecture.openings') {
     placements(input.doors,'door','OST_Doors'); placements(input.windows,'window','OST_Windows');
     add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');

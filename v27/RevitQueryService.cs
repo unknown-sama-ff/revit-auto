@@ -129,6 +129,7 @@ internal static class RevitQueryService
     }
     private static object? DrawingRelations(Element element) => element switch
     {
+        Opening opening => OpeningService.Snapshot(opening),
         ViewPlan plan => ViewConfigurationService.Snapshot(plan),
         PanelScheduleView panelSchedule => new { panelId = panelSchedule.GetPanel().Value },
         ViewSchedule schedule => new { scheduleCategoryId = schedule.Definition.CategoryId.Value,

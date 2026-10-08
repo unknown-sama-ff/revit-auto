@@ -86,3 +86,9 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 实际 SDK 对当前旧运行插件核验：新电气审计在方法转发前被 feature_not_loaded 拒绝，identity/revision/isModified/路径/元素统计不变，没有创建/提交计划。**新 DLL 没有部署，新原生审计尚未实机验收**；此门禁拒绝证据不是电气审计成功证据。业务对等及发布目标继续保持未完成，详见 docs/electrical-audit.md。
 
 电气审计提交 `a6ea542` 的 GitHub Actions run `37788809856` 已完成：Windows/Linux 契约测试及发布卫生共 4 个任务全部成功。独立源码克隆重新构建为 0 警告、0 错误，358 项 MCP 测试通过、3 项私有捕获测试显式跳过；153 核心测试通过。最终暂存 DLL 与独立克隆的安装只检查均通过，未创建私有 runtime、更新安装清单或启动/重启应用。这是构建与发布门禁证据，不是新原生业务验收。
+
+### 受控洞口工作流（2026-10-08）
+
+新增 `openings.create`，与旧版 `architecture.openings` 的门窗能力分离。支持显式 wall rectangle、floor/roof/ceiling profile 和 shaft 三种 `Document.NewOpening` 路径；加入完整 XYZ、宿主/标高存在性、平面/面积/自交/短边/容差、墙类型与位置、原生轮廓边段回读校验，以及宿主/竖井候选影响预览。模糊输入使用 ask，明确输入才生成预览，允许推断时保留 candidate-only；结构、防火、加固、净距和精确副作用不由插件认证。
+
+洞口暂存版编译：Revit 27.3.0.28 API，0 警告、0 错误；157 项核心测试、372 项 MCP 测试通过。当前运行插件未部署 `native-opening`，因此墙/楼板/竖井的原生创建仍未验收；旧 `openings.csx` 的门窗实机证据不替代洞口验收。详见 `docs/openings.md`。

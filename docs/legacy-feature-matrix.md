@@ -84,3 +84,7 @@ Revit 2025源码和程序集不修改；本批只改变Node MCP与元数据，�
 ## 2026-10-08：电气审计受控迁移（未原生验收）
 
 新增 `electrical.audit` / `audit.electrical` 只读工作流和直接 `revit.electrical.audit`，迁移 `audit-final.csx` 的类别统计、模型警告、回路号/负载名/配电箱、终端成员及标记、原生参数证据。源条目已更新为 implemented-not-accepted；外部样板/RFA 审计、容量/合规规则与诊断脚本仍独立待迁移。暂存 DLL 未部署，不能把注册表 enabled 或自动化测试升级为实机验收。详见 docs/electrical-audit.md。
+
+## 2026-10-08：洞口能力边界
+
+旧 `openings.csx` 仍登记为 `architecture.openings`，范围只包括宿主门窗和类型复制。新增 `openings.create` 是独立受控 Revit Opening API 适配器，支持 wall rectangle、floor/roof/ceiling profile 和 shaft 三类显式计划；状态为“已实现但未验收”，不能回写旧来源为已完成。详见 `docs/openings.md`。

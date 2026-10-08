@@ -431,6 +431,29 @@ Test("UI-owned read snapshot can be serialized on a background thread without re
  var json=Task.Run(()=>CommandResult.Success(snapshot).Serialize()).GetAwaiter().GetResult();Json(json);
  if(reads!=1||snapshot.GetProperty("ids").GetArrayLength()!=2)throw new Exception("Background response reentered native API");
 });
+Test("opening plan supports explicit wall rectangles and rejects implicitly guessed XYZ hosts and tolerance",()=>{
+ var op=Json("""[{"operationType":"create_opening","openingKind":"wall_rectangle","hostElementId":10,"start":{"xMm":100,"yMm":0,"zMm":500},"end":{"xMm":900,"yMm":0,"zMm":1800},"hostToleranceMm":1}]""");if(PlanRules.Validate(op).Count!=1)throw new Exception("Opening operation missing");
+ foreach(var replacement in new[]{op.GetRawText().Replace("\"zMm\":1800","\"zMm\":0"),op.GetRawText().Replace("\"hostToleranceMm\":1","\"hostToleranceMm\":0"),op.GetRawText().Replace("\"hostElementId\":10","\"hostElementId\":null"),op.GetRawText().Replace("\"zMm\":1800","\"q\":1800")})
+ {try{PlanRules.Validate(Json(replacement));throw new Exception("Invalid opening accepted");}catch(BridgeException){}}
+});
+Test("opening polygon validation rejects crossing nonplanar duplicate closing and implicit vertical cuts",()=>{
+ OpeningPoint[] square=[new(0,0,3000),new(1000,0,3000),new(1000,1000,3000),new(0,1000,3000)];OpeningRules.ValidatePolygon(square,true);OpeningRules.ValidatePolygon(square.Reverse().ToArray(),true);
+ foreach(var points in new[]{new[]{square[0],square[2],square[1],square[3]},square.Concat([square[0]]).ToArray(),new[]{square[0],square[1],new OpeningPoint(1000,1000,3100),square[3]},new[]{square[0],square[1],square[1],square[3]}})
+ {try{OpeningRules.ValidatePolygon(points,true);throw new Exception("Unsafe opening polygon accepted");}catch(BridgeException){}}
+ OpeningRules.ValidatePolygon(square.Select(p=>new OpeningPoint(p.X,p.Y,p.X+3000)).ToArray(),false);
+});
+Test("opening native profile readback compares edges not an unordered vertex bag",()=>{
+ OpeningPoint[] points=[new(0,0,0),new(100,0,0),new(100,100,0),new(0,100,0)];var edges=points.Select((p,i)=>(p,points[(i+1)%points.Length])).ToArray();
+ if(!OpeningRules.EdgesMatch(points,edges.Reverse().Select(e=>(e.Item2,e.Item1)).ToArray(),1))throw new Exception("Native edge order/reversal incorrectly rejected");
+ var wrong=new[]{(points[0],points[2]),(points[2],points[1]),(points[1],points[3]),(points[3],points[0])};if(OpeningRules.EdgesMatch(points,wrong,1))throw new Exception("Same vertex set certified crossed geometry");
+ if(OpeningRules.EdgesMatch(points,edges[..3],1)||OpeningRules.EdgesMatch(points,edges,double.NaN))throw new Exception("Missing edges or unknown tolerance accepted");
+});
+Test("opening floor shaft profiles preserve explicit direction level scope and safe existing native IDs",()=>{
+ var floor=Json("""{"operationType":"create_opening","openingKind":"floor_profile","hostElementId":10,"boundary":[{"xMm":0,"yMm":0,"zMm":3000},{"xMm":100,"yMm":0,"zMm":3000},{"xMm":100,"yMm":100,"zMm":3000},{"xMm":0,"yMm":100,"zMm":3000}],"cutDirection":"vertical","hostToleranceMm":1}""");OpeningRules.Validate(floor);
+ var shaft=floor.GetRawText().Replace("floor_profile","shaft").Replace("\"hostElementId\":10","\"baseLevelId\":10,\"topLevelId\":11").Replace(",\"cutDirection\":\"vertical\"","");OpeningRules.Validate(Json(shaft));
+ foreach(var bad in new[]{floor.GetRawText().Replace("vertical","unknown"),shaft.Replace("\"topLevelId\":11","\"topLevelId\":10"),floor.GetRawText().Replace("\"hostElementId\":10","\"hostElementId\":\"@wall\""),floor.GetRawText().Replace("\"hostToleranceMm\":1","\"hostToleranceMm\":101"),floor.GetRawText().Replace("\"hostToleranceMm\":1","\"hostToleranceMm\":1,\"code\":\"unsafe\"")})
+ {try{OpeningRules.Validate(Json(bad));throw new Exception("Unsafe scope/field accepted");}catch(BridgeException){}}
+});
 Console.WriteLine($"{tests} core validation/lifecycle tests passed.");
 
 sealed class NativeTestDocument { public bool Open { get; set; } = true; }

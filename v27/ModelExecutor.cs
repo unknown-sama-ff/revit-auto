@@ -120,6 +120,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 break;
             case "create_wall": Check<WallType>(op, "wallTypeId"); Level(op); Line(op); break;
             case "create_floor": Check<FloorType>(op, "floorTypeId"); Level(op); FloorLoop(op); break;
+            case "create_opening": ValidateOpening(op); break;
             case "create_grid": Line(op); break;
             case "create_room": Level(op); break;
             case "create_stair": ValidateStair(op); break;
@@ -190,7 +191,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 "create_family_instance" or "create_fitting" => typeof(FamilyInstance),
                 "duplicate_type" => Check<ElementType>(op, "sourceTypeId")?.GetType() ?? typeof(ElementType),
                 "create_level" => typeof(Level), "create_grid" => typeof(Grid), "create_wall" => typeof(Wall), "create_floor" => typeof(Floor),
-                "create_room" => typeof(Autodesk.Revit.DB.Architecture.Room), "create_circuit" => typeof(ElectricalSystem), "create_wire" => typeof(Wire),
+                "create_opening" => typeof(Opening), "create_room" => typeof(Autodesk.Revit.DB.Architecture.Room), "create_circuit" => typeof(ElectricalSystem), "create_wire" => typeof(Wire),
                 "create_view_plan" => typeof(ViewPlan), "create_sheet" => typeof(ViewSheet), "create_schedule" => typeof(ViewSchedule), "create_panel_schedule" => typeof(PanelScheduleView),
                 "place_viewport" => typeof(Element), "create_pipe" => typeof(Pipe), "create_duct" => typeof(Duct), _ => typeof(Element)
             };
@@ -316,6 +317,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "create_grid": created = Grid.Create(Doc, Line(op)); if (JsonDefaults.String(op, "name") is { } gridName) created.Name = gridName; break;
             case "create_wall": created = Wall.Create(Doc, Line(op), Id(op, "wallTypeId"), Level(op)!.Id, Mm(PlanRules.Number(op, "heightMm")), Mm(JsonDefaults.Double(op, "offsetMm") ?? 0), JsonDefaults.Bool(op, "flip"), JsonDefaults.Bool(op, "structural")); break;
             case "create_floor": created = Floor.Create(Doc, [FloorLoop(op)], Id(op, "floorTypeId"), Level(op)!.Id); break;
+            case "create_opening": created = CreateOpening(op); break;
             case "create_room":
                 var roomPoint = Point(op); var room = Doc.Create.NewRoom(Level(op)!, new UV(roomPoint.X, roomPoint.Y));
                 if (JsonDefaults.String(op, "name") is { } roomName) room.Name = roomName;
@@ -427,8 +429,11 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             if (clashes.Length > 0) throw Invalid($"Equipment clearance/bounding-box overlap with {string.Join(",", clashes)}; adjust the layout.");
         }
         materializedOperations[created.Id.Value] = op.Clone();
+        if(kind=="create_opening")return OpeningService.Verify(Doc,(Opening)created,op);
         return OperationReceipt.New(created);
     }
+    private void ValidateOpening(JsonElement op)=>OpeningService.Validate(Doc,op);
+    private Opening CreateOpening(JsonElement op)=>OpeningService.Create(Doc,op);
     private CurveLoop FloorLoop(JsonElement op)
     {
         var points = JsonDefaults.Array(op, "boundary").Select(Point).ToList();
@@ -549,5 +554,3 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         if (p.IsReadOnly || !p.Set(value)) throw Invalid($"Revit refused parameter {name}.");
     }
 }
-
-

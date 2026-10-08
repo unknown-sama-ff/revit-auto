@@ -124,7 +124,7 @@ internal static class PlanRules
     public static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
         "create_family_instance", "duplicate_type", "set_parameter", "delete_element", "load_family",
-        "create_level", "create_grid", "create_wall", "create_floor", "create_room", "create_stair",
+        "create_level", "create_grid", "create_wall", "create_floor", "create_opening", "create_room", "create_stair",
         "create_circuit", "create_wire", "create_view_plan", "create_sheet", "create_schedule",
         "create_panel_schedule", "configure_view", "place_viewport", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension"
     };
@@ -162,6 +162,7 @@ internal static class PlanRules
                 case "create_floor":
                     if (JsonDefaults.Array(op, "boundary").Count() < 3) throw new BridgeException("invalid_geometry", "Floor boundary needs 3+ points.");
                     foreach (var p in JsonDefaults.Array(op, "boundary")) Point(p); break;
+                case "create_opening": OpeningRules.Validate(op); break;
                 case "create_room": Point(op); break;
                 case "create_stair":
                     Require(op, "baseLevelId"); Require(op, "topLevelId"); Require(op, "landingMode");
@@ -242,5 +243,3 @@ internal static class PlanRules
         if (JsonDefaults.Has(p, "zMm")) Number(p, "zMm");
     }
 }
-
-

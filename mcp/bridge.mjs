@@ -27,6 +27,7 @@ export async function callRevit(method,params = {},signal) {
     if(params.operations?.some(op=>op.operationType==='configure_view'&&Object.hasOwn(op,'cropBounds')))required.push('explicit-crop-bounds');
     if(params.operations?.some(op=>op.placementMode==='legacyPoint'))required.push('legacy-point-placement');
     if(params.operations?.some(op=>op.operationType==='create_panel_schedule'&&op.name!==undefined))required.push('panel-schedule-naming');
+    if(params.operations?.some(op=>op.operationType==='create_opening'))required.push('native-opening');
     const missing=required.filter(feature=>!info.features?.includes(feature));
     if(missing.length){const error=new Error('The running plugin lacks '+missing.join(', ')+'. Save your work and restart Revit to load the staged plugin. No model plan was created or submitted.');error.code='feature_not_loaded';error.details={requiredFeatures:missing,loadedVersion:info.version};throw error;}
   }
