@@ -49,6 +49,9 @@
 ## 楼梯显式类型与平台（暂存版）
 
 `architecture.stairs` 不再默用原生默认类型：必须明确 stairTypeId、总/每跑踢面数、踏面深度、完整绝对坐标和几何容差。保留 none/automaticBetweenRuns，并新增 sketched 平台轮廓；缺字段先澄清，所有候选仍预览后聊天确认。新严格契约仅源码/暂存验证，旧楼梯验收不能代替新契约的实机验收，详见 `docs/stairs-explicit.md`。
+## DWG/图片候选工作流（暂存版）
+
+已接入只读 `imports.dwg_candidate` 和 `imports.image_candidate`：明确比例、原点、旋转、楼层和源坐标后生成 candidate-only 结果，图片必须由助手先人工审阅候选实体。候选不会自动创建 Revit 计划、提交或保存；弧线、未知坐标系和危险映射会保留问题。详见 `docs/candidate-imports.md`。
 ## v0.4.0 新增工作流
 
 - `families.load`：只允许管理员登记的本地 RFA 白名单；支持 `reject`、`keep_existing`、`replace`，所有写入都必须先预览并在聊天中确认。`keep_existing` 分支已在 Revit 2027.3 验收；实际新 RFA 加载和 replace 仍需独立测试副本验收。

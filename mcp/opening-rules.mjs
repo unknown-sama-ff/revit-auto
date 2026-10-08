@@ -10,9 +10,14 @@ export function validateOpening(op){
  if(op.openingKind==='floor_profile'&&!['vertical','perpendicular'].includes(op.cutDirection))throw new Error('Specify cutDirection vertical or perpendicular.');
  if(op.openingKind==='shaft'&&(!Number.isSafeInteger(op.baseLevelId)||!Number.isSafeInteger(op.topLevelId)||op.baseLevelId<=0||op.topLevelId<=0))throw new Error('Shaft baseLevelId and topLevelId must be existing positive level ids.');
  if(op.openingKind==='shaft'&&op.baseLevelId===op.topLevelId)throw new Error('Shaft base/top levels must differ.');
- if(!Array.isArray(op.boundary)||op.boundary.length<3||op.boundary.length>128)throw new Error('Opening boundary needs 3..128 distinct vertices.');
- const points=op.boundary.map(point),sub=(a,b)=>a.map((v,i)=>v-b[i]),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
- if((op.openingKind==='shaft'||op.cutDirection==='vertical')&&points.some(p=>Math.abs(p[2]-points[0][2])>0.01))throw new Error('Vertical/shaft profiles must be horizontal.');
+ validateClosedProfile(op.boundary,op.openingKind==='shaft'||op.cutDirection==='vertical');
+}
+
+export function validateClosedProfile(boundary,horizontal=false){
+ const point=p=>{if(!p||typeof p!=='object'||Array.isArray(p)||Object.keys(p).length!==3||Object.keys(p).some(k=>!['xMm','yMm','zMm'].includes(k))||Object.values(p).some(v=>typeof v!=='number'||!Number.isFinite(v)||Math.abs(v)>1e8))throw new Error('Opening points require full finite xMm/yMm/zMm, no implicit zero.');return [p.xMm,p.yMm,p.zMm]};
+ if(!Array.isArray(boundary)||boundary.length<3||boundary.length>128)throw new Error('Opening boundary needs 3..128 distinct vertices.');
+ const points=boundary.map(point),sub=(a,b)=>a.map((v,i)=>v-b[i]),cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+ if(horizontal&&points.some(p=>Math.abs(p[2]-points[0][2])>0.01))throw new Error('Vertical/shaft profiles must be horizontal.');
  let normal;for(let i=1;i<points.length-1;i++){const n=cross(sub(points[i],points[0]),sub(points[i+1],points[0]));if(Math.hypot(...n)>0.001){normal=n;break;}}
  if(!normal)throw new Error('Opening profile has no area.');
  if(points.some(p=>Math.abs(sub(p,points[0]).reduce((s,v,i)=>s+v*normal[i],0))/Math.hypot(...normal)>0.01))throw new Error('Opening profile is not planar.');

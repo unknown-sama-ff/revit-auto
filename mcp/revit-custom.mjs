@@ -14,6 +14,8 @@ import { auditFamilies, familyAuditSchema } from './family-audit.mjs';
 import {runModelAuditWorkflow} from './model-audit.mjs';
 import {previewOpeningsWorkflow} from './opening-planning.mjs';
 import {previewStairWorkflow} from './stair-planning.mjs';
+import {previewCandidateImport,CANDIDATE_WORKFLOWS} from './candidate-planning.mjs';
+import path from 'node:path';
 import {auditElectrical,electricalAuditSchema,runElectricalAuditWorkflow} from './electrical-audit.mjs';
 import { previewFamilyLoads } from './family-load.mjs';
 import {pumpWorkflowIds,previewPumpWorkflow} from './pump-planning.mjs';
@@ -78,6 +80,7 @@ register('revit.workflow.run','Run a registered read-only audit/verification or 
   if(pumpWorkflowIds.includes(args.name))return previewPumpWorkflow(args,callRevit,signal);
   if(args.name==='openings.create')return previewOpeningsWorkflow(args,callRevit,signal);
   if(args.name==='architecture.stairs')return previewStairWorkflow(args,callRevit,signal);
+  if(CANDIDATE_WORKFLOWS.includes(args.name))return previewCandidateImport(args,callRevit,signal);
   if(args.name==='audit')return runModelAuditWorkflow(args,callRevit,signal);
   if(['electrical.audit','audit.electrical'].includes(args.name))return runElectricalAuditWorkflow(args,callRevit,signal);
   if(args.name==='families.load')return previewFamilyLoads(args,callRevit,signal);
@@ -103,10 +106,14 @@ register('revit.workflow.run','Run a registered read-only audit/verification or 
   const plan=await callRevit('revit.plan.create',{documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,summary,source:'workflow:'+args.name+':'+policy.mode,operations:workflowPlan.operations},signal);
   return {workflowId:workflow.workflowId,planningMode:policy.mode,assumptions:policy.assumptions,candidateOnly:policy.candidateOnly===true,reviewNote:policy.reviewNote,plan};
 });
-register('revit.import.preview','Read CSV/TSV/XLSX/JSON parameter tables with explicit field mapping. DWG uses active AutoCAD read-only or extracted JSON. Images use assistant-reviewed candidates. Drawing/image results are candidates only, never directly committed.',{format:z.enum(['json','csv','tsv','xlsx','dwg','image']).optional(),filePath:z.string().optional(),sheetName:z.string().optional(),rows:z.array(obj).optional(),mapping:z.record(z.string(),z.string()).optional(),defaults:obj.optional(),calibration:obj.optional(),layerMapping:z.record(z.string(),obj).optional(),candidates:z.array(obj).optional(),documentIdentity:z.string().min(1),summary:z.string().optional()},async(args,signal)=>{
+register('revit.import.preview','Read CSV/TSV/XLSX/JSON parameter tables with explicit field mapping. DWG uses active AutoCAD read-only or extracted JSON. Images use assistant-reviewed candidates. Drawing/image results are candidates only, never directly committed.',{format:z.enum(['json','csv','tsv','xlsx','dwg','image']).optional(),filePath:z.string().optional(),sheetName:z.string().optional(),rows:z.array(obj).optional(),mapping:z.record(z.string(),z.string()).optional(),defaults:obj.optional(),calibration:obj.optional(),layerMapping:z.record(z.string(),obj).optional(),candidates:z.array(obj).max(10000).optional(),documentIdentity:z.string().min(1),expectedRevision:z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),summary:z.string().optional()},async(args,signal)=>{
+  const extension=args.filePath?path.extname(args.filePath).toLowerCase():null;
+  const format=args.format==='dwg'||extension==='.dwg'||extension==='.json'&&(args.calibration!==undefined||args.layerMapping!==undefined)?'dwg':args.format==='image'||['.png','.jpg','.jpeg','.webp'].includes(extension)?'image':null;
+  if(format&&['rows','mapping','defaults','sheetName'].some(key=>args[key]!==undefined))throw new Error('Drawing/image previews do not accept table rows, field mappings, defaults or sheet names; use the reviewed candidate layer mapping workflow.');
+  if(format)return previewCandidateImport({name:format==='image'?'imports.image_candidate':'imports.dwg_candidate',planningMode:'explicit',documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,input:{...Object.fromEntries(['filePath','candidates','calibration','layerMapping'].filter(key=>args[key]!==undefined).map(key=>[key,args[key]])),format}},callRevit,signal);
   const parsed=await importInput(args);
   if (parsed.needsVision || parsed.candidateOnly || parsed.issues?.length) return parsed;
-  return callRevit('revit.plan.create',{summary:args.summary || '参数表导入',documentIdentity:args.documentIdentity,source:'import',operations:parsed.operations},signal);
+  return callRevit('revit.plan.create',{summary:args.summary || '参数表导入',documentIdentity:args.documentIdentity,expectedRevision:args.expectedRevision,source:'import',operations:parsed.operations},signal);
 });
 register('revit.import.commit','After explicit user chat approval, commit a previously validated table-import plan without any Revit confirmation dialog. DWG/image candidates must first be reviewed through plan.create.',{planId:z.string().min(1)},(args,signal)=>callRevit('revit.import.commit',args,signal),{readOnly:false});
 register('revit.electrical.audit','Read-only bounded circuit, terminal member, native panel relation and parameter evidence. Pins the reviewed document/revision and freezes native UI-thread data. Unknown, known-null and truncated evidence remain distinct; no repairs, capacity guesses, model writes or compliance certification.',electricalAuditSchema,(args,signal)=>auditElectrical(args,callRevit,signal));

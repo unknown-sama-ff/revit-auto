@@ -1,4 +1,4 @@
-import {validateOpening} from './opening-rules.mjs';
+import {validateClosedProfile} from './opening-rules.mjs';
 export function validateStair(op){
  const allowed=['operationType','id','dependencies','stairTypeId','baseLevelId','topLevelId','desiredRisersNumber','treadDepthMm','geometryToleranceMm','landingMode','runs','landings'];
  if(Object.keys(op).some(key=>!allowed.includes(key)))throw new Error('Unknown stair operation field; hidden parameter maps or defaults are not accepted.');
@@ -15,6 +15,6 @@ export function validateStair(op){
  if(sum!==op.desiredRisersNumber)throw new Error('Per-run riser sum must match desiredRisersNumber.');
  if(op.landingMode==='sketched'){
   if(!Array.isArray(op.landings)||op.landings.length<1||op.landings.length>8)throw new Error('Sketched stairs require 1..8 explicit landing profiles.');
-  for(const landing of op.landings){if(!landing||typeof landing!=='object'||Object.keys(landing).length!==2||!Object.hasOwn(landing,'boundary')||!Object.hasOwn(landing,'elevationMm')||typeof landing.elevationMm!=='number'||!Number.isFinite(landing.elevationMm))throw new Error('Landing needs exactly elevationMm and boundary.');validateOpening({operationType:'create_opening',openingKind:'floor_profile',hostElementId:1,cutDirection:'vertical',hostToleranceMm:1,boundary:landing.boundary});if(landing.boundary.some(p=>Math.abs(p.zMm-landing.elevationMm)>0.01))throw new Error('Landing boundary must match its explicit absolute elevation.');}
+  for(const landing of op.landings){if(!landing||typeof landing!=='object'||Object.keys(landing).length!==2||!Object.hasOwn(landing,'boundary')||!Object.hasOwn(landing,'elevationMm')||typeof landing.elevationMm!=='number'||!Number.isFinite(landing.elevationMm))throw new Error('Landing needs exactly elevationMm and boundary.');validateClosedProfile(landing.boundary,true);if(landing.boundary.some(p=>Math.abs(p.zMm-landing.elevationMm)>0.01))throw new Error('Landing boundary must match its explicit absolute elevation.');}
  }else if(Object.hasOwn(op,'landings'))throw new Error('landings input is only valid with sketched mode.');
 }

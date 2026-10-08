@@ -6,21 +6,26 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { validateOperations } from './workflows.mjs';
+import {drawingCandidates,validateCalibration,validateLayerMapping} from './drawing-candidates.mjs';
+export {drawingCandidates} from './drawing-candidates.mjs';
 
 const exec = promisify(execFile);
-const ROOT = path.resolve(import.meta.dirname, '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..');
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_ROWS = 1000;
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', parseTagValue: false, processEntities: true });
 const array = value => value === undefined ? [] : Array.isArray(value) ? value : [value];
 function within(root, file) { const relative = path.relative(root, file); return relative === '' || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative)); }
 export async function permittedPath(file) {
-  const roots = (process.env.REVIT_AI_IMPORT_ROOTS || ROOT).split(path.delimiter);
+  if(typeof file!=='string'||!file||/^(?:\\|\/\/|https?:|file:)/i.test(file))throw new Error('Imports require a local filesystem path; network shares and URLs are not accepted.');
+  const roots = (process.env.REVIT_AI_IMPORT_ROOTS || ROOT).split(path.delimiter).filter(Boolean);
+  if(roots.some(root=>/^(?:\\|\/\/|https?:|file:)/i.test(root)))throw new Error('Configured import roots must be local directories.');
   const resolved = await fs.realpath(path.resolve(file));
   const allowed = await Promise.all(roots.map(root => fs.realpath(root)));
   if (!allowed.some(root => within(root, resolved))) throw new Error('Input file is outside the configured import roots. Place it in the workspace or configure REVIT_AI_IMPORT_ROOTS.');
   if (resolved.toLowerCase().includes(`${path.sep}runtime${path.sep}`)) throw new Error('Bridge runtime and authentication files cannot be imported.');
-  if ((await fs.stat(resolved)).size > MAX_BYTES) throw new Error('Input is larger than the 20 MB import limit.');
+  const stat=await fs.stat(resolved);if(!stat.isFile())throw new Error('Input must be a regular local file.');
+  if (stat.size > MAX_BYTES) throw new Error('Input is larger than the 20 MB import limit.');
   return resolved;
 }
 export function parseDelimited(input, separator = ',') {
@@ -125,43 +130,20 @@ export function mapRows(rows, mapping = {}, defaults = {}) {
   if (!issues.length) {try {validateOperations(operations);} catch (error) {issues.push({message:error.message});}}
   return {operations, issues};
 }
-export function drawingCandidates(data, calibration, layerMapping = {}) {
-  if (!calibration || !Number.isFinite(calibration.scaleMmPerUnit) || calibration.scaleMmPerUnit <= 0 || !calibration.origin || !calibration.offsetMm) throw new Error('Drawing import requires scaleMmPerUnit, origin {x,y}, offsetMm {x,y,z}, rotationDegrees and levelId calibration.');
-  const c = calibration;
-  for (const value of [c.origin.x,c.origin.y,c.offsetMm.x,c.offsetMm.y,c.offsetMm.z,c.rotationDegrees ?? 0]) if (!Number.isFinite(value)) throw new Error('Invalid coordinate calibration.');
-  if (!(Number.isSafeInteger(c.levelId) && c.levelId > 0)) throw new Error('Calibration needs levelId.');
-  const theta = (c.rotationDegrees || 0)*Math.PI/180;
-  const transform = p => {
-    const x = (p.x-c.origin.x)*c.scaleMmPerUnit; const y = (p.y-c.origin.y)*c.scaleMmPerUnit;
-    return { xMm: c.offsetMm.x + x*Math.cos(theta)-y*Math.sin(theta), yMm: c.offsetMm.y+x*Math.sin(theta)+y*Math.cos(theta), zMm:c.offsetMm.z+(p.z || 0)*c.scaleMmPerUnit };
-  };
-  const entities = Array.isArray(data) ? data : data.entities;
-  if (!Array.isArray(entities)) throw new Error('Drawing data must contain an entities array.');
-  const candidates = []; const issues = []; const text = [];
-  for (const entity of entities) {
-    if (entity.text) text.push({layer:entity.layer,text:entity.text});
-    const mapping = layerMapping[entity.layer]; if (!mapping) continue;
-    const template = {...mapping,levelId:c.levelId};
-    if (entity.start && entity.end) candidates.push({...template,start:transform(entity.start),end:transform(entity.end)});
-    else if (entity.insertion && (entity.objectName?.includes('Block') || entity.name)) candidates.push({...template,...transform(entity.insertion),rotationDegrees:(entity.rotation || 0)*180/Math.PI+(c.rotationDegrees||0)});
-    else if (entity.closed && entity.coordinates && template.operationType === 'create_floor') {
-      const stride = entity.objectName?.includes('2d') || entity.objectName?.includes('3d') ? 3 : 2;
-      const boundary = []; for (let i=0;i<entity.coordinates.length;i+=stride) boundary.push(transform({x:entity.coordinates[i],y:entity.coordinates[i+1],z:stride===3?entity.coordinates[i+2]:0}));
-      candidates.push({...template,boundary});
-    } else issues.push({entity:entity.handle || entity.index,layer:entity.layer,message:'Mapped entity geometry needs manual interpretation (arcs/hatches/polylines are not guessed).'});
-  }
-  if (candidates.length > MAX_ROWS) throw new Error('Drawing produced too many candidates; restrict the selected layers.');
-  return {operations:candidates,issues,text:text.slice(0,100),candidateOnly:true};
-}
 export async function importInput(args) {
-  let rows = args.rows; let data; let isImage = args.format === 'image';
+  let rows = args.rows; let data = args.data ?? (Array.isArray(args.entities)?{entities:args.entities}:undefined); let isImage = args.format === 'image';
   if (args.filePath) {
     const file = await permittedPath(args.filePath); const extension = path.extname(file).toLowerCase();
     if (extension === '.dwg') {
-      if (!args.calibration) throw new Error('DWG import requires calibration before extracting data.');
-      const out = path.resolve(import.meta.dirname,'..','imports',`${randomUUID()}.json`); await fs.mkdir(path.dirname(out),{recursive:true});
-      await exec('powershell.exe',['-NoProfile','-NonInteractive','-File',path.join(import.meta.dirname,'export-dwg.ps1'),'-InputPath',file,'-OutputPath',out],{windowsHide:true,timeout:60000,maxBuffer:1024*1024});
-      data = JSON.parse((await fs.readFile(out,'utf8')).replace(/^\uFEFF/,''));
+      validateCalibration(args.calibration);validateLayerMapping(args.layerMapping||{});
+      const directory=path.resolve(import.meta.dirname,'..','imports');await fs.mkdir(directory,{recursive:true});
+      const realDirectory=await fs.realpath(directory);if(!within(await fs.realpath(ROOT),realDirectory))throw new Error('Generated DWG data directory escaped the package root.');
+      const out=path.join(realDirectory,randomUUID()+'.json');
+      try{
+        await exec('powershell.exe',['-NoProfile','-NonInteractive','-File',path.join(import.meta.dirname,'export-dwg.ps1'),'-InputPath',file,'-OutputPath',out],{windowsHide:true,timeout:60000,maxBuffer:1024*1024,signal:args.signal});
+        const stat=await fs.stat(out);if(stat.size>MAX_BYTES)throw new Error('Extracted DWG data exceeds the 20 MB import limit.');
+        data=JSON.parse((await fs.readFile(out,'utf8')).replace(/^\uFEFF/,''));
+      }finally{await fs.rm(out,{force:true});}
     } else if (['.png','.jpg','.jpeg','.webp'].includes(extension)) {
       isImage = true;
       if (!args.candidates) return {needsVision:true,message:'Use the assistant vision capability to inspect this image, then pass explicitly reviewed candidates and calibration. This bridge does not have its own vision model or send images to a third party.',source:file};

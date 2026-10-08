@@ -102,3 +102,11 @@ After installation, restart Revit 2027 and Claude/Codex manually only after savi
 暂存构建 Revit 27.3.0.28 API 0 警告、0 错误；162 核心测试、384 MCP 测试通过。全量测试曾暴露取消夹具的定时器竞态，已改为确认模拟命令收到后取消并给等待设置上限；仅停止了已核实的本轮挂起 Node 测试进程，未停止 Revit/真实助手。新 DLL 未部署，新显式契约与草绘平台尚未原生实机验收；旧 none-only 验收记录只作为历史证据，不能为新契约背书。详见 `docs/stairs-explicit.md`。
 
 楼梯契约提交 `0ecd80b` 的 GitHub Actions run `37803437671` 已完成，Windows/Linux 共 4 项检查全部成功。独立源码克隆构建：162 核心测试、381 MCP 测试通过，3 项私有原生记录测试明确跳过；安装只检查通过且未生成 runtime。当前旧运行插件的真实 MCP 请求在严格楼梯预览前被 `explicit-stair-geometry` 能力门禁拒绝，identity/revision/isModified/路径/元素统计均不变。这不是类型切换、踢面数、平台或回滚成功证据；新 DLL 未安装，旧 none-only 证据不能为新契约认证。
+
+### DWG/图片候选工作流（源码与 SDK 验证）
+
+新增只读 `imports.dwg_candidate` / `imports.image_candidate`。候选转换现在严格要求本地文件/实体、比例、原点、旋转、楼层、源 Z/Y 轴和受控创建型映射；拒绝删除/参数/族加载/脚本映射，保留来源 provenance、问题、截断、上下文一致性和 SHA-256 候选指纹。DWG 提取不会启动/保存 AutoCAD，临时 JSON 读取后清理；图片没有内置视觉模型，必须由助手人工审阅候选实体。
+
+候选只返回 candidateOnly，不创建原生 planId，也不能直接 import.commit；当前尚未完成 AutoCAD 实机提取、真实图片识别和候选到 Revit 原生落模验收，不能把 candidate-only 测试称作建模完成。
+
+候选工作流的最终工作区回归：414 项 MCP 测试、162 项核心测试通过。实际 SDK/stdio 对当前 Revit 的合成 DWG/图片源转换均返回 candidateOnly，没有原生 planId，identity/revision/isModified/路径/元素统计不变；不以合成候选证明真实 AutoCAD 提取、图片视觉识别或原生落模验收。所有源文本都按不可信数据返回，候选指纹不作为批准令牌或原始文件稳定性证明。
