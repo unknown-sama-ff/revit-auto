@@ -60,7 +60,7 @@
 - `verification.saved`：读取当前文档是否有未保存修改及受限变更历史；不保存、不打开其他 RVT、不创建模型计划。
 - `imports.parameter_table`：CSV/TSV/XLSX/JSON 显式字段映射和计划预览；不猜测族、类型、楼层，不自动保存。`architecture.stairs`：显式上下标高、直跑几何、宽度和平台策略，使用专用 `StairsEditScope` 原子路径。
 
-仓库当前为私有 GitHub 仓库；版本与验收状态以 Git 提交、`docs/goal-progress.md` 和 `docs/release-readiness.md` 为准。实机验收仍需使用项目副本；自动化测试不等于真实 Revit 业务验收。
+仓库已在 GitHub 公开源码；公开版本与本地未提交的工作区内容可能不同。版本与验收状态以对应源码、Git 提交、`docs/goal-progress.md` 和 `docs/release-readiness.md` 为准。实机验收仍需使用项目副本；自动化测试不等于真实 Revit 业务验收。
 族加载目录保护：计划绑定 RFA 哈希和整个 `library.json` 的 `catalogSha256`；目录改变需要重新预览。没有 `family-catalog-snapshot` 能力的旧插件不能创建新版族加载计划。加载提示弹窗不作为版本证据，应以原生 `revit.bridge.info` 能力查询为准。目录哈希错误的原生预览拒绝已验证，真实新 RFA 加载/替换仍待验收。
 
 ## 工具和安全
@@ -173,3 +173,11 @@ node D:\Desktop\revitt\revit-auto\mcp\acceptance.mjs --lighting D:\Desktop\revit
 ## v0.3.4 新增与未完成项
 
 新增事务变更历史、类型解析、房间布灯预览、PNG 视图证据导出。当前源码已编译并通过自动化测试，实机需重启后核验。完整目标进度和未完成边界见 docs/goal-progress.md；Claude Code 的自然语言行为约定见 CLAUDE.md。
+
+## 许可证
+
+Copyright 2026 unknown-sama-ff。
+
+除另有声明外，本项目原创源代码和文档采用 [Apache License 2.0](LICENSE)。使用、修改和分发时须遵守该许可证；本软件按原样提供，不附带保证。
+
+第三方代码及依赖保留各自的版权、许可和来源声明，详见 [NOTICE](NOTICE)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 [third_party/licenses](third_party/licenses/)。本项目的许可声明不替代第三方许可，也不授予 Autodesk/Revit 组件或工程模型、族及其他素材的使用权。
