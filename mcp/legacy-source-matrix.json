@@ -149,7 +149,7 @@
       "legacyScript": "create-circuits.csx",
       "newWorkflow": "electrical.circuit",
       "sourceRole": "production",
-      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+        "supportedInputs": "explicit circuit elementIds, switchIds, panelId and optional name; panelDistributionSystems and narrowly allowed parameter changes",
       "generatedOperations": [
         "set_parameter",
         "create_circuit"
@@ -795,7 +795,7 @@
       "legacyScript": "name-circuits.csx",
       "newWorkflow": "electrical.circuit",
       "sourceRole": "production",
-      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+        "supportedInputs": "explicit existing ElectricalSystem elementId with BIP:RBS_ELEC_CIRCUIT_NAME string value",
       "generatedOperations": [
         "set_parameter"
       ],
@@ -821,9 +821,9 @@
       "legacyScript": "openings.csx",
       "newWorkflow": "architecture.openings",
       "sourceRole": "production",
-      "supportedInputs": "explicit current-document type/host/level/geometry and parameters",
+        "supportedInputs": "explicit current-document door/window types or matching earlier copied type references, hosts, levels and points; reviewed typeCopies in OST_StructuralColumns/OST_Doors/OST_Windows with existing sourceTypeId, exact new name and two native parameterId/name/valueMm dimensions",
       "generatedOperations": [
-        "duplicate_type",
+          "duplicate_architecture_type",
         "create_family_instance"
       ],
       "readOnlyQueries": [
@@ -841,7 +841,7 @@
         "originalUsesFixedWindowsPath": false
       },
       "acceptanceEvidence": null,
-      "migrationNotes": "Door/window families only. This source does not implement wall or shaft Opening API."
+        "migrationNotes": "The architecture.openings adapter implements reviewed dedicated architecture type copying with exactly two explicit native Length dimensions and places door/window instances using existing or matching earlier copied types, hosts, levels and points. All three architecture type categories are allowed, including structural-column copy-only plans; no widths/heights are inferred. This source does not implement wall or shaft Opening API; native write, rollback and persistence remain unaccepted."
     },
     {
       "legacyFeature": "照明设备放置",

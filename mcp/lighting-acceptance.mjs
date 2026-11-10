@@ -11,7 +11,7 @@ import {verifyLightingPlan} from './lighting-verification.mjs';
 const argv=process.argv.slice(2),command=argv[0];
 const option=name=>{const index=argv.indexOf('--'+name);return index>=0?argv[index+1]:undefined;};
 const root=path.resolve(import.meta.dirname,'..');
-const original=path.resolve(root,'../考生文件夹/照明模型+方昱.rvt');
+const original=path.resolve(root,'../考生文件夹/sample-lighting-model.rvt');
 const client=new Client({name:'lighting-scene-acceptance',version:'0.3.9'});
 async function call(name,args={}){const response=await client.callTool({name,arguments:args});const data=JSON.parse(response.content[0].text);if(response.isError){const error=new Error(data.message);error.code=data.code;error.details=data.details;throw error;}return data;}
 async function context(){const reads=[];for(let i=0;i<5;i++)reads.push(await call('revit_context_get'));return stableContext(reads);}

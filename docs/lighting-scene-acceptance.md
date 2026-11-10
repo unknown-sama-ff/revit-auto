@@ -1,3 +1,5 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # Small natural-language lighting scene: acceptance boundary
 
 `revit_room_lighting_preview` now accepts optional `circuit`, `wiring`, `newView`, `schedule`, explicit wall-hosted `switches`, titled `sheet`, and `panelSchedule` objects as well as explicit room grid inputs. For the inspected legacy WorkPlaneBased light family, the MCP layer adds `placementMode=legacyPoint` only after type inspection; this preserves the old point-only behavior without claiming a host.
@@ -16,7 +18,7 @@ SDK integration regressions use a simulated native host and exercise the actual 
 
 ## Prepare and verify the live scene
 
-The assistant may run `D:\Desktop\revitt\revit-auto\mcp\lighting-acceptance.mjs` with `prepare --project TEST_COPY.rvt --input ASSISTANT_REVIEWED_INPUT.json --state NEW_RECORD.json` after native `lighting-evidence` is loaded. This reads current context, creates a pending preview, records the exact baseline, and never submits it.
+The assistant may run `C:\src\revit-auto\mcp\lighting-acceptance.mjs` with `prepare --project TEST_COPY.rvt --input ASSISTANT_REVIEWED_INPUT.json --state NEW_RECORD.json` after native `lighting-evidence` is loaded. This reads current context, creates a pending preview, records the exact baseline, and never submits it.
 
 Only after human chat approval does the assistant submit that SAME plan through the normal MCP. The `verify --state RECORD.json` action requires a committed receipt and compares inspected types, coordinates, hosts, switch labels, exact circuit members/panel, both wire endpoint references, views, schedule fields, title block and paper placements. It exports view/sheet PNGs without saving RVT. Unsupported or missing evidence is a verification failure, never guessed success.
 

@@ -18,6 +18,8 @@ internal static class RevitQueryService
         {
             active = true, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild,
             document = new { title = doc.Title, path = doc.PathName, identity = RevitCommandRouter.Identity(doc), revision = RevitCommandRouter.Revision(doc), isWorkshared = doc.IsWorkshared, isReadOnly = doc.IsReadOnly, isModified = doc.IsModified, isFamilyDocument = doc.IsFamilyDocument },
+            // Document title and OwnerFamily.Name are distinct evidence; never guess one from the other.
+            familyDocumentScope = doc.IsFamilyDocument ? FamilyTextService.Scope(doc) : null,
             activeView = app.ActiveUIDocument.ActiveView is { } view ? new { id = view.Id.Value, name = view.Name, viewType = view.ViewType.ToString(), scale = view.Scale } : null,
             selectedElementIds = app.ActiveUIDocument.Selection.GetElementIds().Select(id => id.Value).ToArray(),
             units = new { coordinates = "mm", coordinateFrame = "Revit internal/project origin, absolute Z", parameterUnits = "Explicit value+unit required for doubles; BIP: names recommended" },
@@ -70,6 +72,14 @@ internal static class RevitQueryService
                 connectors = Connectors(e).ToList(),
                 electrical = ElectricalRelations(e),
                 piping = PipingCompatibilityService.Snapshot(e),
+                architecture = ArchitectureService.Snapshot(e),
+                architecturePrimary = ArchitecturePrimaryReadbackService.Snapshot(e),
+                tagCreation = DocumentationCreationReadbackService.TagSnapshot(e),
+                tagPosition = TagHeadPositionSnapshotService.Snapshot(e),
+                tagLeaderGeometry = RoomTagLeaderGeometryService.Snapshot(e),
+                dimensionReadback = DimensionNativeEvidence.Snapshot(e),
+                gridDimensionReference = GridDimensionReferenceService.Snapshot(e),
+                titleBlock = TitleBlockChangeService.Inspect(doc, e),
                 drawing = DrawingRelations(e)
             };
         }).ToList() };
@@ -155,12 +165,29 @@ internal static class RevitQueryService
         return new { titleBlockTypeIds=titleBlocks.Select(block=>block.typeId).Distinct().Order().ToArray(), outlineMin=Uv(outline.Min), outlineMax=Uv(outline.Max), titleBlocks, viewports };
     }
     private static object Uv(UV value) => new { uMm=JsonDefaults.InternalToMm(value.U), vMm=JsonDefaults.InternalToMm(value.V) };
+    private sealed record ViewportGeometry(object Position, object BoxMin, object BoxMax, object LabelMin, object LabelMax);
+    private sealed record ViewportProjection(object Origin, object BasisX, object BasisY, object BasisZ);
     private static object ViewportRelations(Viewport viewport)
     {
-        var box=viewport.GetBoxOutline(); var label=viewport.GetLabelOutline(); var projection=viewport.GetProjectionToSheetTransform();
-        return new { sheetId=viewport.SheetId.Value, viewId=viewport.ViewId.Value, position=Point(viewport.GetBoxCenter()),
-            boxMin=Point(box.MinimumPoint), boxMax=Point(box.MaximumPoint), labelMin=Point(label.MinimumPoint), labelMax=Point(label.MaximumPoint),
-            projectionOrigin=Point(projection.Origin), projectionBasisX=Point(projection.BasisX), projectionBasisY=Point(projection.BasisY), projectionBasisZ=Point(projection.BasisZ),
+        var sheetId=viewport.SheetId;
+        var labelOffset=ViewportLabelService.Inspect(viewport);
+        var read=ViewportReadPolicy.Read(sheetId!=ElementId.InvalidElementId, () =>
+        {
+            var box=viewport.GetBoxOutline(); var label=viewport.GetLabelOutline();
+            return new ViewportGeometry(Point(viewport.GetBoxCenter()), Point(box.MinimumPoint), Point(box.MaximumPoint), Point(label.MinimumPoint), Point(label.MaximumPoint));
+        }, viewport.HasViewportTransforms, () =>
+        {
+            var projection=viewport.GetProjectionToSheetTransform();
+            return new ViewportProjection(Point(projection.Origin), Point(projection.BasisX), Point(projection.BasisY), Point(projection.BasisZ));
+        });
+        return new { sheetId=sheetId.Value, viewId=viewport.ViewId.Value, geometrySupported=read.GeometrySupported, geometryError=read.GeometryError,
+            position=read.Geometry?.Position, boxMin=read.Geometry?.BoxMin, boxMax=read.Geometry?.BoxMax, labelMin=read.Geometry?.LabelMin, labelMax=read.Geometry?.LabelMax,
+            labelOffsetSupported=labelOffset.Supported, labelOffset=labelOffset.Offset, labelOffsetError=labelOffset.Error,
+            labelLineLengthMm=labelOffset.LineLengthMm, rotation=labelOffset.Rotation,
+            pinned=labelOffset.Pinned, isReadOnly=labelOffset.IsReadOnly, readOnlyEvidenceScope="document",
+            labelOffsetCoordinateFrame=ViewportLabelService.OffsetFrame, labelOffsetZIgnoredByRevit=true,
+            projectionSupported=read.ProjectionSupported, projectionError=read.ProjectionError,
+            projectionOrigin=read.Projection?.Origin, projectionBasisX=read.Projection?.BasisX, projectionBasisY=read.Projection?.BasisY, projectionBasisZ=read.Projection?.BasisZ,
             anchor=viewport.get_Parameter(BuiltInParameter.VIEW_ANCHOR)?.AsInteger(), positionX=viewport.get_Parameter(BuiltInParameter.VIEW_POSITION_X)?.AsDouble(), positionY=viewport.get_Parameter(BuiltInParameter.VIEW_POSITION_Y)?.AsDouble() };
     }
     internal static object Counts(Document doc) => CountCategories.ToDictionary(c => c.ToString(), c => new FilteredElementCollector(doc).OfCategory(c).WhereElementIsNotElementType().GetElementCount());

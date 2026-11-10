@@ -25,7 +25,7 @@ try{
  const tools=await client.listTools();const info=await callRevit('revit.bridge.info');
  const contexts=[];for(let i=0;i<5;i++)contexts.push(await call('revit_context_get'));
  const before=stableContext(contexts);
- assertTestDocument(before,expected,path.resolve(root,'../考生文件夹/照明模型+方昱.rvt'));
+ assertTestDocument(before,expected,path.resolve(root,'../考生文件夹/sample-lighting-model.rvt'));
  const room=await call('revit_room_get',{roomId:2289999});
  if(!room.name.includes('办公室1')||room.number!=='103'||room.documentIdentity!==before.document.identity){const error=new Error('The reviewed office room does not match the test model.');error.details={id:room.id,name:room.name,number:room.number,documentIdentity:room.documentIdentity,expectedIdentity:before.document.identity};throw error;}
  const lightType=await call('revit_type_resolve',{family:'无装饰暗装照明设备',type:'300x1200',category:'OST_LightingFixtures'});

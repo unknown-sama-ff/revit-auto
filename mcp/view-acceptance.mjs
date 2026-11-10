@@ -16,7 +16,7 @@ try{
  if(command==='prepare'){
   const expected=option('project');const viewId=Number(option('target')),referenceViewId=Number(option('reference')),viewportId=Number(option('viewport')),paperX=Number(option('paper-x')??420),paperY=Number(option('paper-y')??280);
   if(!expected||![viewId,referenceViewId,viewportId].every(id=>Number.isSafeInteger(id)&&id>0))throw new Error('prepare --project TEST_COPY --target ID --reference ID --viewport ID --state NEW_RECORD.json');
-  const before=await context();assertTestDocument(before,expected,path.resolve(root,'../考生文件夹/照明模型+方昱.rvt'));
+  const before=await context();assertTestDocument(before,expected,path.resolve(root,'../考生文件夹/sample-lighting-model.rvt'));
   const source=await call('revit_view_get',{viewId:referenceViewId}),target=await call('revit_view_get',{viewId});
   const placement=(await call('revit_inspect',{elementIds:[viewportId]})).items[0];
   if(placement?.drawing?.viewId!==viewId)throw new Error('The viewport does not display the reviewed target view.');
@@ -30,7 +30,7 @@ try{
  }else if(command==='verify'){
   const record=JSON.parse((await fs.readFile(state,'utf8')).replace(/^\uFEFF/,''));
   if(record.formatVersion!==1)throw new Error('Invalid view acceptance record.');
-  const current=await context();assertTestDocument(current,record.expectedProject,path.resolve(root,'../考生文件夹/照明模型+方昱.rvt'));
+  const current=await context();assertTestDocument(current,record.expectedProject,path.resolve(root,'../考生文件夹/sample-lighting-model.rvt'));
   if(current.document.identity!==record.documentIdentity)throw new Error('Document session changed.');
   const plan=await call('revit_plan_get',{planId:record.preview.planId});
   if(plan.status!=='committed'||!isDeepStrictEqual(plan.operations,record.operations))throw new Error('The exact view configuration has not committed. No automatic submission.');

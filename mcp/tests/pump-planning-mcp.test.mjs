@@ -7,14 +7,15 @@ import net from 'node:net';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 const scene={routes:[{id:'r',pipeTypeId:10,systemTypeId:20,levelId:30,diameterMm:80,flowIntent:'supply',points:[{xMm:0,yMm:0,zMm:1000},{xMm:1000,yMm:0,zMm:1000}]}],clearanceCheck:{mode:'skip',reason:'User requests an isolated modeling test, not a clearance assessment.'}};
-async function fixture(t,{reportPatch={},features=['collision-check'],errorCode,planError,stalePlan=false}={}){
- const dir=await fs.mkdtemp(path.join(os.tmpdir(),'revit-pump-plan-mcp-'));const token='pump-planning-fixture-'.repeat(4),calls=[],sockets=new Set();
+const nativeContext={active:true,document:{identity:'doc-a',revision:0,path:'test.rvt',isFamilyDocument:false,isReadOnly:false,isModified:false}};
+async function fixture(t,{reportPatch={},features=['collision-check'],errorCode,planError,stalePlan=false,contexts=[nativeContext],planPatch={}}={}){
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'revit-pump-plan-mcp-'));const token='pump-planning-fixture-'.repeat(4),calls=[],sockets=new Set();let contextReads=0;
  const bridge=net.createServer(socket=>{sockets.add(socket);socket.on('close',()=>sockets.delete(socket));let buf='';socket.on('data',chunk=>{
   buf+=chunk.toString('utf8');const i=buf.indexOf('\n');if(i<0)return;const r=JSON.parse(buf.slice(0,i));assert.equal(r.token,token);calls.push(r);let payload;
   if(r.method==='revit.bridge.info')payload={ok:true,result:{protocol:'revit-auto-2027-v2',confirmationMode:'chat',features}};
-  else if(r.method==='revit.context.get')payload={ok:true,result:{active:true,document:{identity:'doc-a',revision:0,isFamilyDocument:false,isModified:false}}};
+  else if(r.method==='revit.context.get')payload={ok:true,result:contexts[Math.min(contextReads++,contexts.length-1)]};
   else if(r.method==='revit.collision.check')payload=errorCode?{ok:false,error:{code:errorCode,message:'Native preflight failed'}}:{ok:true,result:{documentIdentity:'doc-a',documentRevision:0,scope:{truncated:false,includesLinkedModels:false,targetElementIds:r.params.targetElementIds,excludeElementIds:r.params.excludeElementIds||[],clearanceMm:r.params.clearanceMm},diagnostics:{complete:true,truncated:false},collisions:[],unknown:[],clearanceCandidates:[],...reportPatch}};
-  else if(r.method==='revit.plan.create')payload=planError?{ok:false,error:{code:planError,message:'Native plan rejected'}}:{ok:true,result:{planId:'pump-preview',documentIdentity:'doc-a',documentRevision:stalePlan?1:0,status:'pending',operations:r.params.operations,warnings:[]}};
+  else if(r.method==='revit.plan.create')payload=planError?{ok:false,error:{code:planError,message:'Native plan rejected'}}:{ok:true,result:{planId:'pump-preview',documentIdentity:'doc-a',documentRevision:stalePlan?1:0,status:'pending',operations:r.params.operations,source:r.params.source,summary:r.params.summary,warnings:[],requiresConfirmation:true,confirmationMode:'chat',requiresRevitConfirmation:false,...planPatch}};
   else if(r.method==='revit.plan.cancel')payload={ok:true,result:{planId:r.params.planId,status:'cancelled'}};
   else payload={ok:false,error:{code:'unexpected_write',message:'This fixture never permits confirm/save'}};
   socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',...payload})+'\n');
@@ -82,4 +83,40 @@ test('changed native preview is cancelled once without a write',async t=>{
 });
 test('native plan validation error never triggers another plan or a commit',async t=>{
  const {client,calls}=await fixture(t,{planError:'invalid_operation'});const r=await invoke(client,{...request,planningMode:'explicit',input:scene});assert.equal(r.error,true);assert.equal(r.data.code,'invalid_operation');assert.equal(calls.filter(c=>c.method==='revit.plan.create').length,1);assert.ok(!calls.some(c=>/confirm|commit|save/.test(c.method)));
+});
+
+test('SDK pump build keeps equipment, pipe and connector references in one exact uncommitted preview',async t=>{
+ const {client,calls}=await fixture(t,{features:['collision-check','connector-criteria-connections']});
+ const point={xMm:0,yMm:0,zMm:1000};
+ const selector={domain:'DomainPiping',shape:'Round',point,toleranceMm:1};
+ const input={
+  equipment:[{id:'pump',symbolId:50,levelId:30,...point}],
+  pipes:[{id:'pipe',pipeTypeId:10,systemTypeId:20,levelId:30,diameterMm:80,flowIntent:'neutral',start:point,end:{...point,xMm:1000}}],
+  connections:[{id:'connect',flowIntent:'neutral',firstElementId:'@pump',firstConnector:selector,
+   secondElementId:'@pipe',secondConnector:selector}],
+  clearanceCheck:scene.clearanceCheck
+ };
+ const result=await invoke(client,{...request,name:'pump_room.build',planningMode:'explicit',input});
+ assert.equal(result.error,false);assert.equal(result.data.documentRevision,0);
+ assert.deepEqual(result.data.plan.operations.map(op=>op.operationType),['create_family_instance','create_pipe','connect_elements']);
+ assert.equal(result.data.plan.operations[2].firstElementId,'@pump');
+ assert.equal(result.data.plan.operations[2].secondElementId,'@pipe');
+ const create=calls.find(c=>c.method==='revit.plan.create');
+ assert.deepEqual(result.data.plan.operations,create.params.operations);
+ assert.deepEqual(calls.filter(c=>c.method!=='revit.bridge.info').map(c=>c.method),
+  ['revit.context.get','revit.plan.create','revit.context.get']);
+ assert.ok(!calls.some(c=>/confirm|commit|save|lifecycle/.test(c.method)));
+});
+
+test('SDK pump build rejects final revision drift and exposes one preview cleanup receipt',async t=>{
+ const {client,calls}=await fixture(t,{contexts:[nativeContext,{...nativeContext,document:{...nativeContext.document,revision:1}}]});
+ const input={pipes:[{id:'pipe',pipeTypeId:10,systemTypeId:20,levelId:30,diameterMm:80,flowIntent:'neutral',
+  start:{xMm:0,yMm:0,zMm:1000},end:{xMm:1000,yMm:0,zMm:1000}}],clearanceCheck:scene.clearanceCheck};
+ const result=await invoke(client,{...request,name:'pump_room.build',planningMode:'explicit',input});
+ assert.equal(result.error,true);assert.equal(result.data.code,'document_revision_changed');
+ assert.equal(result.data.details.planId,'pump-preview');
+ assert.equal(result.data.details.previewCleanup.status,'cancelled');
+ assert.deepEqual(calls.filter(c=>c.method!=='revit.bridge.info').map(c=>c.method),
+  ['revit.context.get','revit.plan.create','revit.context.get','revit.plan.cancel']);
+ assert.ok(!calls.some(c=>/confirm|commit|save|lifecycle/.test(c.method)));
 });

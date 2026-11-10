@@ -18,15 +18,31 @@ function Resolve-V27RevitDirectory([string]$Path) {
   if([string]::IsNullOrWhiteSpace($Path)){$Path=$env:REVIT_2027_INSTALL_DIR}
   if([string]::IsNullOrWhiteSpace($Path)){$Path=Join-Path $env:ProgramFiles 'Autodesk\Revit 2027'}
   $directory=[IO.Path]::GetFullPath($Path)
+  $pairedFileVersion=$null
+  $pairedAssemblyVersion=$null
   foreach($name in @('RevitAPI.dll','RevitAPIUI.dll')){
     $file=Join-Path $directory $name
     if(-not(Test-Path -LiteralPath $file -PathType Leaf)){
-      throw "Missing $name. Specify -RevitInstallDir or REVIT_2027_INSTALL_DIR pointing to Revit 2027.3 or later in the 2027 series."
+      throw "Missing $name. Specify -RevitInstallDir or REVIT_2027_INSTALL_DIR pointing to Revit 2027.3 (27.3.x)."
     }
-    $version=[Diagnostics.FileVersionInfo]::GetVersionInfo($file)
-    if($version.FileMajorPart -ne 27 -or $version.FileMinorPart -lt 3){
-      throw "Unsupported $name version $($version.FileVersion). Only Revit 2027.3+ within the 2027 series is supported."
+    try{
+      $version=[Diagnostics.FileVersionInfo]::GetVersionInfo($file)
+      if([string]::IsNullOrWhiteSpace($version.FileVersion) -or $version.FileMajorPart -ne 27 -or $version.FileMinorPart -ne 3){
+        throw "Unsupported $name version $($version.FileVersion). Only Revit 2027.3 (27.3.x) is supported."
+      }
+      $identity=[Reflection.AssemblyName]::GetAssemblyName($file)
+      if($identity.Name -ne [IO.Path]::GetFileNameWithoutExtension($name) -or $null -eq $identity.Version -or $identity.Version.Major -ne 27 -or $identity.Version.Minor -ne 3){
+        throw "Unsupported $name assembly identity. Expected $([IO.Path]::GetFileNameWithoutExtension($name)) 27.3.x."
+      }
+    }catch{
+      throw "Cannot validate $name for Revit 2027.3: $($_.Exception.Message)"
     }
+    $fileVersion=[version]::new($version.FileMajorPart,$version.FileMinorPart,$version.FileBuildPart,$version.FilePrivatePart)
+    if($null -ne $pairedFileVersion -and ($fileVersion -ne $pairedFileVersion -or $identity.Version -ne $pairedAssemblyVersion)){
+      throw 'RevitAPI.dll and RevitAPIUI.dll must have matching file and assembly versions from one Revit 2027.3 installation.'
+    }
+    $pairedFileVersion=$fileVersion
+    $pairedAssemblyVersion=$identity.Version
   }
   # These characters cannot safely be transported as an MSBuild property value.
   if($directory.IndexOfAny([char[]]';,') -ge 0){throw 'Revit install directory cannot contain MSBuild property separators (; or ,).'}

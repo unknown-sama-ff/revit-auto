@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "fixture": "sheet-titleblock-al1-envelope.json",
+  "fixtureSha256": "9df8a19d22da9860a289679f9b3047640877ea417f90d0fc5b5ae73fe037a37b",
+  "fixtureSerialization": "UTF-8 JSON.stringify(parsed fixture), preserving object property order and numbers; independent of checkout LF/CRLF",
+  "source": {
+    "kind": "captured-mcp-derived-report-with-preserved-native-bounds",
+    "fileSha256": "d9a31ff036d065b56937cfb2d4960c3fddf1d92f2eedf9e1832b5ddea77d7771",
+    "scopeId": "first-target-sheet-layout",
+    "scopeSerialization": "UTF-8 JSON.stringify(scope), retaining captured object property order",
+    "scopeSha256": "5a096a454c00577cd535a0f84f6076631fda370a26dcd220695322c2fbee6ce5",
+    "resultSerialization": "UTF-8 JSON.stringify(scope.result), retaining captured object property order",
+    "resultSha256": "4305c4a2616e03df77859266306dc1f837bebc27c379c1a19d5a29600097e318",
+    "notRawBridgeResponse": true,
+    "privateLocationOmitted": true
+  },
+  "extraction": {
+    "retainedExactly": [
+      "result.outline numeric XY bounds",
+      "result.titleBlocks[0].geometry status and numeric XY bounds",
+      "result.schedulePlacements[0].geometry status and numeric XY bounds",
+      "native class names, empty placement collections and false side-effect flags",
+      "old outOfSheet=[] retained only as expected historical output"
+    ],
+    "anonymized": {
+      "documentIdentity": "fixture-sheet-document",
+      "documentPath": "fixture-sheet-model.rvt",
+      "sheetId": {
+        "fixture": 20
+      },
+      "titleBlockId": {
+        "fixture": 1
+      },
+      "titleBlockTypeId": {
+        "fixture": 2
+      },
+      "panelPlacementId": {
+        "fixture": 201
+      },
+      "panelViewId": {
+        "fixture": 301
+      }
+    },
+    "omitted": [
+      "sheet number and sheet name",
+      "source session identity, process metadata and proprietary model path",
+      "MCP-derived status, intersections, completeness, limitations and read-only flags not needed as native replay input"
+    ],
+    "synthetic": [
+      "stable minimal context wrapper and request using anonymized identifiers",
+      "expected titleblock-relative left/top finding, derived from captured bounds and corroborated by the separately archived native PNG"
+    ],
+    "numericRounding": "none"
+  },
+  "scope": "Portable regression for one captured containment counterexample only; not full-model, printable-area, visual or hidden-side-effect acceptance.",
+  "privateEvidenceModified": false,
+  "requiresPrivateEvidenceAtTestRuntime": false,
+  "publicationNote": "Private source run identifiers, file locations and original element IDs are intentionally omitted. Recorded hashes preserve provenance without publishing the private capture."
+}

@@ -6,9 +6,21 @@ test('rejects unsupported executable code operations', () => assert.throws(() =>
 test('rejects malformed or dangerous coordinates', () => assert.throws(() => validateOperations([{operationType:'create_level',name:'L',elevationMm:'3000'}]), /finite number/));
 test('rejects missing explicit family type', () => assert.throws(() => validateOperations([{operationType:'create_family_instance',xMm:0,yMm:0}]), /family/));
 test('accepts explicit millimeter point operation', () => assert.equal(validateOperations([{operationType:'create_level',id:'L',name:'L',elevationMm:0}]).length,1));
-test('accepts references only to prior operations', () => assert.equal(validateOperations([{operationType:'create_level',id:'L',name:'L',elevationMm:0},{operationType:'create_room',levelId:'@L',xMm:1,yMm:2}]).length,2));
+test('accepts references only to prior operations', () => assert.equal(validateOperations([{operationType:'create_level',id:'L',name:'L',elevationMm:0},{operationType:'create_room',levelId:'@L',xMm:1,yMm:2,name:'Room',number:'101'}]).length,2));
 test('rejects forward references', () => assert.throws(() => validateOperations([{operationType:'create_room',levelId:'@L',xMm:1,yMm:2}]), /Invalid levelId/));
 test('rejects duplicate operation ids', () => assert.throws(() => validateOperations([{operationType:'create_level',id:'x',name:'A',elevationMm:0},{operationType:'create_level',id:'x',name:'B',elevationMm:3000}]), /Duplicate/));
+
+test('shared operation validation rejects duplicate new sheet numbers across raw and architecture plans',()=>{
+  const sheets=[{id:'first',number:'A201',name:'First'},{id:'second',number:'A201',name:'Second'}];
+  assert.throws(()=>validateOperations(sheets.map(s=>({...s,operationType:'create_sheet'}))),/Duplicate new sheet number/);
+  assert.throws(()=>workflowOperations('architecture.documentation',{sheets}),/Duplicate new sheet number/);
+  const valid=[{...sheets[0],operationType:'create_sheet'},{...sheets[1],number:' A201 ',operationType:'create_sheet'}];
+  const copy=structuredClone(valid);assert.equal(validateOperations(valid).length,2);assert.deepEqual(valid,copy);
+});
+
+test('new sheet numbers require text instead of values that cannot be compared reliably',()=>{
+  for(const number of [1,{},[],true,' '])assert.throws(()=>validateOperations([{operationType:'create_sheet',number,name:'Reviewed'}]),/sheet number/);
+});
 test('accepts connector id zero', () => assert.doesNotThrow(() => validateOperations([{operationType:'connect_elements',firstElementId:1,secondElementId:2,firstConnectorId:0,secondConnectorId:1}])));
 test('rejects negative connector id', () => assert.throws(() => validateOperations([{operationType:'connect_elements',firstElementId:1,secondElementId:2,firstConnectorId:-1}]), /Connector ids/));
 test('lighting workflow preserves explicit order and validates', () => assert.equal(workflowOperations('lighting.full',{lights:[{symbolId:1,levelId:2,xMm:1,yMm:2,id:'light'}]}).length,1));

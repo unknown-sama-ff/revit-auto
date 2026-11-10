@@ -108,27 +108,120 @@ export function readXlsx(bytes, sheetName) {
   return records(matrix.map(r => Array.from({length: Math.max(width,r.length)}, (_,i) => r[i] ?? '')));
 }
 const numericFields = new Set(['xMm','yMm','zMm','elevationMm','heightMm','widthMm','diameterMm','rotationDegrees','scale']);
+function tableRecord(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+function validationField(error, op) {
+  const message=error.message||'';
+  const required=/^(?:[a-z_]+: )?([A-Za-z][A-Za-z0-9]*) is required\./.exec(message);
+  const invalid=/^Invalid ([A-Za-z][A-Za-z0-9]*):/.exec(message);
+  if(required||invalid)return (required||invalid)[1];
+  const numeric=/^([A-Za-z][A-Za-z0-9]*) must be a (positive )?finite number/.exec(message);
+  if(numeric){
+    const [,,positive]=numeric,field=numeric[1];
+    const invalidNumber=value=>typeof value!=='number'||!Number.isFinite(value)||Math.abs(value)>1e8||positive&&value<=0;
+    if(Object.hasOwn(op,field))return field;
+    for(const container of ['point','start','end','paperPoint','firstConnector.point','secondConnector.point','cropBounds.min','cropBounds.max']){
+      const value=container.split('.').reduce((current,key)=>current?.[key],op);
+      if(tableRecord(value)&&invalidNumber(value[field]))return container+'.'+field;
+    }
+    if(Array.isArray(op.boundary)){
+      const index=op.boundary.findIndex(point=>!tableRecord(point)||invalidNumber(point[field]));
+      if(index>=0)return 'boundary.'+index+'.'+field;
+    }
+    return field;
+  }
+  if(message.startsWith('Unsupported operation'))return 'operationType';
+  if(message.startsWith('Duplicate or invalid operation id'))return 'id';
+  if(message.startsWith('Unresolved dependency')||op.dependencies!==undefined&&!Array.isArray(op.dependencies))return 'dependencies';
+  if(message.startsWith('Floor needs'))return 'boundary';
+  if(message.startsWith('A circuit needs'))return 'elementIds';
+  if(message.startsWith('Point coordinates')){
+    if(['create_grid','create_wall','create_pipe','create_duct','create_dimension'].includes(op.operationType))return !op.start?'start':'end';
+    return 'point';
+  }
+  if(message.startsWith('first requires'))return 'firstConnector';
+  if(message.startsWith('second requires'))return 'secondConnector';
+  if(message.startsWith('Endpoint '))for(const prefix of ['first','second']){
+    if(message.startsWith('Endpoint '+op[prefix+'ElementId']+':'))return prefix+(Object.hasOwn(op,prefix+'ConnectorId')?'ConnectorId':'Connector');
+  }
+  if(message.startsWith('New pipe/duct endpoint requires criteria'))for(const prefix of ['first','second']){
+    if(typeof op[prefix+'ElementId']==='string'&&op[prefix+'ElementId'].startsWith('@')&&!op[prefix+'Connector'])return prefix+'Connector';
+  }
+  if(message.startsWith('Provide explicit known unique view settings'))return 'settings';
+  if(message.startsWith('cropBounds'))return 'cropBounds';
+  return undefined;
+}
+function operationIssues(error, row, op) {
+  if(Array.isArray(error.issues)&&error.issues.length)return error.issues.map(issue=>({row,...(issue.path?.length?{field:issue.path.join('.')}:{}),message:issue.message}));
+  const field=validationField(error,op);
+  return [{row,...(field?{field}:{}),message:error.message}];
+}
+function referencedPriorIds(op, known) {
+  const refs=new Set();
+  for(const [field,value] of Object.entries(op)){
+    if(op.operationType==='load_family'&&field==='expectedCategoryId')continue;
+    const ids=field.endsWith('ConnectorId')?[]:field.endsWith('Ids')&&Array.isArray(value)?value:field.endsWith('Id')?[value]:[];
+    for(const value of ids)if(typeof value==='string'&&value.startsWith('@')&&known.has(value.slice(1)))refs.add(value.slice(1));
+  }
+  if(Array.isArray(op.dependencies))for(const dependency of op.dependencies)if(known.has(dependency))refs.add(dependency);
+  return refs;
+}
 export function mapRows(rows, mapping = {}, defaults = {}) {
   if (!Array.isArray(rows) || rows.length < 1 || rows.length > MAX_ROWS) throw new Error(`Provide 1..${MAX_ROWS} table rows.`);
-  const issues = []; const operations = [];
-  rows.forEach((row,index) => {
-    try {
-      let op;
-      if (row.operationType && typeof row.operationType === 'string' && !Object.keys(mapping).length) op = {...defaults,...row};
-      else {
-        if (!Object.keys(mapping).length) throw new Error('mapping is required: destination field -> source column. No automatic family/type guessing is performed.');
-        op = {...defaults}; for (const [destination,column] of Object.entries(mapping)) { if (!(column in row)) throw new Error(`Missing column ${column}.`); op[destination] = row[column]; }
+  if(!tableRecord(mapping)||!tableRecord(defaults))return {operations:[],issues:[{field:!tableRecord(mapping)?'mapping':'defaults',message:'Table mapping and defaults must be objects.'}]};
+  const issues=[],operations=[],operationRows=[],known=new Set();
+  const destinations=Object.entries(mapping);
+  Array.from(rows).forEach((row,index)=>{
+    const rowNumber=index+2;
+    if(!tableRecord(row)){issues.push({row:rowNumber,field:'row',message:'Each table row must be an object.'});return;}
+    let op;
+    const rowIssues=[];
+    if(typeof row.operationType==='string'&&row.operationType&&!destinations.length)op={...defaults,...row};
+    else{
+      op={...defaults};
+      if(!destinations.length)rowIssues.push({row:rowNumber,field:'mapping',message:'mapping is required: destination field -> source column. No automatic family/type guessing is performed.'});
+      for(const [destination,column] of destinations){
+        if(!destination.trim()||['__proto__','prototype','constructor'].includes(destination))rowIssues.push({row:rowNumber,field:destination||'mapping',message:'Mapping destination must be an explicit operation field, not an object-prototype key.'});
+        else if(typeof column!=='string'||!column.trim())rowIssues.push({row:rowNumber,field:destination,message:'Mapping source column must be a non-empty string.'});
+        else if(!Object.hasOwn(row,column))rowIssues.push({row:rowNumber,field:destination,column,message:`Missing column ${column}.`});
+        else op[destination]=row[column];
       }
-      for (const [field,value] of Object.entries(op)) {
-        if (value === '' || value === undefined || value === null) {delete op[field]; continue;}
-        if (typeof value === 'string' && (numericFields.has(field) || /Id$/.test(field) && !value.startsWith('@'))) { if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim())) throw new Error(`${field} is not numeric.`); op[field] = Number(value); }
-        if (typeof value === 'string' && ['parameters','boundary','start','end','elementIds','fields','bends','point'].includes(field)) op[field] = JSON.parse(value);
+    }
+    for(const [field,value] of Object.entries(op)){
+      if(value===''||value===undefined||value===null){delete op[field];continue;}
+      if(typeof value==='string'&&(numericFields.has(field)||/Id$/.test(field)&&!value.startsWith('@'))){
+        if(!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim())||!Number.isFinite(Number(value)))
+          rowIssues.push({row:rowNumber,field,message:`${field} is not a finite numeric value.`});
+        else op[field]=Number(value);
       }
-      operations.push(op);
-    } catch (error) {issues.push({row:index+2,message:error.message});}
+      if(typeof value==='string'&&['parameters','boundary','start','end','elementIds','fields','bends','point','dependencies','settings','paperPoint','cropBounds','firstConnector','secondConnector','references'].includes(field)){
+        try{op[field]=JSON.parse(value);}catch(error){rowIssues.push({row:rowNumber,field,message:`${field} contains invalid JSON: ${error.message}`});}
+      }
+    }
+    if(op.dependencies!==undefined&&!Array.isArray(op.dependencies)&&!rowIssues.some(issue=>issue.field==='dependencies'))
+      rowIssues.push({row:rowNumber,field:'dependencies',message:'dependencies must be an array of earlier operation IDs.'});
+    const duplicate=typeof op.id==='string'&&known.has(op.id);
+    if(duplicate)rowIssues.push({row:rowNumber,field:'id',message:`Duplicate or invalid operation id '${op.id}'.`});
+    if(!rowIssues.length){
+      // Only validation placeholders establish earlier IDs. They are never returned
+      // or executed, and the unchanged full operation sequence is validated below.
+      const context=[...referencedPriorIds(op,known)].map(id=>({operationType:'create_level',id,name:'table-reference-validation',elevationMm:0}));
+      try{validateOperations([...context,op]);}catch(error){rowIssues.push(...operationIssues(error,rowNumber,op));}
+    }
+    issues.push(...rowIssues);
+    if(typeof op.id==='string'&&op.id.trim()&&op.id.length<=80)known.add(op.id);
+    operations.push(op);operationRows.push(rowNumber);
   });
-  if (!issues.length) {try {validateOperations(operations);} catch (error) {issues.push({message:error.message});}}
-  return {operations, issues};
+  if(issues.length)return {operations:[],issues};
+  try{validateOperations(operations);}catch(error){
+    // The full validator owns sequence and connector-reservation rules. Locate
+    // its first failing prefix so its plan error still names the source row.
+    let failed=operations.length-1;
+    for(let index=0;index<operations.length;index++){
+      try{validateOperations(operations.slice(0,index+1));}catch{failed=index;break;}
+    }
+    return {operations:[],issues:operationIssues(error,operationRows[failed],operations[failed])};
+  }
+  return {operations,issues};
 }
 export async function importInput(args) {
   let rows = args.rows; let data = args.data ?? (Array.isArray(args.entities)?{entities:args.entities}:undefined); let isImage = args.format === 'image';

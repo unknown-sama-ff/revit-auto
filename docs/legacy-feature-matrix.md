@@ -1,5 +1,7 @@
 # 旧版功能对等迁移矩阵
 
+本矩阵承担项目第一阶段“与旧项目功能对等”的逐项跟踪；完成后进入第二阶段“优化实现为完整的 Revit 自动化助手”。两阶段目标及完成依据见 [project-roadmap.md](project-roadmap.md)。旧版对等不代表 Revit 全功能覆盖。
+
 ## 事实来源与覆盖
 
 机器可读矩阵为 `mcp/legacy-source-matrix.json`，逐项登记全部 **51 个根目录 .csx + ModelBuilder.cs**，共52个来源。`mcp/source-matrix-reviewed-generator.mjs` 维护审阅过的分类；覆盖测试会在新增/删除源文件但未更新登记时失败，防止只统计工作流名称而遗漏旧脚本。
@@ -7,6 +9,10 @@
 每项记录包含 legacyFeature、legacyScript、newWorkflow、supportedInputs、generatedOperations、readOnlyQueries、writeCategories、rollbackScope、acceptanceStatus、源文件角色和旧版副作用审查。登记不是运行权限；MCP不提供.csx路径/C#执行入口。
 
 ## 状态
+
+当前任务的推进状态、依赖顺序和 blocker 以 [capability-task-queue.json](capability-task-queue.json) 为唯一机器可读来源；本矩阵继续只记录旧版来源的迁移结论和业务范围。流程整理不会把 `implemented-not-accepted`、`legacy-source-needs-redesign` 或其它既有结论自动升级，也不会用代码测试、工具发现或单项视觉结果替代完整原生验收。
+
+所有新实机证据采用 [development-flow.md](development-flow.md) 规定的 `runId` 目录和阶段文件。矩阵中没有 runId 的旧证据保留为历史，不得用于当前 plan、Confirm 或模型写入。
 
 - `implemented-and-accepted`：指定能力已有原生验收证据，范围明确；只读项不伪造事务/保存验收。
 - `implemented-not-accepted`：有结构化操作迁移，但还未完成独立的原生结果、异常回滚和副作用验收。
@@ -22,6 +28,7 @@
 - 建筑：architecture.build、architecture.rooms、architecture.openings、architecture.documentation、architecture.stairs（landingMode=none 已完成 Revit 实机验收；自动平台分支已验证回滚但仍未通过）。
 - 泵房：pump_room.build、pump_room.route、pump_room.connect。路线只把用户明确提供的点拆成直管段；连接只接受已核对的连接器 ID 或 criteria，并要求显式 flowIntent=supply|return|neutral；不推断路线、流向、净距或连接器；复用的是现有2027结构化API能力，不是当前旧ModelBuilder.Build中不存在的成熟管道实现。
 - 只读：audit、families.audit、verification.saved。参数导入：imports.parameter_table（CSV/TSV/XLSX/JSON，显式字段映射，预览后确认）。族加载：families.load（受控白名单 RFA；keep_existing 分支已完成 Revit 实机验收，实际新 RFA load/replace 仍未验收）。只读注册项具有readAdapter，不进入模型operationBuilder。
+- `revit_sheet_layout` 是为迁移和验收补充的新增只读基础能力，不对应旧版 `.csx` 来源，不新增旧版矩阵条目，也不升级任何旧来源的验收状态；2026-10-13 已完成当前测试副本两张图纸的 Revit 原生只读实机验收，`wholeSheetLayoutAccepted=false` 仍表示 PNG 整图视觉验收未完成。
 
 电气、房间、门窗、图纸细分适配器已通过构建/契约测试但仍待逐项原生写入、回滚、保存后结果验证。没有给普通客户端原样执行旧脚本的权限。
 
@@ -61,7 +68,7 @@ Revit 2025源码和程序集不修改；本批只改变Node MCP与元数据，�
 
 
 2026-10-07：楼梯实机验收完成部分分支：landingMode=none 通过聊天确认后成功创建楼梯 2295913 及两段 2295914/2295918，手动保存后 saved=true/isModified=false；automaticBetweenRuns 因 Revit 原生不接受该几何关系而失败，rolledBack=true 且未留下新楼梯。证据在被忽略的 acceptance/stairs-native-acceptance-20261007.json。
-2026-10-08：参数表导入实机验收通过：计划 `4a64fe257fa54f11894a0bb270f421ad` 在聊天确认后提交，楼梯 `2295913` 的“注释”变为 `AI_PARAMETER_IMPORT_TEST`，手动保存后 `saved=true/isModified=false`。
+2026-10-08：参数表导入实机验收通过：计划 `0f145312b77d5ea5d24bbd851526073b` 在聊天确认后提交，楼梯 `2295913` 的“注释”变为 `AI_PARAMETER_IMPORT_TEST`，手动保存后 `saved=true/isModified=false`。
 
 2026-10-08：保存核验真实 SDK/std​​io 只读对照完成6项检查：直接工具与统一工作流结果一致，当前文档身份/revision固定，查询后模型计数、视图、选择集和修改状态不变，没有建计划或保存。证据只在本机忽略目录 `acceptance/saved-sdk-contract-20261008.json`。这是当前会话合同验收，不代表磁盘持久化、重开验收或旧版保存核验的全部业务对等。
 

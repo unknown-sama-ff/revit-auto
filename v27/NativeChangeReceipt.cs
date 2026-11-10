@@ -13,6 +13,7 @@ internal sealed record NativeChangeEvidence(string DocumentIdentity, long StartR
 // session/command lifetime, never labels unknown native elements as harmless or predicts a net diff.
 internal sealed class NativeChangeReceipt
 {
+    internal const int DefaultElementLimit = 10000, DefaultEventLimit = 128;
     private readonly HashSet<long> added = [], modified = [], deleted = [];
     private readonly List<NativeReceiptEvent> events = [];
     private int eventCount;
@@ -20,7 +21,7 @@ internal sealed class NativeChangeReceipt
     private readonly long startRevision;
     private readonly int elementLimit, eventLimit;
     private long lastRevision;
-    internal NativeChangeReceipt(string documentIdentity, long startRevision, int elementLimit = 10000, int eventLimit = 128)
+    internal NativeChangeReceipt(string documentIdentity, long startRevision, int elementLimit = DefaultElementLimit, int eventLimit = DefaultEventLimit)
     {
         if (string.IsNullOrWhiteSpace(documentIdentity)) throw new ArgumentException("A document identity is required.", nameof(documentIdentity));
         if (startRevision < 0) throw new ArgumentOutOfRangeException(nameof(startRevision));
@@ -31,6 +32,12 @@ internal sealed class NativeChangeReceipt
     }
     private bool idsTruncated, metadataTruncated, invalidEvidence;
     private bool sequentialRevisions = true;
+    // Upper bound for replacing a missing nativeChanges field after group assimilation:
+    // six ID arrays, at most 21 bytes per ID; bounded operation/three labels, at most
+    // six JSON bytes per UTF-16 code unit; 1 KiB/event and 16 KiB for fixed metadata.
+    // Derive this from the actual recorder caps, so increasing a cap cannot invalidate it.
+    internal int ResponseSizeReservationBytes => checked(32 + 16 * 1024 + documentIdentity.Length * 6
+        + 6 * elementLimit * 21 + eventLimit * (6 * (120 + 3 * 500) + 1024));
     public void Record(string identity, long revision, string operation, IEnumerable<string> names,
         IEnumerable<long> addedIds, IEnumerable<long> modifiedIds, IEnumerable<long> deletedIds)
     {

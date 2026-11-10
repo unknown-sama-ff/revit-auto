@@ -15,7 +15,11 @@ internal static class OpeningService
         if(kind=="wall_rectangle")
         {
             var wall=Host<Wall>(doc,op,"hostElementId");
-            if(wall.WallType.Kind!=WallKind.Basic||wall.get_Parameter(BuiltInParameter.WALL_CROSS_SECTION)?.AsInteger()!=0||wall.Location is not LocationCurve location||location.Curve is not Line line||Math.Abs(line.Direction.Z)>1e-8)throw Invalid("wall_rectangle currently needs a straight upright Basic wall; curved, slanted, stacked or curtain walls require a separate adapter.");
+            var crossSection = wall.get_Parameter(BuiltInParameter.WALL_CROSS_SECTION);
+            if (wall.WallType.Kind != WallKind.Basic || crossSection is null || crossSection.StorageType != StorageType.Integer ||
+                !crossSection.HasValue || crossSection.AsInteger() != (int)WallCrossSection.Vertical ||
+                wall.Location is not LocationCurve location || location.Curve is not Line line || Math.Abs(line.Direction.Z) > 1e-8)
+                throw Invalid("wall_rectangle currently needs a straight upright Basic wall; curved, slanted, stacked or curtain walls require a separate adapter.");
             var bounds=wall.get_BoundingBox(null)??throw Invalid("Wall has no native bounds.");
             foreach(var key in new[]{"start","end"})
             {
@@ -61,12 +65,21 @@ internal static class OpeningService
             baseLevelId=opening.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT)?.AsElementId().Value,topLevelId=opening.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE)?.AsElementId().Value,
             baseOffsetMm=ReadOffset(opening,BuiltInParameter.WALL_BASE_OFFSET),topOffsetMm=ReadOffset(opening,BuiltInParameter.WALL_TOP_OFFSET),engineeringComplianceVerified=false});
     }
-    private static double? ReadOffset(Element element,BuiltInParameter name){var parameter=element.get_Parameter(name);return parameter is null?null:JsonDefaults.InternalToMm(parameter.AsDouble());}
-    private static object JsonPoint(XYZ point)=>new{xMm=JsonDefaults.InternalToMm(point.X),yMm=JsonDefaults.InternalToMm(point.Y),zMm=JsonDefaults.InternalToMm(point.Z)};
-    public static OperationReceipt Verify(Document doc,Opening opening,JsonElement op)
+    private static double? ReadOffset(Element element, BuiltInParameter name)
     {
-        doc.Regenerate();var kind=JsonDefaults.String(op,"openingKind");var tolerance=Mm(PlanRules.Number(op,"hostToleranceMm"));
+        var parameter = element.get_Parameter(name);
+        if (parameter is null || parameter.StorageType != StorageType.Double || !parameter.HasValue) return null;
+        var offsetMm = JsonDefaults.InternalToMm(parameter.AsDouble());
+        return double.IsFinite(offsetMm) ? offsetMm : null;
+    }
+    private static object JsonPoint(XYZ point)=>new{xMm=JsonDefaults.InternalToMm(point.X),yMm=JsonDefaults.InternalToMm(point.Y),zMm=JsonDefaults.InternalToMm(point.Z)};
+    public static OperationReceipt Verify(Document doc,Opening opening,JsonElement op,string phase = "after-creation", OpeningHostSurfaceBinding? surfaceBinding = null)
+    {
+        if (!opening.IsValidObject || !opening.Document.Equals(doc)) throw Invalid("Opening readback belongs to an invalid or different native document; roll back.");
+        var kind=JsonDefaults.String(op,"openingKind");var tolerance=Mm(PlanRules.Number(op,"hostToleranceMm"));
         var changed=new List<long>();
+        JsonElement? hostSurfaceReadback = null;
+        bool? openingRawProfileMatchesReviewed = null;
         if(kind!="shaft")
         {
             var host=Host<Element>(doc,op,"hostElementId");if(opening.Host?.Id!=host.Id)throw Invalid("Created opening host does not match the reviewed host; the transaction must roll back.");changed.Add(host.Id.Value);
@@ -80,17 +93,108 @@ internal static class OpeningService
         {
             if(opening.IsRectBoundary)throw Invalid("The native profile boundary changed representation; do not certify it without profile readback.");
             var curves=opening.BoundaryCurves?.Cast<Curve>().ToArray()??throw Invalid("Native opening profile is unavailable.");var expected=Vertices(op);
-            if(curves.Length!=expected.Length||curves.Any(curve=>curve is not Line))throw Invalid("Native opening profile differs from the reviewed straight-edge polygon.");
+            if(curves.Length!=expected.Length||curves.Any(curve=>curve is not Line||!curve.IsBound))throw Invalid("Native opening profile differs from the reviewed bounded straight-edge polygon.");
             OpeningPoint MmPoint(XYZ p)=>new(JsonDefaults.InternalToMm(p.X),JsonDefaults.InternalToMm(p.Y),JsonDefaults.InternalToMm(p.Z));
-            if(!OpeningRules.EdgesMatch(expected.Select(MmPoint).ToArray(),curves.Select(curve=>(MmPoint(curve.GetEndPoint(0)),MmPoint(curve.GetEndPoint(1)))).ToArray(),PlanRules.Number(op,"hostToleranceMm")))throw Invalid("Native profile segments do not match the reviewed polygon edges; the transaction must roll back.");
+            var actualSegments = curves.Select(curve => (Start: MmPoint(curve.GetEndPoint(0)), End: MmPoint(curve.GetEndPoint(1)))).ToArray();
+            static bool FinitePoint(OpeningPoint p)=>double.IsFinite(p.X)&&double.IsFinite(p.Y)&&double.IsFinite(p.Z);
+            if(actualSegments.Any(edge=>!FinitePoint(edge.Start)||!FinitePoint(edge.End)))
+                throw OpeningProfileFailureDiagnostics.Create(op, phase,
+                    () => CaptureComparedProfile(opening, actualSegments, curves),
+                    () => CaptureProfileCoordinateContext(doc, opening), "Native Opening profile contains nonfinite raw coordinates; roll back.");
+            openingRawProfileMatchesReviewed = OpeningRules.EdgesMatch(expected.Select(MmPoint).ToArray(),actualSegments,PlanRules.Number(op,"hostToleranceMm"));
+            if(kind=="floor_profile")
+            {
+                try
+                {
+                    if(surfaceBinding is null)throw Invalid("Original prewrite host-surface binding is unavailable; do not infer it after creation.");
+                    hostSurfaceReadback = OpeningHostSurfaceReadbackService.Verify(doc, opening, op, surfaceBinding);
+                }
+                catch(BridgeException error)when(error.Code=="invalid_opening")
+                {
+                    throw OpeningProfileFailureDiagnostics.Create(op, phase,
+                        () => CaptureComparedProfile(opening, actualSegments, curves),
+                        () => NativeReadSnapshot.Freeze(new { rawCoordinateContext=CaptureProfileCoordinateContext(doc, opening),
+                            hostSurfaceFailure=new { error.Code, error.Message, error.Details } }), error.Message);
+                }
+            }
+            else if(!OpeningRules.EdgesMatch(expected.Select(MmPoint).ToArray(),actualSegments,PlanRules.Number(op,"hostToleranceMm")))
+                // Count/type validation above bounds this actual boundary to the
+                // reviewed3..128 straight edges. Freeze it before rollback deletes it.
+                throw OpeningProfileFailureDiagnostics.Create(op, phase,
+                    () => CaptureComparedProfile(opening, actualSegments, curves),
+                    () => CaptureProfileCoordinateContext(doc, opening));
             if(kind=="shaft")
             {
                 var bottom=opening.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT);var top=opening.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE);
                 if(bottom?.AsElementId()!=Host<Level>(doc,op,"baseLevelId").Id||top?.AsElementId()!=Host<Level>(doc,op,"topLevelId").Id)throw Invalid("Native shaft level constraints are not verified against the reviewed levels.");
-                if(Math.Abs(ReadOffset(opening,BuiltInParameter.WALL_BASE_OFFSET)??double.PositiveInfinity)>PlanRules.Number(op,"hostToleranceMm")||Math.Abs(ReadOffset(opening,BuiltInParameter.WALL_TOP_OFFSET)??double.PositiveInfinity)>PlanRules.Number(op,"hostToleranceMm"))throw Invalid("Native shaft offsets are not verified as zero; no offsets were approved.");
+                OpeningRules.RequireZeroNativeOffset(ReadOffset(opening, BuiltInParameter.WALL_BASE_OFFSET), PlanRules.Number(op,"hostToleranceMm"));
+                OpeningRules.RequireZeroNativeOffset(ReadOffset(opening, BuiltInParameter.WALL_TOP_OFFSET), PlanRules.Number(op,"hostToleranceMm"));
             }
         }
-        return new OperationReceipt([opening.Id.Value],changed){Evidence=new{openingKind=kind,hostAndBoundaryVerified=true,shaftLevelConstraintsVerified=kind=="shaft",cutDirectionPassedToNative=JsonDefaults.String(op,"cutDirection"),cutDirectionIndependentlyVerified=false,native=Snapshot(opening),sideEffectsVerified=false,engineeringComplianceVerified=false}};
+        return new OperationReceipt([opening.Id.Value],changed){Evidence=new{elementId=opening.Id.Value,openingKind=kind,verificationPhase=phase,reviewedOperation=op.Clone(),nativeReadbackVerified=true,hostAndBoundaryVerified=true,shaftLevelConstraintsVerified=kind=="shaft",cutDirectionPassedToNative=JsonDefaults.String(op,"cutDirection"),cutDirectionIndependentlyVerified=false,hostSurfaceReadback,openingRawProfileMatchesReviewed,native=Snapshot(opening),sideEffectsVerified=false,persistenceVerified=false,visualVerified=false,engineeringComplianceVerified=false}};
+    }
+    private static JsonElement CaptureComparedProfile(Opening opening, (OpeningPoint Start, OpeningPoint End)[] segments, Curve[] curves)
+    {
+        static object PointData(OpeningPoint point) => new { xMm = point.X, yMm = point.Y, zMm = point.Z };
+        return NativeReadSnapshot.Freeze(new
+        {
+            openingId = opening.Id.Value, uniqueId = opening.UniqueId, hostId = opening.Host?.Id.Value,
+            isRectBoundary = opening.IsRectBoundary, captureKind = "exact-native-segments-just-compared",
+            boundaryCurves = segments.Select((edge, index) => new { curveType = curves[index].GetType().Name,
+                isBound = curves[index].IsBound, start = PointData(edge.Start), end = PointData(edge.End) }).ToArray(),
+            nativeBoundarySegmentCount = segments.Length,
+            note = "Only the same feet-to-millimeters conversion used by the failed comparison; no coordinate projection or unrelated parameter reads."
+        });
+    }
+    private static JsonElement CaptureProfileCoordinateContext(Document doc, Opening opening)
+    {
+        static object Direction(XYZ value) => new { x = value.X, y = value.Y, z = value.Z };
+        static object ReadSection(Func<object?> collector)
+        {
+            try
+            {
+                var value = collector();
+                return new { supported = true, knownNull = value is null, value = NativeReadSnapshot.Freeze(value ?? new { knownNull = true }) };
+            }
+            catch (Exception error)
+            {
+                var message = error.GetType().Name + ": " + error.Message;
+                return new { supported = false, error = message.Length <= 512 ? message : message[..512] + " [error-message-truncated]" };
+            }
+        }
+        static object? Bounds(Element element)
+        {
+            using var box = element.get_BoundingBox(null);
+            if (box is null) return null;
+            var transform = box.Transform;
+            return new { min = JsonPoint(box.Min), max = JsonPoint(box.Max),
+                transformOrigin = JsonPoint(transform.Origin), xBasis = Direction(transform.BasisX), yBasis = Direction(transform.BasisY), zBasis = Direction(transform.BasisZ),
+                frame = "Min/max retained in native bounding-box coordinates; transform retained separately without applying it." };
+        }
+        static object PlaneData(Sketch sketch)
+        {
+            var sketchPlane = sketch.SketchPlane;
+            using var plane = sketchPlane.GetPlane();
+            return new { sketchId = sketch.Id.Value, sketchPlaneId = sketchPlane.Id.Value, origin = JsonPoint(plane.Origin),
+                xBasis = Direction(plane.XVec), yBasis = Direction(plane.YVec), normal = Direction(plane.Normal) };
+        }
+        var host = opening.Host;
+        return NativeReadSnapshot.Freeze(new
+        {
+            openingId = opening.Id.Value, hostId = host?.Id.Value,
+            openingBounds = ReadSection(() => Bounds(opening)),
+            hostBounds = ReadSection(() => host is null ? null : Bounds(host)),
+            hostSketchPlane = ReadSection(() => host is Floor floor && doc.GetElement(floor.SketchId) is Sketch sketch ? PlaneData(sketch) : null),
+            openingSketchPlanes = ReadSection(() =>
+            {
+                var all = opening.GetDependentElements(null);
+                var ids = all.OrderBy(id => id.Value).Take(256).ToArray();
+                var sketches = ids.Select(doc.GetElement).OfType<Sketch>().ToArray();
+                return new { dependentElementIds = ids.Select(id => id.Value).ToArray(), totalDependencyCount = all.Count,
+                    dependenciesTruncated = all.Count > ids.Length, sketchPlanes = sketches.Take(4).Select(PlaneData).ToArray(), sketchPlanesTruncated = sketches.Length > 4 };
+            }),
+            note = "Supplementary raw coordinate frames only; unknown or truncated sections are explicit and never used to waive the failed3D comparison. No regeneration or model mutation is requested."
+        });
     }
     public static object Preview(Document doc,JsonElement op)
     {

@@ -55,16 +55,29 @@ internal sealed class QueuedCommand(CommandEnvelope envelope, CancellationToken 
 internal sealed class RevitCommandHandler : IExternalEventHandler, IDisposable
 {
     private readonly ConcurrentQueue<QueuedCommand> queue = new();
+    private readonly object queueGate = new();
     private ExternalEvent? externalEvent;
     private volatile bool disposed;
     private int executing;
     public void Attach(ExternalEvent e) => externalEvent = e;
+    public bool HasQueuedDocumentCommands()
+    {
+        lock (queueGate) return queue.Any(item => LifecycleQueuePolicy.CountsAsPendingDocumentCommand(item.Envelope.Method));
+    }
     public Task<CommandResult> EnqueueAsync(CommandEnvelope envelope, CancellationToken cancellation)
     {
-        if (disposed) return Task.FromResult(CommandResult.Failure("host_stopped", "Revit is shutting down."));
-        if (queue.Count >= 50) return Task.FromResult(CommandResult.Failure("host_busy", "Revit command queue is full."));
-        var item = new QueuedCommand(envelope, cancellation);
-        queue.Enqueue(item);
+        QueuedCommand item;
+        // Dispatch holds this same lock through lease acquisition. A concurrent
+        // enqueue cannot slip a write between the last queue check and the lease.
+        lock (queueGate)
+        {
+            if (disposed) return Task.FromResult(CommandResult.Failure("host_stopped", "Revit is shutting down."));
+            if (!DocumentLifecycleService.Allows(envelope.Method))
+                return Task.FromResult(CommandResult.Failure("lifecycle_busy", "The local test-copy lifecycle holds the command queue. No document command was queued."));
+            if (queue.Count >= 50) return Task.FromResult(CommandResult.Failure("host_busy", "Revit command queue is full."));
+            item = new QueuedCommand(envelope, cancellation);
+            queue.Enqueue(item);
+        }
         Wake();
         return item.Completion.Task;
     }
@@ -80,16 +93,30 @@ internal sealed class RevitCommandHandler : IExternalEventHandler, IDisposable
         try
         {
         var count = 0;
-        while (count++ < 4 && queue.TryDequeue(out var item))
+        while (count++ < 4)
         {
+            lock (queueGate)
+            {
+            if (!queue.TryDequeue(out var item)) break;
             try
             {
-                if (item.Cancellation.IsCancellationRequested || item.Envelope.DeadlineUnixMs < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                if (!DocumentLifecycleService.Allows(item.Envelope.Method))
+                    item.Completion.TrySetResult(CommandResult.Failure("lifecycle_busy", "The lifecycle lease rejects this queued document command. No action was dispatched."));
+                else if (item.Cancellation.IsCancellationRequested || item.Envelope.DeadlineUnixMs < DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                     item.Completion.TrySetResult(CommandResult.Failure("request_expired", "Request was cancelled or expired before execution; the model was not changed."));
                 else
                     item.Completion.TrySetResult(RevitCommandRouter.Dispatch(app, item.Envelope.Method, item.Envelope.Params, item.Cancellation));
             }
             catch (Exception ex) { item.Completion.TrySetResult(CommandResult.Failure("host_error", ex.Message)); Log.Write(ex.ToString()); }
+            if (DocumentLifecycleService.ExitPosted)
+            {
+                // Return the API context immediately after PostCommand. Never
+                // dispatch another command in this ExternalEvent batch.
+                while (queue.TryDequeue(out var remaining))
+                    remaining.Completion.TrySetResult(CommandResult.Failure("lifecycle_exit_posted", "Normal Revit exit has been posted. Read the durable lifecycle evidence; no queued command was dispatched."));
+                break;
+            }
+            }
         }
         // Any remainder is scheduled by Idling, never by background Revit API calls.
         }
@@ -98,8 +125,11 @@ internal sealed class RevitCommandHandler : IExternalEventHandler, IDisposable
     public string GetName() => "RevitAuto AI serialized command queue";
     public void Dispose()
     {
+        lock (queueGate)
+        {
         disposed = true;
         while (queue.TryDequeue(out var q)) q.Completion.TrySetResult(CommandResult.Failure("host_stopped", "Revit is shutting down."));
+        }
     }
 }
 internal sealed class TcpCommandServer(RevitCommandHandler handler) : IDisposable

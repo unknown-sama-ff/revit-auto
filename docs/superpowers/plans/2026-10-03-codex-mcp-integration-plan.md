@@ -1,6 +1,8 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # Codex MCP 接入实施计划
 
-设计依据：`D:\Desktop\revitt\revit-auto\docs\superpowers\specs\2026-10-03-codex-mcp-integration-design.md`
+设计依据：`C:\src\revit-auto\docs\superpowers\specs\2026-10-03-codex-mcp-integration-design.md`
 
 ## Slice 1：配置工具
 
@@ -38,6 +40,17 @@
 - 若烟测失败，停止 Codex 会话并使用备份恢复。
 - 仅在所有验收条件通过后报告完成。
 
+## Slice 6：共享核心与独立后台入口规划
+
+- 将几何、单位、类型解析、结构化操作模型和结果核验整理为与 MCP 传输层无关的领域核心。
+- 定义独立后台入口的 JSON 任务协议、任务状态、幂等键、输出路径和失败回执。
+- 先实现单机 CLI 运行器，再评估 HTTP/队列适配器；入口层不得复制 Revit 建模逻辑。
+- 后台运行器通过受支持的 Revit API 宿主执行任务并保存独立 `.rvt`，不直接伪造 RVT 二进制。
+- 对模板隔离、Revit 版本匹配、并发限制、进程生命周期、保存后重开和元素统计建立独立验收记录。
+- MCP 入口继续负责自然语言、预览和聊天确认；后台入口只接受结构化任务，二者共享核心但保持部署和授权边界独立。
+- 最终安装包以 Revit 内置插件为主体，插件内配置 AI URL/API；Claude Code、Codex、DeepSeek Harness、Pi 等作为外部驱动调用同一结构化协议。
+- GitHub 开源仓库需提供 `AGENTS.md`、版本清单、preflight、install、verify 和回滚脚本，使 Agent 可在用户批准后按 Revit 版本自动适配安装。
+
 ## 风险控制
 
 - 不写入 Revit 模型。
@@ -45,3 +58,4 @@
 - 不修改 Revit DLL。
 - 不改变 Claude 的严格 MCP 配置。
 - 不把 Codex 的连接状态误报为 Revit 模型写入成功。
+- 不把 MCP 入口验收结果误报为独立后台入口已完成；两条生产入口分别验收。

@@ -29,6 +29,30 @@ export function caseOperations(name,item){
   return name==='write'?[change]:[change,{operationType:'delete_element',elementId:target.id},{...change,value:target.value+'_AFTER_DELETE'}];
 }
 function sortObjects(list){return [...list].sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));}
+function normalizeSignedZero(value){
+  if(typeof value==='number')return Object.is(value,-0)?0:value;
+  if(value&&typeof value==='object')for(const key of Object.keys(value))value[key]=normalizeSignedZero(value[key]);
+  return value;
+}
+// Only these native collections are unordered. Keep geometry/vertices and
+// unknown arrays in their original order, retaining all fields and duplicates.
+// JSON persistence writes -0 as 0; both represent the same native numeric value.
+export function canonicalInspectionItems(items){
+  const result=normalizeSignedZero(structuredClone(items));
+  for(const item of result){
+    if(Array.isArray(item.parameters))item.parameters.sort((a,b)=>a.id-b.id||JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    if(Array.isArray(item.connectors)){
+      for(const connector of item.connectors){
+        if(Array.isArray(connector.peers))connector.peers.sort((a,b)=>a.elementId-b.elementId||a.connectorId-b.connectorId);
+      }
+      item.connectors.sort((a,b)=>a.connectorId-b.connectorId||JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    }
+    for(const field of ['systemIds','memberIds']){
+      if(Array.isArray(item.electrical?.[field]))item.electrical[field].sort((a,b)=>a-b);
+    }
+  }
+  return result.sort((a,b)=>(a.summary?.id??a.id)-(b.summary?.id??b.id));
+}
 export function normalizedItem(item,omitComments=false){
   return {
     summary:item.summary,

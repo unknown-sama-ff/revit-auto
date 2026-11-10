@@ -15,4 +15,12 @@ test('rollback requires an execution failure after two completed operations',()=
 test('rollback checks exact baseline, not just model counts',()=>{const b={counts:{},categoryIds:{},items:[fixture(2290243)]};const a=structuredClone(b);a.items[0].parameters[1].value='not-restored';assert.throws(()=>assertRollback(b,a,{status:'failed',code:'execution_failed',rolledBack:true,completedOperationCount:2,failedOperationIndex:3}),/restore/);});
 test('one approved comment write preserves unrelated elements',()=>{const b={counts:{lights:2},categoryIds:{lights:[2290242,2290243]},items:[fixture(2290242),fixture(2290243)]};const a=structuredClone(b);a.items[0].parameters[1].value='AI_WRITE_TEST';a.items[0].parameters[1].hasValue=true;assert.doesNotThrow(()=>assertWrite(b,a,{status:'committed',completedOperationCount:1}));});
 test('acceptance tool contains no automatic confirm or commit call',async()=>{const source=await fs.readFile(path.resolve(import.meta.dirname,'../identity-acceptance.mjs'),'utf8');assert.doesNotMatch(source,/call\(['"]revit_(plan_confirm|import_commit)/);});
-test('router and app consistently use native document equality and successful-close cleanup',async()=>{const dir=path.resolve(import.meta.dirname,'../../v27');const router=await fs.readFile(path.join(dir,'RevitCommandRouter.cs'),'utf8');const app=await fs.readFile(path.join(dir,'App.cs'),'utf8');assert.doesNotMatch(router,/ActiveUIDocument\?\.Document != doc/);assert.match(router,/Documents\.Same/);assert.doesNotMatch(app,/DocumentClosing/);assert.match(app,/RevitAPIEventStatus\.Succeeded/);});
+test('router and app keep successful-close cleanup separate from lifecycle closing evidence',async()=>{
+  const dir=path.resolve(import.meta.dirname,'../../v27');
+  const router=await fs.readFile(path.join(dir,'RevitCommandRouter.cs'),'utf8');
+  const app=await fs.readFile(path.join(dir,'App.cs'),'utf8');
+  assert.doesNotMatch(router,/ActiveUIDocument\?\.Document != doc/);
+  assert.match(router,/Documents\.Same/);
+  assert.match(app,/DocumentClosing\s*\+=\s*DocumentLifecycleEvents\.OnClosing/);
+  assert.match(app,/DocumentClosed\(object\? sender, DocumentClosedEventArgs e\)\s*=>\s*RevitCommandRouter\.Closed\(e\.Status == RevitAPIEventStatus\.Succeeded\)/);
+});

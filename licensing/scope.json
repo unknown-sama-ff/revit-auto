@@ -1,0 +1,1916 @@
+{
+  "schemaVersion": 1,
+  "licenseId": "LicenseRef-RevitAuto-Noncommercial-1.0",
+  "apacheBaselineCommit": "635e543eb87204b0f58993986121176419c7e58d",
+  "scopeRule": "New original additions/modifications only. File entries do not relicense pre-existing or third-party material. Licensing metadata itself uses the new license.",
+  "files": [
+    {
+      "path": ".gitignore",
+      "baselineBlob": "56aa9ec01637e82efe82af8eacac8f0487095c38",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "LICENSE",
+      "baselineBlob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "LICENSING.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "NOTICE",
+      "baselineBlob": "6ae1f41b8026af892c66e1179b2c1150bed8524b",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "README-2027.md",
+      "baselineBlob": "90de1f63d720b69105609666928fd1d118232172",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "baselineBlob": "73bea56fc43dc25ab1164f2807ee151cb75e18e6",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/acceptance-evidence.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/architecture-primary-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/architecture-room-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/capability-task-queue.json",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/capability-task-template.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/codex-mcp.md",
+      "baselineBlob": "106fd4c513a494efb00fe80b197b4d552fd1621d",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/collision-check-acceptance.md",
+      "baselineBlob": "daf5a1d14d06cf1a52257af3dd80c4ff21d67bb7",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/development-flow.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/drawing-architecture-parity.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/electrical-circuit.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/electrical-sheet.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/electrical-wire.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/family-text-readonly.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/goal-progress.md",
+      "baselineBlob": "a4b653b9ae083c41edec19e5d2427aeb1a22d447",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/handoff-2026-10-19.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/identity-acceptance.md",
+      "baselineBlob": "baf718e0ebf2b4424d09418d074c9e95613aeaf9",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/legacy-feature-matrix.md",
+      "baselineBlob": "7c0324e1b9cf588a7bc30949f642f7ad974b8424",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/lighting-scene-acceptance.md",
+      "baselineBlob": "4e67fc041b62c827f26680502306f0d898e0c3c3",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/local-test-copy-lifecycle.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/openings.md",
+      "baselineBlob": "86c12b4b8ef9f75d09dd7bbfcb5a47a764b8b0e2",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/project-roadmap.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/pump-planning-contract.md",
+      "baselineBlob": "dd3e169ce579398d1d323e538fc9114b2030065f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/readonly-batch.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/registered-planning.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/revit-mcp-open-source-review-2026-10-28.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/room-enclosure-acceptance.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/runtime-diagnostics.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/sheet-inspection-preflight.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/stair-native-connections-task.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/stairs-explicit.md",
+      "baselineBlob": "d773903b6bdf9a50c159a98f5ad0797514a7d478",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/structure-column-placement.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/structure-grid-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-03-codex-mcp-integration-plan.md",
+      "baselineBlob": "6201e01c6fe98218630f28fc11ca55728f10b667",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-10-local-test-copy-lifecycle.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-15-architecture-primary-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-15-room-name-number-contract.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-20-document-version-diff.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-24-grid-final-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-24-opening-final-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-24-opening-wall-host-enum-fix.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-25-opening-profile-failure-evidence.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-25-opening-profile-host-surface-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-sheet-titleblock-containment.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-stair-native-connections-readonly.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-26-titleblock-self-dependency-readback.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-03-codex-mcp-integration-design.md",
+      "baselineBlob": "5180dcb52aba9a01713a83dd9ee5406b29c198ec",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-10-element-dependencies-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-10-local-test-copy-lifecycle-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-14-acceptance-orchestration-refactor-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-14-plugin-ai-harness-architecture-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-15-room-name-number-contract-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-24-opening-final-readback-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-25-opening-profile-host-surface-readback-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-26-sheet-titleblock-containment-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-26-stair-native-connections-readonly-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-26-titleblock-self-dependency-readback-design.md",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "docs/view-configuration-acceptance.md",
+      "baselineBlob": "6a40955c2a5d813f7260286396195fe12505824f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "licensing/Apache-2.0.txt",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/LICENSE",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/README.md",
+      "baselineBlob": "ad5bb33dec78f4e19b72db481f92ee20eca96b3e",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/acceptance-archive.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/acceptance-evidence.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/acceptance-helpers.mjs",
+      "baselineBlob": "0e1bb079a18f6e83e7b7a3e00e52d7801fe3f9d9",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/acceptance-recipes/architecture-room-enclosure.json",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/acceptance-run.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/annotation-input.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/architecture-copy-verification.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/architecture-primary-verification.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/architecture-rules.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/architecture-type-copy.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/argument-diagnostics.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/assess-drawing-move.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/bridge.mjs",
+      "baselineBlob": "9cd216a7b320ef459e558ca94e2d3a428e1c254f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/circuit-candidates.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/circuit-creation-verification.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/confirm-architecture-copy-test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/diagnostic-results-acceptance.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/diagnostic-results.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/diagnostics-query.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/document-lifecycle.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/document-version-diff.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/drawing-candidates.mjs",
+      "baselineBlob": "045b54af9d6779b312c706660f9ed48e9180130d",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/drawing-move-recovery.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/drawing-placement.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/electrical-circuit-acceptance.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/electrical-circuit.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/electrical-sheet.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/electrical-wire.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/element-dependencies.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/element-storage-audit.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/family-audit.mjs",
+      "baselineBlob": "ea8d1cd388c9527865adc1d809219ddf235314e1",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/family-load.mjs",
+      "baselineBlob": "7a57b0e0a5f426d0aad4ff5b3df172c26906b293",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/family-text.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/floor-side-effect-diff.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/health.mjs",
+      "baselineBlob": "d16761334a7b75730648832cb0bac845799123b3",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/identity-acceptance.mjs",
+      "baselineBlob": "02c1ddc735d0c7fffae510982c805d4d2e64e0f2",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/imports.mjs",
+      "baselineBlob": "a501d6f703a765721c33d0e4c22da1236f787a03",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/legacy-source-matrix.json",
+      "baselineBlob": "2b83329d3ea3f4108cb897618957a29ed2e6b142",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/lighting-acceptance.mjs",
+      "baselineBlob": "11a88fb2a8abb08b41b89fe5f062822b07c3e1c0",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/lighting-live-survey.mjs",
+      "baselineBlob": "d7804a291def3f4b24466d2d8fa44dcb96bcb138",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/local-test-copy-supervisor.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/mep-readonly.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/model-audit.mjs",
+      "baselineBlob": "1862e40c59dc8bb220dc7208555f390dddce6547",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/package-lock.json",
+      "baselineBlob": "b03efe03b8533e19cd99d4ecad2950de7dbfaaf6",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/package.json",
+      "baselineBlob": "23415eb8a4fc99d2f9fd53287868e27db54b50e3",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/parallel-read-acceptance.mjs",
+      "baselineBlob": "f3a377f211039ec10a41faa1697110ee62ed04b0",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/parameter-import.mjs",
+      "baselineBlob": "7d1e449e310bbcc05266cf9473a600f97bcc2490",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/pipe-connection-verification.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/pipe-route-verification.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/prepare-architecture-copy-test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/prepare-lifecycle-build-baseline.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/prepare-parity-baseline.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/pump-planning.mjs",
+      "baselineBlob": "1725de5f733dd64e76368bbaed5746fd7a6a8a0c",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/readonly-batch.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/recover-drawing-move.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/registered-planning.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/review-batch-view-export.py",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/revit-custom.mjs",
+      "baselineBlob": "71a5b94f0c03468e27498c6416a52a3f5ceca5f8",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/run-evidence.schema.json",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/runtime-diagnostics.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/sheet-layout-acceptance.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/sheet-layout.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/stair-connections.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/acceptance-archive.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/acceptance-evidence.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/acceptance-run.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/annotation-input-mcp.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/annotation-input.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/architecture-copy-verification.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/architecture-elements.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/architecture-primary-verification.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/architecture-type-copy.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/argument-diagnostics.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/audit-contract.test.mjs",
+      "baselineBlob": "253c0992a8ebe47c0d4ae92b4d2c5fae03e1b946",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/bridge.test.mjs",
+      "baselineBlob": "e67e5bc7d5404e779da81962adb7e0e5b30fae7f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/change-journal.test.mjs",
+      "baselineBlob": "cd948e4c448bd161000bee33239a16f0a706d88b",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/circuit-creation-verification.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/diagnostic-results-acceptance.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/diagnostic-results.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/diagnostics-query-mcp.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/diagnostics-query.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/dimension-readback-mcp.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/document-lifecycle.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/document-version-diff.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/documentation-readback.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/drawing-move-recovery.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/drawing-placement.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/drawing-workflow.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/electrical-circuit-acceptance.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/electrical-circuit.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/electrical-sheet.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/electrical-wire.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/element-dependencies.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/element-storage-audit.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/family-audit-mcp.test.mjs",
+      "baselineBlob": "2fade96fc3af04ecce78bdc9c568aa397f8d24da",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/family-load-mcp.test.mjs",
+      "baselineBlob": "7004ee3b8b2627ca733a1911622e3da95d2c761f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/family-load.test.mjs",
+      "baselineBlob": "d6a102524b07601d47748285a2474fb6b66cecd5",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/family-text.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/fixtures/sheet-titleblock-al1-envelope.json",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/fixtures/sheet-titleblock-al1-envelope.provenance.json",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/floor-side-effect-diff.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/grid-creation-readback.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/identity-acceptance.test.mjs",
+      "baselineBlob": "bfa7dddc5485f0276526658774620f07a56b2825",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/import-row-issues.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/legacy-source-matrix.test.mjs",
+      "baselineBlob": "7c9ff2b5fa37d11a8816aa40282e50b85d7c66ef",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/local-test-copy-supervisor.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/mep-readonly.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/native-change-receipt.test.mjs",
+      "baselineBlob": "4850b12c05171e1d5058bcad4ad5192eaae200f6",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/native-evidence-comparison.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/opening-creation-readback.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/opening-host-surface-readback.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/opening-profile-failure-evidence.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/openings.test.mjs",
+      "baselineBlob": "a4c9884490dcc8446a0ef9f5174b8d8c331f6ff8",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/parameter-import.test.mjs",
+      "baselineBlob": "dc94e897ad25962953e98b5b1498fd6bb51ff747",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/pipe-connection-verification.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/pipe-route-verification.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/planning-mode.test.mjs",
+      "baselineBlob": "6ee2f2dccc5b902fe3b08c40085666453409da2e",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/pump-planning-mcp.test.mjs",
+      "baselineBlob": "c1d91e47a8537ff07ea3b5705e22dda0089ad7c3",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/pump-preview-state.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/readonly-batch.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/readonly-pin-mcp.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/registered-planning.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/release-hygiene.test.mjs",
+      "baselineBlob": "693089cf1be579d0436c8ff98110c96567b83205",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/revit-api-version.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/room-creation-readback.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/room-tag-leader-geometry.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/runtime-diagnostics.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/sheet-layout-acceptance.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/sheet-layout.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/sheet-titleblock-containment.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/stair-connections.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/tag-leader.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/titleblock-change.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/validation.test.mjs",
+      "baselineBlob": "620df8544e09cc46f3e4c9972b5910d63ab9f831",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/view-export-mcp.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/view-export.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/viewport-label.test.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/tests/workflow-registry.test.mjs",
+      "baselineBlob": "df15aed0cbc3e23f6f2fbb8afa070ea339bd66b7",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/titleblock-change.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-architecture-copy-reopen.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-architecture-copy-result.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-architecture-copy-save.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-batch-view-export.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-drawing-move-save.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-element-dependencies-loaded.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-lifecycle-loaded.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/verify-parity-reopen.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/view-acceptance.mjs",
+      "baselineBlob": "10b0e954b5d1edced7a77608ec7bd31c219717f2",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/view-export.mjs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/workflow-registry.mjs",
+      "baselineBlob": "7ff66c233c2b413992737ccdb8de2ac093f02e89",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "mcp/workflows.mjs",
+      "baselineBlob": "7c35d1bf2250f943dc3f67ffd2110c4e19b49800",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/AnnotationInputRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ArchitecturePrimaryReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ArchitectureRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ArchitectureTypeCopyRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/CommandResponseBudgetTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/CoreTests.csproj",
+      "baselineBlob": "920e59f9f2e8b16813ffe134b420e7c88a339fd2",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DimensionCreationReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DocumentLifecycleRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DocumentReadPinRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DocumentVersionDiffRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DocumentationCreationReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DocumentationMetadataReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/DocumentationReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ElementDependencyRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ElementStorageSchemaRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/FamilyTextRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/GridCreationReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/GridDimensionReferenceRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/LifecycleQueuePolicyTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/OpeningCreationReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/OpeningHostSurfaceRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/OpeningProfileFailureDiagnosticsTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/Program.cs",
+      "baselineBlob": "af5bc25f88f07041deae34e35d70ca274b4ec0fb",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/RoomCreationReadbackRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/RoomTagLeaderGeometryRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/SheetLayoutRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/StairConnectionRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/TitleBlockChangeRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ViewExportRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ViewportLabelRulesTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/CoreTests/ViewportReadPolicyTests.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tests/RegistrationSwitchTests.ps1",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "tools/test-copy-restart.ps1",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/AnnotationInputRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/App.cs",
+      "baselineBlob": "a1810ca49d6e386780eb44cab4f9319abc7bfc2f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitecturePlacementReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitecturePrimaryReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitecturePrimaryReadbackService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitectureRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitectureService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitectureTypeCopyRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ArchitectureTypeCopyService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DimensionCreationReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DimensionCreationReadbackService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentChangeJournal.cs",
+      "baselineBlob": "a3b56befec269981bb65387740417bb1ab25382c",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentLifecycleEvents.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentLifecycleRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentLifecycleService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentLifecycleStore.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentReadPinRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentVersionDiffRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentVersionDiffService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentationCreationReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentationCreationReadbackService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentationMetadataReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DocumentationReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DrawingPlacementRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/DrawingPlacementService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ElementDependencyRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ElementDependencyService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ElementStorageSchemaRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ElementStorageSchemaService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/FamilyTextRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/FamilyTextService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/GridCreationReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/GridDimensionReferenceRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/GridDimensionReferenceService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/HouseGenerationService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/Infrastructure.cs",
+      "baselineBlob": "baf78bc0dbdbea7885634eaa0011bd274a81773d",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/LifecycleQueuePolicy.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ModelExecutor.cs",
+      "baselineBlob": "11a49b7f87817be3b801f14c1b388ba11252533c",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/NativeChangeReceipt.cs",
+      "baselineBlob": "6a254a556a1e5a85026d6c87a501fa3ecb3c207f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/OpeningHostSurfaceReadbackService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/OpeningHostSurfaceRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/OpeningProfileFailureDiagnostics.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/OpeningRules.cs",
+      "baselineBlob": "327a79d10e9bd4a8ba14b9b41060135d83c780af",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/OpeningService.cs",
+      "baselineBlob": "7e1da7b2343ba03fdbb7773bf87cb5ab2ea964e0",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/OperationReceipt.cs",
+      "baselineBlob": "ad360379eadee0424852419d2a53016c0820e886",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ProtocolTypes.cs",
+      "baselineBlob": "a065dd819d6e0b20b8db5e0fea518de227372d9f",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/RevitAutoV27.csproj",
+      "baselineBlob": "8867ee0da2a0af8d652f1b0f5532266fcca4a1d4",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/RevitCommandRouter.cs",
+      "baselineBlob": "9d98d1564a29ae04476fc6236462139444a927c5",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/RevitQueryService.cs",
+      "baselineBlob": "ad5c187f2157072eb46f24ff4a3a0f69a51d07ca",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/RoomCreationReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/RoomTagLeaderGeometryRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/RoomTagLeaderGeometryService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/SheetLayoutRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/SheetLayoutService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/StairConnectionRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/StairConnectionService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/TagHeadPositionSnapshotService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/TitleBlockChangeReadbackRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/TitleBlockChangeRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/TitleBlockChangeService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ViewEvidenceService.cs",
+      "baselineBlob": "f700b3ffc48a8da6e4b4a91a2ad1a6a6bc2eb848",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ViewExportRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ViewportLabelRules.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ViewportLabelService.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/ViewportReadPolicy.cs",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/deployment.ps1",
+      "baselineBlob": "9e88898f2581900cdae411c014acd15544fb6e0d",
+      "kind": "modified-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    },
+    {
+      "path": "v27/registration-switch.ps1",
+      "baselineBlob": null,
+      "kind": "new-file",
+      "coverage": "Only licensor-controlled original new material; historical and third-party rights retained."
+    }
+  ]
+}

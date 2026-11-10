@@ -47,21 +47,43 @@ internal static class RevitCommandRouter
         => (Changes.TryGetValue(Identity(doc),out var journal)?journal:new DocumentChangeJournal()).Since(sinceRevision,Revision(doc),limit);
     private static CommandResult StalePlan(ModelPlan plan,Document doc) => CommandResult.Failure("stale_plan","The project changed after preview; read the transaction history and create a new reviewed plan.",new {planId=plan.PlanId,previewDocumentIdentity=plan.DocumentIdentity,currentDocumentIdentity=Identity(doc),previewRevision=plan.DocumentRevision,currentRevision=Revision(doc),documentChanged=plan.DocumentIdentity!=Identity(doc),history=plan.DocumentIdentity==Identity(doc)&&plan.DocumentRevision<=Revision(doc)?ChangeDetails(doc,plan.DocumentRevision):null});
     internal static void Closed(bool succeeded) => Documents.Closed(succeeded);
+    internal static bool HasPendingPlans()
+    {
+        foreach (var plan in Plans.Values.Where(plan => plan.Status == "pending" && plan.ExpiresAtUtc < DateTime.UtcNow))
+            plan.Status = "expired";
+        return Plans.Values.Any(plan => plan.Status is "pending" or "executing");
+    }
     public static CommandResult Dispatch(UIApplication app, string method, JsonElement parameters, CancellationToken cancellation)
     {
         try
         {
+            if (!DocumentLifecycleService.Allows(method))
+                throw new BridgeException("lifecycle_busy", "A local test-copy lifecycle lease rejects this command.");
+            if (method is "revit.search" or "revit.inspect" or "revit.type.resolve" or "revit.view.get" or "revit.room.get" or "revit.audit.run" or "revit.element.storage_schemas" or "revit.document.version_diff")
+            {
+                var readDocument = Active(app);
+                DocumentReadPinRules.Validate(parameters, Identity(readDocument), Revision(readDocument));
+            }
+            if (LifecycleQueuePolicy.IsLifecycle(method))
+                return CommandResult.Success(DocumentLifecycleService.Dispatch(app, method, parameters, cancellation)).PrepareBounded();
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, moduleVersionId = typeof(App).Module.ModuleVersionId.ToString(), features = new[] { "build-fingerprint", "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "ui-thread-audit-snapshot", "native-opening", "electrical-circuit-audit", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "native-change-receipts", "parameter-noop-receipts", "stair-cleanup-evidence", "explicit-stair-geometry", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, moduleVersionId = typeof(App).Module.ModuleVersionId.ToString(), features = new[] { "build-fingerprint", "readonly-query-pins", "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "batch-view-image-export", "controlled-structural-columns", "architecture-type-copy", "architecture-primary-readback", "room-creation-readback", "grid-creation-readback", "opening-creation-readback", "opening-profile-failure-evidence", "opening-host-surface-readback", "explicit-grid-geometry", "controlled-titleblock-change", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "drawing-placement-move", "viewport-label-offset", "tag-leader-readback", "tag-target-readback", "tag-head-position-snapshot", "room-tag-leader-geometry-snapshot", "annotation-input-contracts", "dimension-creation-readback", "grid-dimension-reference-snapshot", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "ui-thread-audit-snapshot", "bounded-element-dependencies", "native-stair-connections", "family-text-notes", "family-text-known-empty-owner", "family-text-pagination-view-bounds", "element-storage-schema-audit", "document-version-diff", "sheet-layout-diagnostics", "local-test-copy-lifecycle", "native-opening", "electrical-circuit-audit", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "native-change-receipts", "parameter-noop-receipts", "stair-cleanup-evidence", "explicit-stair-geometry", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
+                "revit.family.text_notes" => CommandResult.Success(FamilyTextService.Get(app, parameters, cancellation)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
                 "revit.type.resolve" => CommandResult.Success(TypeService.Resolve(app,parameters)),
                 "revit.view.export_image" => CommandResult.Success(ViewEvidenceService.ExportImage(app,parameters)),
+                "revit.view.export_images" => CommandResult.Success(ViewEvidenceService.ExportImages(app,parameters,cancellation)),
                 "revit.view.get" => CommandResult.Success(ViewConfigurationService.Get(app,parameters)),
                 "revit.room.get" => CommandResult.Success(RoomService.Get(app, parameters)),
                 "revit.changes.get" => GetChanges(app,parameters),
                 "revit.inspect" => CommandResult.Success(RevitQueryService.Inspect(app, parameters)),
+                "revit.sheet.layout" => CommandResult.Success(SheetLayoutService.Get(app, parameters, cancellation)),
+                "revit.element.dependencies" => CommandResult.Success(ElementDependencyService.Get(app, parameters, cancellation)),
+                "revit.stairs.connections" => CommandResult.Success(StairConnectionService.Get(app, parameters, cancellation)),
+                "revit.element.storage_schemas" => CommandResult.Success(ElementStorageSchemaService.Get(app, parameters, cancellation)),
+                "revit.document.version_diff" => CommandResult.Success(DocumentVersionDiffService.Get(app, parameters, cancellation)),
                 "revit.connector.resolve" => CommandResult.Success(ConnectorResolutionService.Resolve(app, parameters)),
                 "revit.collision.check" => CommandResult.Success(CollisionCheckService.Check(app, parameters, cancellation)),
                 "revit.family.library.get" => CommandResult.Success(FamilyLibraryService.Catalog(app, parameters)),
@@ -85,7 +107,13 @@ internal static class RevitCommandRouter
         var doc=Active(app);
         if(JsonDefaults.String(parameters,"documentIdentity") is { } expected&&expected!=Identity(doc))return CommandResult.Failure("document_changed","The queried document is not active.");
         var since=JsonDefaults.Int64(parameters,"sinceRevision")??Math.Max(0,Revision(doc)-40);
-        return CommandResult.Success(new {documentIdentity=Identity(doc),history=ChangeDetails(doc,since,(int)Math.Clamp(JsonDefaults.Int64(parameters,"limit")??40,1,100))});
+        var currentRevision = Revision(doc);
+        var history = ChangeDetails(doc, since, (int)Math.Clamp(JsonDefaults.Int64(parameters,"limit") ?? 40, 1, 100));
+        // Keep identity and current revision at the response root as well as in
+        // the history DTO.  This is intentionally redundant: it makes the
+        // contract self-describing for lightweight clients and prevents an
+        // empty-history response from being mistaken for an empty JSON object.
+        return CommandResult.Success(new { documentIdentity = Identity(doc), currentRevision, history });
     }
     private static Document Active(UIApplication app)
     {
@@ -106,6 +134,7 @@ internal static class RevitCommandRouter
             throw new BridgeException("invalid_stair", "create_stair must be the only operation in its plan; StairsEditScope is an atomic native scope.");
         var executor = new ModelExecutor(app, new Dictionary<string, ElementId>(StringComparer.Ordinal));
         foreach (var op in operations) executor.Validate(op);
+        executor.ValidateArchitectureCopyPlan(operations);
         foreach (var p in Plans.Values.Where(p => p.Status == "pending" && p.ExpiresAtUtc < DateTime.UtcNow)) p.Status = "expired";
         if (Plans.Count >= 500) throw new BridgeException("plan_store_full", "Plan store is full. Restart the bridge in a new Revit session after completing/cancelling pending plans.");
         var plan = new ModelPlan
@@ -117,19 +146,32 @@ internal static class RevitCommandRouter
         };
         foreach(var op in operations.Where(op=>JsonDefaults.String(op,"operationType")=="create_stair"))
             plan.Warnings.Add("楼梯类型/踢面/踏面/平台预览："+JsonSerializer.Serialize(StairGeometryService.Preview(doc,op),JsonDefaults.Options));
+        foreach (var op in operations.Where(op => JsonDefaults.String(op, "operationType") == "create_room"))
+            plan.Warnings.Add("房间标高与点位预览：" + JsonSerializer.Serialize(executor.PreviewRoomCreation(op), JsonDefaults.Options) + "; room placement uses its native level and XY; boundaries and area are verified after creation, without predicting enclosure or accepting model side effects.");
         var familyPreviews = operations.Where(o => JsonDefaults.String(o, "operationType") == "load_family").Select(op => FamilyLibraryService.Validate(doc, op)).ToArray();
         foreach (var familyPreview in familyPreviews) plan.Warnings.Add("受控族加载影响预览：" + JsonSerializer.Serialize(familyPreview, JsonDefaults.Options));
         foreach(var op in operations.Where(o=>JsonDefaults.String(o,"operationType")=="create_opening"))
             plan.Warnings.Add("洞口宿主/范围影响预览："+JsonSerializer.Serialize(OpeningService.Preview(doc,op),JsonDefaults.Options)+"；结构、机电净距、防火与加固需人工审查，不是精确切割影响或合规认证。");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "move_drawing_placement"))
+            plan.Warnings.Add("图纸放置实例移动预览：" + JsonSerializer.Serialize(DrawingPlacementService.Preview(doc, op), JsonDefaults.Options) + "；仅修改该实例纸面XY；图框、视图设置、标签与表定义保持独立，边界/相交/PNG版面仍需核验。");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "move_viewport_label"))
+            plan.Warnings.Add("视口标签偏移预览：" + JsonSerializer.Serialize(ViewportLabelService.Preview(doc, op), JsonDefaults.Options) + "；仅修改该视口标签偏移/明确引线长度，视口内容、图纸、比例与图框保持独立，边界/相交/PNG版面仍需核验。");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "change_titleblock_type"))
+            plan.Warnings.Add("Title-block type change preview: " + JsonSerializer.Serialize(TitleBlockChangeService.Preview(doc, op), JsonDefaults.Options) + "; native relationships, sheet boundaries and PNG layout still require independent verification.");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "create_structural_column"))
+            plan.Warnings.Add("Structural column constraints and type activation preview: " + JsonSerializer.Serialize(executor.PreviewArchitectureColumn(op), JsonDefaults.Options) + "; structural design and all native side effects still require independent verification.");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "duplicate_architecture_type"))
+            plan.Warnings.Add("Architecture type-copy source and dimension preview: " + JsonSerializer.Serialize(ArchitectureTypeCopyService.Preview(doc, op), JsonDefaults.Options) + "; copied type IDs are assigned only by native execution; source types are protected and final readback is required.");
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "delete_element"))
         {
             var element = doc.GetElement(new ElementId(JsonDefaults.Int64(op, "elementId")!.Value));
             var dependentIds = element.GetDependentElements(null).Select(id => id.Value).ToArray();
             if (dependentIds.Length > 0) plan.Warnings.Add($"删除 {element.Id.Value} 可能影响 {dependentIds.Length} 个依赖元素，包括 {string.Join(",", dependentIds.Take(20))}。请在聊天预览中核对后确认该计划。");
         }
+        var previewResult = CommandResult.Success(plan.View()).PrepareBounded();
         Plans.Add(plan.PlanId, plan);
         Log.Write($"Preview plan={plan.PlanId}; document={plan.DocumentIdentity}; revision={plan.DocumentRevision}; operations={operations.Count}; source={plan.Source}");
-        return CommandResult.Success(plan.View());
+        return previewResult;
     }
     private static ModelPlan Find(JsonElement parameters)
     {
@@ -162,11 +204,13 @@ internal static class RevitCommandRouter
         var references = new Dictionary<string, ElementId>(StringComparer.Ordinal);
         var executor = new ModelExecutor(app, references);
         foreach (var op in plan.Operations) executor.Validate(op);
+        executor.ValidateArchitectureCopyPlan(plan.Operations);
         if (doc.IsModifiable || doc.IsReadOnly) throw new BridgeException("document_busy", "Revit has another transaction or the document is read-only.");
         cancellation.ThrowIfCancellationRequested();
         // Re-check the native document immediately before every write path, including StairsEditScope.
         if (!Documents.Same(app.ActiveUIDocument?.Document, doc) || plan.DocumentRevision != Revision(doc))
             return StalePlan(plan,Active(app));
+        executor.CaptureArchitectureCopySources(plan.Operations);
         using var capture = new ReceiptCaptureScope(doc);
         if (plan.Operations.Count == 1 && JsonDefaults.String(plan.Operations[0], "operationType") == "create_stair")
             return ConfirmStair(app, doc, plan, cancellation, executor, capture.Recorder);
@@ -200,16 +244,56 @@ internal static class RevitCommandRouter
             }
             doc.Regenerate();
             cancellation.ThrowIfCancellationRequested();
+            executor.VerifyArchitectureCopiesBeforeCommit();
+            executor.VerifyArchitecturePrimary("before-transaction-commit");
+            executor.VerifyGridCreations("before-transaction-commit");
+            executor.VerifyOpeningCreations("before-transaction-commit");
+            executor.VerifyViewportLabels("before-transaction-commit");
+            executor.VerifyDocumentationPlacements("before-transaction-commit");
+            executor.VerifyDocumentationMetadata("before-transaction-commit");
+            executor.VerifyDocumentationTitleBlocks("before-transaction-commit");
+            executor.VerifyDocumentationCreations("before-transaction-commit");
             if (transaction.Commit() != TransactionStatus.Committed) throw new InvalidOperationException(string.Join("; ", failureCapture.Messages.Prepend("Revit rejected the transaction.")));
+            // Commit runs native regeneration/failure processing. Verify its final result
+            // while the containing group is still available for a complete rollback.
+            var architectureCopyVerification = executor.VerifyArchitectureCopiesBeforeCommit();
+            var architecturePrimaryVerification = executor.VerifyArchitecturePrimary("after-transaction-commit");
+            var gridCreationVerification = executor.VerifyGridCreations("after-transaction-commit");
+            var openingCreationVerification = executor.VerifyOpeningCreations("after-transaction-commit");
+            var viewportLabelVerification = executor.VerifyViewportLabels("after-transaction-commit");
+            var documentationVerification = executor.VerifyDocumentationPlacements("after-transaction-commit");
+            var documentationMetadataVerification = executor.VerifyDocumentationMetadata("after-transaction-commit");
+            var documentationTitleBlockVerification = executor.VerifyDocumentationTitleBlocks("after-transaction-commit");
+            var documentationCreationVerification = executor.VerifyDocumentationCreations("after-transaction-commit");
+            var createdIds = created.Distinct().ToArray(); var changedIds = changed.Distinct().ToArray();
+            var resolvedReferences = references.ToDictionary(x => x.Key, x => x.Value.Value);
+            var warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray();
+            object Receipt(NativeChangeEvidence? nativeChanges) => new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = createdIds, changedElementIds = changedIds, references = resolvedReferences, operationEvidence, architectureCopyVerification, architecturePrimaryVerification, gridCreationVerification, openingCreationVerification, viewportLabelVerification, documentationVerification, documentationMetadataVerification, documentationTitleBlockVerification, documentationCreationVerification, nativeChanges, warnings, confirmationMode = "chat", saved = false };
+            // The full business evidence and recoverable plan view are measured using the
+            // real serializer. Reserve a proven upper bound for all native events through
+            // group assimilation, rather than freezing an incomplete event capture.
+            var prospectiveReceipt = Receipt(null);
+            CommandResult.Success(prospectiveReceipt).PrepareBounded(capture.Recorder.ResponseSizeReservationBytes);
+            CommandResult.Success(plan.ProspectiveCommittedView(prospectiveReceipt)).PrepareBounded(capture.Recorder.ResponseSizeReservationBytes);
+            cancellation.ThrowIfCancellationRequested();
             if (group.Assimilate() != TransactionStatus.Committed) throw new InvalidOperationException("Unable to commit transaction group.");
             plan.Status = "committed";
-            plan.Receipt = new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = created.Distinct(), changedElementIds = changed.Distinct(), references = references.ToDictionary(x => x.Key, x => x.Value.Value), operationEvidence, nativeChanges = capture.Recorder.Snapshot(Revision(doc), "committed", created, changed), warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray(), confirmationMode = "chat", saved = false };
+            plan.Receipt = Receipt(capture.Recorder.Snapshot(Revision(doc), "committed", created, changed));
+            var committedResult = CommandResult.Success(plan.Receipt).PrepareBounded();
             Log.Write($"Committed plan={plan.PlanId}; created={created.Count}; changed={changed.Count}; confirmation=chat");
             foreach (var warning in failureCapture.Messages.Distinct()) Log.Write($"Plan={plan.PlanId}; warning={warning}");
-            return CommandResult.Success(plan.Receipt);
+            return committedResult;
         }
         catch (Exception ex)
         {
+            // A transport/serialization fault after a successful Assimilate must never
+            // relabel a committed model as failed or claim that it was rolled back.
+            if (group.GetStatus() == TransactionStatus.Committed)
+            {
+                plan.Status = "committed";
+                Log.Write($"Committed plan={plan.PlanId}; receipt delivery failed; query this same plan, never retry; error={ex}");
+                return CommandResult.Failure("committed_receipt_delivery_failed", "The model committed but its receipt could not be delivered. Query this same planId; do not recreate or retry the write.", new { planId = plan.PlanId, status = "committed", saved = false, causeCode = (ex as BridgeException)?.Code });
+            }
             bool rolledBack;
             try
             {

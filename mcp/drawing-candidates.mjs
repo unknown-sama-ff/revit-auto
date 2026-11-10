@@ -43,7 +43,7 @@ export function drawingCandidates(data,calibration,layerMapping={}){
    if(entity.nonPlanar===true||entity.geometryUnknown===true)throw new Error('Unknown source geometry is not converted to default coordinates.');
    if(entity.bulges!==undefined&&(!Array.isArray(entity.bulges)||entity.bulges.some(value=>typeof value!=='number'||!Number.isFinite(value))))throw new Error('Polyline curvature evidence is invalid.');
    if(entity.bulges?.some(value=>value!==0))throw new Error('Curved polyline bulges need manual interpretation; no straight segment guess.');
-   let operation={...template,levelId:c.levelId};
+   let operation=template.operationType==='create_grid'?{...template}:{...template,levelId:c.levelId};
    if(entity.start&&entity.end){if(!['create_wall','create_grid','create_pipe','create_duct'].includes(template.operationType))throw new Error('Line geometry cannot map to this candidate operation type.');operation={...operation,start:transform(entity.start),end:transform(entity.end)};}
    else if(entity.insertion&&(entity.objectName?.includes('Block')||entity.name)){
     if(template.operationType!=='create_family_instance')throw new Error('Block geometry requires an explicit family-instance mapping.');

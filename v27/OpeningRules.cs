@@ -4,6 +4,12 @@ internal sealed record OpeningPoint(double X,double Y,double Z);
 internal static class OpeningRules
 {
     private static BridgeException Invalid(string message)=>new("invalid_opening",message);
+    internal static void RequireZeroNativeOffset(double? offsetMm, double toleranceMm)
+    {
+        if (!offsetMm.HasValue || !double.IsFinite(offsetMm.Value) || !double.IsFinite(toleranceMm) ||
+            toleranceMm <= 0 || toleranceMm > 100 || Math.Abs(offsetMm.Value) > toleranceMm)
+            throw Invalid("Native shaft offset must be known, finite and zero within the explicit reviewed tolerance; no offsets were approved.");
+    }
     public static void Validate(JsonElement op)
     {
         var kind=JsonDefaults.String(op,"openingKind");

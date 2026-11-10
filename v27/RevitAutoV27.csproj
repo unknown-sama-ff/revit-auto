@@ -29,8 +29,54 @@
     </Reference>
   </ItemGroup>
 
+  <!-- Direct dotnet/MSBuild invocations enforce the same exact API boundary as deployment.ps1. -->
+  <UsingTask TaskName="ValidateRevitApiVersion" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <RevitInstallDir ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        System.Version pairedFileVersion = null;
+        System.Version pairedAssemblyVersion = null;
+        foreach (var name in new[] { "RevitAPI.dll", "RevitAPIUI.dll" })
+        {
+          var file = System.IO.Path.Combine(RevitInstallDir, name);
+          try
+          {
+            var version = System.Diagnostics.FileVersionInfo.GetVersionInfo(file);
+            if (string.IsNullOrWhiteSpace(version.FileVersion) || version.FileMajorPart != 27 || version.FileMinorPart != 3)
+            {
+              Log.LogError("Unsupported {0} version {1}. Only Revit 2027.3 (27.3.x) is supported.", name, version.FileVersion);
+              return false;
+            }
+            var identity = System.Reflection.AssemblyName.GetAssemblyName(file);
+            if (identity.Name != System.IO.Path.GetFileNameWithoutExtension(name) || identity.Version == null || identity.Version.Major != 27 || identity.Version.Minor != 3)
+            {
+              Log.LogError("Unsupported {0} assembly identity. Expected {1} 27.3.x.", name, System.IO.Path.GetFileNameWithoutExtension(name));
+              return false;
+            }
+            var fileVersion = new System.Version(version.FileMajorPart, version.FileMinorPart, version.FileBuildPart, version.FilePrivatePart);
+            if (pairedFileVersion != null && (fileVersion != pairedFileVersion || identity.Version != pairedAssemblyVersion))
+            {
+              Log.LogError("RevitAPI.dll and RevitAPIUI.dll must have matching file and assembly versions from one Revit 2027.3 installation.");
+              return false;
+            }
+            pairedFileVersion = fileVersion;
+            pairedAssemblyVersion = identity.Version;
+          }
+          catch (System.Exception error)
+          {
+            Log.LogError("Cannot validate {0} for Revit 2027.3: {1}", name, error.Message);
+            return false;
+          }
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
   <Target Name="ValidateRevitApiDirectory" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="!Exists('$(RevitInstallDir)\RevitAPI.dll') Or !Exists('$(RevitInstallDir)\RevitAPIUI.dll')"
            Text="Revit API DLLs are missing. Use build-v27.ps1 -RevitInstallDir or set REVIT_2027_INSTALL_DIR. Autodesk API DLLs are not distributed with this project." />
+    <ValidateRevitApiVersion RevitInstallDir="$(RevitInstallDir)" />
   </Target>
 </Project>

@@ -1,0 +1,62 @@
+{
+  "name": "Captured AL1 panel outside an A3 titleblock but inside the native sheet outline",
+  "input": {
+    "documentIdentity": "fixture-sheet-document",
+    "expectedRevision": 0,
+    "sheetId": 20
+  },
+  "context": {
+    "active": true,
+    "document": {
+      "identity": "fixture-sheet-document",
+      "revision": 0,
+      "path": "fixture-sheet-model.rvt",
+      "isModified": false,
+      "isReadOnly": false
+    }
+  },
+  "native": {
+    "documentIdentity": "fixture-sheet-document",
+    "documentRevision": 0,
+    "sheetId": 20,
+    "outline": {
+      "min": { "xMm": 398.499999999924, "yMm": 43.27272727273289 },
+      "max": { "xMm": 1171.3571428570108, "yMm": 567.9999999999939 }
+    },
+    "titleBlocks": [
+      {
+        "id": 1,
+        "className": "FamilyInstance",
+        "ownerViewId": 20,
+        "typeId": 2,
+        "geometry": {
+          "status": "known",
+          "min": { "xMm": 751.3571428570109, "yMm": 43.27272727273289 },
+          "max": { "xMm": 1171.3571428570108, "yMm": 340.27272727273294 }
+        }
+      }
+    ],
+    "viewports": [],
+    "schedulePlacements": [
+      {
+        "id": 201,
+        "className": "PanelScheduleSheetInstance",
+        "ownerViewId": 20,
+        "viewId": 301,
+        "geometry": {
+          "status": "known",
+          "min": { "xMm": 398.499999999924, "yMm": 203.93333333332683 },
+          "max": { "xMm": 703.299999999924, "yMm": 567.9999999999939 }
+        }
+      }
+    ],
+    "annotationPlacements": [],
+    "modelWritesRequested": false,
+    "automaticSave": false,
+    "allModelSideEffectsVerified": false
+  },
+  "expected": {
+    "outOfSheet": [],
+    "outOfBounds": [{ "id": 201, "kind": "panel-schedule", "sides": ["left", "top"] }]
+  }
+}

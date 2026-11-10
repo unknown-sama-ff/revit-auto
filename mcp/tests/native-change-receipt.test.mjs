@@ -19,8 +19,18 @@ test('capture lifetime starts after stale check, includes stairs, and is dispose
 });
 test('both ordinary and stair success/failure receipts disclose nativeChanges rather than only primary ids',async()=>{
  const router=await fs.readFile(path.join(root,'v27/RevitCommandRouter.cs'),'utf8');
- assert.equal([...router.matchAll(/nativeChanges = capture(?:\.Recorder)?\.Snapshot/g)].length,4);
- assert.match(router,/createdElementIds = created\.Distinct\(\)/);
+ const ordinary=router.slice(router.indexOf('private static CommandResult Confirm('),router.indexOf('private static CommandResult ConfirmStair('));
+ const stair=router.slice(router.indexOf('private static CommandResult ConfirmStair('),router.indexOf('private sealed class TransactionFailures'));
+ assert.match(ordinary,/object Receipt\(NativeChangeEvidence\? nativeChanges\)\s*=>\s*new\s*\{[^;]*\bnativeChanges,/, 'ordinary receipt factory must include native evidence');
+ assert.match(ordinary,/plan\.Receipt = Receipt\(capture\.Recorder\.Snapshot\(Revision\(doc\), "committed", created, changed\)\);/, 'ordinary success must use the completed native capture');
+ const assimilate=ordinary.indexOf('group.Assimilate()');
+ assert.ok(assimilate>=0&&ordinary.indexOf('plan.Receipt = Receipt(capture.Recorder.Snapshot')>assimilate, 'ordinary success capture must include group assimilation');
+ assert.match(ordinary,/plan\.Receipt = new\s*\{[^;]*nativeChanges = capture\.Recorder\.Snapshot\(Revision\(doc\), "failed", created, changed\)/, 'ordinary failure must disclose native events');
+ assert.match(stair,/plan\.Receipt = new\s*\{[^;]*nativeChanges = capture\.Snapshot\(Revision\(doc\), "committed", receipt\.Created, receipt\.Changed\)/, 'stair success must disclose native events');
+ assert.match(stair,/plan\.Receipt = new\s*\{[^;]*nativeChanges = capture\.Snapshot\(Revision\(doc\), "failed", \[\], \[\]\)/, 'stair failure must disclose native events even without primary IDs');
+ assert.match(ordinary,/createdIds = created\.Distinct\(\)\.ToArray\(\)/);
+ assert.match(ordinary,/createdElementIds = createdIds/);
+ assert.match(stair,/createdElementIds = receipt\.Created\.Distinct\(\)/);
  const rules=await fs.readFile(path.join(root,'v27/NativeChangeReceipt.cs'),'utf8');
  assert.match(rules,/document-changed-event-union/);assert.match(rules,/AdditionalAddedElementIds/);assert.match(rules,/UnreportedModifiedElementIds/);assert.match(rules,/ObservedDeletedElementIds/);assert.match(rules,/NetModelDiffVerified/);assert.match(rules,/SideEffectsVerified/);
  assert.doesNotMatch(rules,/Autodesk\.Revit|Transaction\(|Save\(/);

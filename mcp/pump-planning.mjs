@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {isDeepStrictEqual} from 'node:util';
 import {resolvePlanningMode} from './planning-mode.mjs';
 import {buildRegisteredWorkflow} from './workflow-adapter.mjs';
 import {collisionInputSchema} from './collision-request.mjs';
@@ -13,6 +14,25 @@ const keys={
  'pump_room.connect':['connections','tags','dimensions']
 };
 function fail(code,message){const e=new Error(message);e.code=code;throw e;}
+function documentSnapshot(context,args){
+ const doc=context?.document;
+ if(context?.active===false)fail('no_active_document','Open a project before professional modeling preview.');
+ if(context?.active!==true||!doc||typeof doc.identity!=='string'||!doc.identity.trim()||
+    !Number.isSafeInteger(doc.revision)||doc.revision<0||typeof doc.path!=='string'||
+    typeof doc.isModified!=='boolean'||typeof doc.isFamilyDocument!=='boolean'||typeof doc.isReadOnly!=='boolean')
+  fail('planning_context_invalid','Native pump context lacks a known identity, revision, path or document state.');
+ if(doc.isFamilyDocument)fail('project_document_required','Pump previews require a project document.');
+ if(doc.isReadOnly)fail('document_read_only','The active project cannot accept modeling changes.');
+ if(doc.identity!==args.documentIdentity)fail('document_changed','Pump workflow belongs to another active document.');
+ if(args.expectedRevision!==undefined&&doc.revision!==args.expectedRevision)
+  fail('document_revision_changed','Pump workflow source revision changed.');
+ return {identity:doc.identity,revision:doc.revision,path:doc.path,isModified:doc.isModified};
+}
+function requireSameDocument(context,before){
+ const after=documentSnapshot(context,{documentIdentity:before.identity,expectedRevision:before.revision});
+ if(after.path!==before.path||after.isModified!==before.isModified)
+  fail('planning_state_changed','The project path or saved state changed during pump preview preparation.');
+}
 const present=v=>v!==undefined&&v!==null&&v!=='';
 const flow=v=>['supply','return','neutral'].includes(v);
 function gapsFor(name,input){
@@ -62,6 +82,7 @@ function parseClearance(value){
  fail('invalid_clearance_policy','clearanceCheck.mode must be skip or screen_existing; no engineering clearance is inferred.');
 }
 export async function previewPumpWorkflow(args,call,signal){
+ signal?.throwIfAborted();
  if(!pumpWorkflowIds.includes(args.name))fail('unknown_workflow','Unsupported pump workflow.');
  const policy=resolvePlanningMode(args.name,args.planningMode,args.assumptions||[]);
  const fields={...shape};for(const key of keys[args.name])fields[key]=items.optional();
@@ -74,11 +95,10 @@ export async function previewPumpWorkflow(args,call,signal){
  const clearance=parseClearance(input.clearanceCheck);preflight.clearanceCheck=clearance;
  // Build and validate explicit operations before any native reads. Unknown/malformed rows are errors, not defaults.
  const built=buildRegisteredWorkflow(args.name,input);
- const before=await call('revit.context.get',{},signal);
- if(!before.active||!before.document||before.document.isFamilyDocument)fail('no_active_document','Open a project before professional modeling preview.');
- if(before.document.identity!==args.documentIdentity)fail('document_changed','Pump workflow belongs to another active document.');
- if(args.expectedRevision!==undefined&&args.expectedRevision!==before.document.revision)fail('document_revision_changed','Pump workflow source revision changed.');
- const pin={documentIdentity:before.document.identity,expectedRevision:before.document.revision};
+ // Match the native JSON operation list, including omitted optional fields, without changing operation/geometry order.
+ const expectedOperations=JSON.parse(JSON.stringify(built.operations));
+ const before=documentSnapshot(await call('revit.context.get',{},signal),args);
+ const pin={documentIdentity:before.identity,expectedRevision:before.revision};
  if(clearance.mode==='screen_existing'){
   const {mode,...request}=clearance;const report=await call('revit.collision.check',collisionInputSchema.parse({...request,...pin}),signal);
   if(report?.documentIdentity!==pin.documentIdentity)fail('document_changed','Clearance evidence belongs to a different document.');
@@ -88,11 +108,41 @@ export async function previewPumpWorkflow(args,call,signal){
   if(!sameIds(report.scope.targetElementIds,request.targetElementIds)||!sameIds(report.scope.excludeElementIds,request.excludeElementIds||[])||report.scope.clearanceMm!==request.clearanceMm)
    fail('invalid_preflight_evidence','Native clearance report scope does not match the reviewed targets, exclusions or millimeter request.');
   preflight.clearanceReport=report;
+  requireSameDocument(await call('revit.context.get',{},signal),before);
   const unresolved=report.diagnostics.complete!==true||report.scope.truncated!==false||report.diagnostics.truncated!==false||report.collisions.length||report.unknown.length||report.clearanceCandidates.length;
   if(unresolved)return {...response,status:'needs_clarification',planningMode:'ask',requiresClarification:true,questions:['现有范围粗筛含碰撞、候选、未知或截断。请复核报告并调整路线/范围；不自动忽略或修改模型。'],missingInputs:[{field:'clearanceCheck.review',question:'需要复核现有范围粗筛证据。'}],planCreated:false};
  }else warnings.push('用户明确选择不检查净距：'+clearance.reason);
  const summary=[args.summary||args.name,policy.reviewNote,'净距策略：'+clearance.mode,clearance.mode==='skip'?'不检查原因：'+clearance.reason:'现有元素粗筛；新增几何未验证',...policy.assumptions.map(a=>'候选假设：'+a)].filter(Boolean).join('；');
- const plan=await call('revit.plan.create',{...pin,summary,source:'workflow:'+args.name+':'+policy.mode,operations:built.operations},signal);
- if(plan.documentIdentity!==pin.documentIdentity||plan.documentRevision!==pin.expectedRevision){if(plan.planId)await call('revit.plan.cancel',{planId:plan.planId},signal);fail('document_revision_changed','Pump preview is stale; create a new reviewed plan, never automatically commit.');}
- return {...response,requiresClarification:false,questions:[],planCreated:true,plan};
+ const source='workflow:'+args.name+':'+policy.mode;
+ signal?.throwIfAborted();
+ // A failed/uncertain create is propagated; do not retry or infer a plan ID.
+ const plan=await call('revit.plan.create',{...pin,summary,source,operations:structuredClone(expectedOperations)},signal);
+ try{
+  if(!plan||typeof plan.planId!=='string'||!plan.planId.trim()||plan.status!=='pending')
+   fail('invalid_preview_response','Native pump host did not return an identifiable pending preview.');
+  if(plan.documentIdentity!==pin.documentIdentity)fail('document_changed','Native pump preview belongs to another document.');
+  if(plan.documentRevision!==pin.expectedRevision)fail('document_revision_changed','Native pump preview has a different source revision.');
+  if(plan.source!==source||plan.summary!==summary||!isDeepStrictEqual(plan.operations,expectedOperations))
+   fail('plan_scope_mismatch','Native pump preview differs from the reviewed operations or source.');
+  if(plan.confirmationMode!=='chat'||plan.requiresConfirmation!==true||plan.requiresRevitConfirmation!==false)
+   fail('invalid_preview_response','Native pump preview lacks the chat confirmation contract.');
+  signal?.throwIfAborted();
+  requireSameDocument(await call('revit.context.get',{},signal),before);
+ }catch(error){
+  if(typeof plan?.planId==='string'&&plan.planId.trim()){
+   const details={...error.details,planId:plan.planId};
+   if(plan.status==='pending'){
+    try{
+     const cleanup=await call('revit.plan.cancel',{planId:plan.planId},signal);
+     details.previewCleanup={attempted:true,status:cleanup?.status==='cancelled'?'cancelled':'unknown',observedStatus:cleanup?.status??null};
+    }catch(cleanupError){
+     details.previewCleanup={attempted:true,status:'unknown',code:cleanupError.code??'cancel_failed',message:cleanupError.message};
+    }
+   }else details.previewCleanup={attempted:false,status:'not_pending',observedStatus:plan.status??null};
+   error.details=details;
+  }
+  throw error;
+ }
+ return {...response,requiresClarification:false,questions:[],planCreated:true,
+  documentIdentity:pin.documentIdentity,documentRevision:pin.expectedRevision,plan};
 }

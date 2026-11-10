@@ -1,3 +1,5 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # v0.3.3：身份与连接器检查修复、真实写入／回滚验收
 
 ## 状态与信任边界
@@ -9,15 +11,15 @@
 
 ## 固定测试副本
 已准备文件：
-D:\Desktop\revitt\revit-auto\acceptance\models\照明模型+方昱-验收-v031.rvt
+C:\src\revit-auto\acceptance\models\sample-lighting-model-验收-v031.rvt
 
-这是原文件的磁盘副本，不包含未保存的内存修改。不得用保存副本的操作覆盖原项目。原文件：D:\Desktop\revitt\考生文件夹\照明模型+方昱.rvt。
+这是原文件的磁盘副本，不包含未保存的内存修改。不得用保存副本的操作覆盖原项目。原文件：C:/src/revit-auto/samples\sample-lighting-model.rvt。
 
 ## 阶段 1：只读身份检查
 保存工作、重启并打开测试副本后：
 
 ~~~powershell
-node D:\Desktop\revitt\revit-auto\mcp\identity-acceptance.mjs probe
+node C:\src\revit-auto\mcp\identity-acceptance.mjs probe
 ~~~
 
 必须识别新版、documentIdentityPolicy=native-session-equality；准备/核验还要求 connectorInspectionPolicy=capability-aware-v2（v0.3.3）。五次 context 的 identity/revision/路径/数量一致。不满足则停止，不跳过 identity 校验。
@@ -25,25 +27,25 @@ node D:\Desktop\revitt\revit-auto\mcp\identity-acceptance.mjs probe
 ## 阶段 2：分别生成预览
 
 ~~~powershell
-node D:\Desktop\revitt\revit-auto\mcp\identity-acceptance.mjs prepare write --project D:\Desktop\revitt\revit-auto\acceptance\models\照明模型+方昱-验收-v031.rvt --state D:\Desktop\revitt\revit-auto\acceptance\write-v031.json
+node C:\src\revit-auto\mcp\identity-acceptance.mjs prepare write --project C:\src\revit-auto\acceptance\models\sample-lighting-model-验收-v031.rvt --state C:\src\revit-auto\acceptance\write-v031.json
 ~~~
 
 核对灯具 2290242 的标记必须为 OFF1-01，读取注释原值，再预览将其写为 AI_WRITE_TEST。把预览展示给用户；聊天批准后助手提交原 planId，不重建计划、不额外弹窗。
 
 ~~~powershell
-node D:\Desktop\revitt\revit-auto\mcp\identity-acceptance.mjs verify --state D:\Desktop\revitt\revit-auto\acceptance\write-v031.json
+node C:\src\revit-auto\mcp\identity-acceptance.mjs verify --state C:\src\revit-auto\acceptance\write-v031.json
 ~~~
 
 写入完成后才准备回滚测试，避免前一次修改导致另一份预览陈旧：
 
 ~~~powershell
-node D:\Desktop\revitt\revit-auto\mcp\identity-acceptance.mjs prepare rollback --project D:\Desktop\revitt\revit-auto\acceptance\models\照明模型+方昱-验收-v031.rvt --state D:\Desktop\revitt\revit-auto\acceptance\rollback-v031.json
+node C:\src\revit-auto\mcp\identity-acceptance.mjs prepare rollback --project C:\src\revit-auto\acceptance\models\sample-lighting-model-验收-v031.rvt --state C:\src\revit-auto\acceptance\rollback-v031.json
 ~~~
 
 核对灯具 2290243 为 OFF1-02。三个计划步骤：修改注释 → 删除灯具及已展示的依赖项 → 再访问该灯具以触发执行期失败。用户核对影响清单并在聊天批准后提交。
 
 ~~~powershell
-node D:\Desktop\revitt\revit-auto\mcp\identity-acceptance.mjs verify --state D:\Desktop\revitt\revit-auto\acceptance\rollback-v031.json
+node C:\src\revit-auto\mcp\identity-acceptance.mjs verify --state C:\src\revit-auto\acceptance\rollback-v031.json
 ~~~
 
 验收必须同时满足：failed/execution_failed、rolledBack=true、completedOperationCount=2、failedOperationIndex=3，且灯具 uniqueId、原注释、所有电气实例 ID 集合、回路成员/配电箱、导线和连接器与基线一致。预览拒绝不算回滚通过。计划 get 包含失败收据，超时后先查询，不自动重新提交。

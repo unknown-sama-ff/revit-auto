@@ -1,4 +1,5 @@
 using Autodesk.Revit.DB.Events;
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
 using System.Reflection;
@@ -7,6 +8,7 @@ namespace RevitAutoV27;
 
 public sealed class App : IExternalApplication
 {
+    private bool houseGenerationAttempted;
     private RevitCommandHandler? handler;
     private TcpCommandServer? server;
     private ExternalEvent? externalEvent;
@@ -16,6 +18,12 @@ public sealed class App : IExternalApplication
         application.ControlledApplication.ApplicationInitialized += Initialize;
         application.ControlledApplication.DocumentChanged += DocumentChanged;
         application.ControlledApplication.DocumentClosed += DocumentClosed;
+        application.ControlledApplication.DocumentSaving += DocumentLifecycleEvents.OnSaving;
+        application.ControlledApplication.DocumentSaved += DocumentLifecycleEvents.OnSaved;
+        application.ControlledApplication.DocumentOpened += DocumentLifecycleEvents.OnOpened;
+        application.ControlledApplication.DocumentClosing += DocumentLifecycleEvents.OnClosing;
+        application.DialogBoxShowing += DocumentLifecycleEvents.OnDialog;
+        application.ApplicationClosing += DocumentLifecycleEvents.OnApplicationClosing;
         application.Idling += Idling;
         var panel = application.CreateRibbonPanel("Revit AI");
         panel.AddItem(new PushButtonData("RevitAutoStatus", "AI 连接状态", Assembly.GetExecutingAssembly().Location, typeof(ConnectionStatus).FullName!));
@@ -26,6 +34,8 @@ public sealed class App : IExternalApplication
         try
         {
             handler = new RevitCommandHandler();
+            DocumentLifecycleService.HasQueuedDocumentCommands = handler.HasQueuedDocumentCommands;
+            DocumentLifecycleService.HasPendingPlans = RevitCommandRouter.HasPendingPlans;
             externalEvent = ExternalEvent.Create(handler);
             handler.Attach(externalEvent);
             server = new TcpCommandServer(handler);
@@ -35,16 +45,47 @@ public sealed class App : IExternalApplication
         }
         catch (Exception ex) { ConnectionMessage = "插件连接失败：" + ex.Message; handler?.Dispose(); server?.Dispose(); externalEvent?.Dispose(); Log.Write("Initialization failed: " + ex); }
     }
-    private void DocumentChanged(object? sender, DocumentChangedEventArgs e) => RevitCommandRouter.Changed(e);
+    private void DocumentChanged(object? sender, DocumentChangedEventArgs e)
+    {
+        RevitCommandRouter.Changed(e);
+        DocumentLifecycleEvents.OnChanged(sender, e);
+    }
     private void DocumentClosed(object? sender, DocumentClosedEventArgs e) => RevitCommandRouter.Closed(e.Status == RevitAPIEventStatus.Succeeded);
-    private void Idling(object? sender, IdlingEventArgs e) => handler?.Wake();
+    private void Idling(object? sender, IdlingEventArgs e)
+    {
+        if (!houseGenerationAttempted && sender is UIApplication uiApplication)
+        {
+            string? output = Environment.GetEnvironmentVariable("REVIT_HOUSE_OUTPUT");
+            if (!string.IsNullOrWhiteSpace(output))
+            {
+                houseGenerationAttempted = true;
+                HouseGenerationService.Run(uiApplication.Application, output);
+            }
+        }
+        DocumentLifecycleService.ConsumeSupervisorStopOnIdle();
+        handler?.Wake();
+    }
     public Result OnShutdown(UIControlledApplication application)
     {
+        // Prevent new work and close connections first. Keep lifecycle event
+        // listeners installed until their final durable record has been flushed.
+        DocumentLifecycleService.Shutdown();
+        server?.Dispose(); handler?.Dispose();
+        try { DocumentLifecycleEvents.ShutdownClose(); }
+        catch (Exception error) { Log.Write("Lifecycle shutdown evidence failed: " + error); }
         application.ControlledApplication.ApplicationInitialized -= Initialize;
         application.ControlledApplication.DocumentChanged -= DocumentChanged;
         application.ControlledApplication.DocumentClosed -= DocumentClosed;
+        application.ControlledApplication.DocumentSaving -= DocumentLifecycleEvents.OnSaving;
+        application.ControlledApplication.DocumentSaved -= DocumentLifecycleEvents.OnSaved;
+        application.ControlledApplication.DocumentOpened -= DocumentLifecycleEvents.OnOpened;
+        application.ControlledApplication.DocumentClosing -= DocumentLifecycleEvents.OnClosing;
+        application.DialogBoxShowing -= DocumentLifecycleEvents.OnDialog;
+        application.ApplicationClosing -= DocumentLifecycleEvents.OnApplicationClosing;
         application.Idling -= Idling;
-        handler?.Dispose(); server?.Dispose(); externalEvent?.Dispose();
+        DocumentLifecycleService.HasQueuedDocumentCommands = null;
+        DocumentLifecycleService.HasPendingPlans = null;
+        externalEvent?.Dispose();
         return Result.Succeeded;
     }
 }

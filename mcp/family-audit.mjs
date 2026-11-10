@@ -34,7 +34,7 @@ export async function auditFamilies(request,call,signal){
     do{
       signal?.throwIfAborted();
       const pageLimit=Math.min(500,limit-candidates.length,TOTAL_LIMIT-total);
-      const page=await call('revit.search',{family:requested,types:true,limit:pageLimit,offset},signal);
+      const page=await call('revit.search',{family:requested,types:true,limit:pageLimit,offset,...pin},signal);
       if(!Array.isArray(page.items)||typeof page.hasMore!=='boolean')fail('invalid_audit_response','Native family search returned an incomplete page.');
       if(page.items.length>pageLimit)fail('invalid_audit_response','Native search exceeded the declared page limit.');
       for(const row of page.items){

@@ -9,10 +9,11 @@ import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 const catalogHash='b'.repeat(64);
 const asset={familyKey:'reviewed-panel',sha256:'a'.repeat(64),expectedFamilyName:'Reviewed Panel',expectedCategoryId:-2001040,requiredTypes:['Reviewed Type']};
 const request={name:'families.load',planningMode:'explicit',documentIdentity:'doc-a',expectedRevision:0,input:{families:[{familyKey:asset.familyKey,conflictPolicy:'keep_existing',overwriteTypeParameters:false}]}};
-async function fixture(t,{features=['controlled-family-loading','family-catalog-snapshot'],contextPatch={},catalogPatch={},planError,stalePlan=false}={}){
+async function fixture(t,{features=['controlled-family-loading','family-catalog-snapshot'],contextPatch={},contextSteps=[],catalogPatch={},planError,stalePlan=false,cancelError}={}){
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'revit-family-load-mcp-'));
  const token='family-load-test-token-'.repeat(4);const calls=[],sockets=new Set();
  const catalog={documentIdentity:'doc-a',documentRevision:0,catalogSha256:catalogHash,assets:[asset],...catalogPatch};
+ let contextReads=0;
  const bridge=net.createServer(socket=>{
   sockets.add(socket);socket.on('close',()=>sockets.delete(socket));let buffer='';
   socket.on('data',chunk=>{
@@ -20,10 +21,10 @@ async function fixture(t,{features=['controlled-family-loading','family-catalog-
    const r=JSON.parse(buffer.slice(0,i));assert.equal(r.token,token);calls.push(r);
    let payload;
    if(r.method==='revit.bridge.info')payload={ok:true,result:{protocol:'revit-auto-2027-v2',features,confirmationMode:'chat',version:'fixture'}};
-   else if(r.method==='revit.context.get')payload={ok:true,result:{active:true,document:{identity:'doc-a',revision:0,isFamilyDocument:false,...contextPatch}}};
+   else if(r.method==='revit.context.get')payload={ok:true,result:{active:true,document:{identity:'doc-a',revision:0,path:'D:\\fixture\\test-copy.rvt',isModified:false,isReadOnly:false,isFamilyDocument:false,...contextPatch,...contextSteps[contextReads++]}}};
    else if(r.method==='revit.family.library.get')payload={ok:true,result:catalog};
    else if(r.method==='revit.plan.create')payload=planError?{ok:false,error:{code:planError,message:'Native preview refused; no write committed'}}:{ok:true,result:{planId:'fixture-plan',documentIdentity:'doc-a',documentRevision:stalePlan?1:0,operations:r.params.operations,status:'pending',requiresConfirmation:true,requiresRevitConfirmation:false,warnings:[]}};
-   else if(r.method==='revit.plan.cancel')payload={ok:true,result:{planId:r.params.planId,status:'cancelled'}};
+   else if(r.method==='revit.plan.cancel')payload=cancelError?{ok:false,error:{code:cancelError,message:'Cancellation unavailable'}}:{ok:true,result:{planId:r.params.planId,status:'cancelled'}};
    else payload={ok:false,error:{code:'unexpected_write',message:'Fixture forbids execution and save'}};
    socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',...payload})+'\n');
   });
@@ -77,4 +78,24 @@ test('stale native family preview is cancelled once and never confirmed',async t
 test('wrong workflow revision is rejected before catalog or plan queries',async t=>{
  const {client,calls}=await fixture(t,{contextPatch:{revision:1}});const r=await call(client,'revit_workflow_run',request);
  assert.equal(r.error,true);assert.equal(r.data.code,'document_revision_changed');assert.equal(calls.filter(c=>c.method==='revit.family.library.get'||c.method==='revit.plan.create').length,0);
+});
+
+test('family catalog preview refuses changed project path before creating a native plan',async t=>{
+ const {client,calls}=await fixture(t,{contextSteps:[{},{path:'D:\\fixture\\other-copy.rvt'}]});
+ const r=await call(client,'revit_workflow_run',request);
+ assert.equal(r.error,true);assert.equal(r.data.code,'planning_state_changed');
+ assert.equal(calls.filter(c=>c.method==='revit.plan.create'||c.method==='revit.plan.cancel').length,0);
+ assert.equal(writes(calls).length,0);
+});
+
+test('late save-state change cancels one family preview and preserves the planning error when cancellation fails',async t=>{
+ const {client,calls}=await fixture(t,{contextSteps:[{},{},{isModified:true}],cancelError:'cancel_unavailable'});
+ const r=await call(client,'revit_workflow_run',request);
+ assert.equal(r.error,true);assert.equal(r.data.code,'planning_state_changed');
+ assert.equal(r.data.details.planId,'fixture-plan');
+ assert.equal(r.data.details.previewCleanup.status,'unknown');
+ assert.equal(r.data.details.previewCleanup.code,'cancel_unavailable');
+ assert.equal(calls.filter(c=>c.method==='revit.plan.create').length,1);
+ assert.equal(calls.filter(c=>c.method==='revit.plan.cancel').length,1);
+ assert.equal(writes(calls).length,0);
 });

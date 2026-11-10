@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "recipeId": "architecture.rooms-enclosure-fixture",
+  "status": "offline-proposal-not-a-native-plan",
+  "project": "acceptance/models/floor-side-effect-isolated-20261020.rvt",
+  "requiredPlugin": {
+    "moduleVersionId": "4262fa98-cdee-4fe3-ac6d-64baea205f6e",
+    "features": ["architecture-primary-readback", "room-creation-readback", "readonly-query-pins", "native-change-receipts"]
+  },
+  "historicalSource": {
+    "runId": "01a16a10-43f7-7ee6-987e-815ac44c2226",
+    "baseline": "acceptance/runs/01a16a10-43f7-7ee6-987e-815ac44c2226/baseline.json",
+    "baselineSha256": "a3b8512bf2da90ff95a115edc3d09e294c48063193a0ed5336a43e69883e5497",
+    "usage": "Candidate selection only. Current baseline, document identity/revision, type and level must be read again before preview."
+  },
+  "candidate": {
+    "coordinateFrame": "Revit internal origin, mm, absolute Z",
+    "wallTypeId": 763588,
+    "wallTypeName": "F37_加气混凝土砌块墙_100mm",
+    "wallWidthMm": 100,
+    "levelId": 311,
+    "levelProjectElevationMm": 0,
+    "centerlineBounds": {"minXmm": 42000, "maxXmm": 46000, "minYmm": 1000, "maxYmm": 5000},
+    "heightMm": 3000,
+    "reviewBounds": {"minXmm": 41000, "maxXmm": 47000, "minYmm": 0, "maxYmm": 6000},
+    "vacantEnclosureVerified": false,
+    "collisionFreeVerified": false
+  },
+  "operations": [
+    {"operationType":"create_wall","id":"room-fixture-south","wallTypeId":763588,"levelId":311,"start":{"xMm":42000,"yMm":1000,"zMm":0},"end":{"xMm":46000,"yMm":1000,"zMm":0},"heightMm":3000,"offsetMm":0,"structural":false,"flip":false},
+    {"operationType":"create_wall","id":"room-fixture-east","wallTypeId":763588,"levelId":311,"start":{"xMm":46000,"yMm":1000,"zMm":0},"end":{"xMm":46000,"yMm":5000,"zMm":0},"heightMm":3000,"offsetMm":0,"structural":false,"flip":false},
+    {"operationType":"create_wall","id":"room-fixture-north","wallTypeId":763588,"levelId":311,"start":{"xMm":46000,"yMm":5000,"zMm":0},"end":{"xMm":42000,"yMm":5000,"zMm":0},"heightMm":3000,"offsetMm":0,"structural":false,"flip":false},
+    {"operationType":"create_wall","id":"room-fixture-west","wallTypeId":763588,"levelId":311,"start":{"xMm":42000,"yMm":5000,"zMm":0},"end":{"xMm":42000,"yMm":1000,"zMm":0},"heightMm":3000,"offsetMm":0,"structural":false,"flip":false}
+  ],
+  "laterRoomCandidate": {
+    "taskId": "architecture.rooms",
+    "name": "AI 房间创建正向验收",
+    "number": "AI-ROOM-POS-20261024",
+    "levelId": 311,
+    "point": {"xMm":44000,"yMm":3000,"zMm":0},
+    "separateRunAndPlanRequired": true,
+    "roomTagIncluded": false
+  },
+  "preflight": {
+    "readGuideAndSafety": true,
+    "requireFreshContextBeforeAndAfter": true,
+    "requireExactProjectAndModule": true,
+    "requireUnmodifiedWritableNonWorksharedProject": true,
+    "requireActualContractAndFullRawResults": true,
+    "historicalScopesTemplate": "acceptance/runs/01a16a10-43f7-7ee6-987e-815ac44c2226/scopes.json",
+    "scopePolicy": "Use fresh category membership and related type IDs. Preserve complete snapshots and watched elements 86962/293247 in two rounds. Do not reuse historical pins or treat 243 as a current count. Refresh/add surrounding categories and inspect the candidate area; unknown geometry is not clearance evidence.",
+    "requireCurrentNativeAndPngCandidateReview": true,
+    "requireExistingRoomsOutsideCandidate": true,
+    "requireRoomNumberAbsent": true,
+    "stopIfAnyFixtureWallAlreadyExists": true,
+    "stopOnUnexplainedScopeChanges": true
+  },
+  "afterFixtureExecution": {
+    "requiredCreatedWallCount": 4,
+    "requireNativeTypeLevelCurveHeightOffsetFlipStructuralReadback": true,
+    "requireRoomBoundingParameter": "BIP:WALL_ATTR_ROOM_BOUNDING = 1 on all four native walls",
+    "requireNoCreatedRooms": true,
+    "requireExistingRoomMembershipAndBoundariesUnchanged": true,
+    "requireCompleteNativeChangeReceiptAndScopeComparison": true,
+    "requireNewBaselineBeforeRoomPreview": true,
+    "unknownSideEffectsStopNextWrite": true
+  },
+  "executionPolicy": {
+    "exactPlanChatApprovalRequired": true,
+    "exclusiveAttemptMarkerBeforeConfirm": true,
+    "confirmCallsMaximum": 1,
+    "onTimeout": "Query original plan/run; never recreate or reconfirm automatically.",
+    "automaticSave": false,
+    "automaticRestart": false,
+    "automaticRetry": false
+  },
+  "limitations": [
+    "This offline recipe contains neither a native planId nor current document identity/revision and grants no model-write approval.",
+    "Historical location samples do not certify empty space, full solid clearance, linked geometry or a vacant native room circuit.",
+    "The fixture tests wall creation only. It does not accept create_room, room tags, persistence, visual results or unexplained floor-system changes."
+  ]
+}

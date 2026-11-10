@@ -4,6 +4,11 @@ namespace RevitAutoV27;
 internal sealed record OperationReceipt(List<long> Created, List<long> Changed)
 {
     public object? Evidence { get; init; }
+    // Some native operations can replace their reviewed element while preserving
+    // the business operation. Keep the actual result ID and the bounded readback
+    // expectation alongside the ordinary created/changed receipt.
+    public long? ResultingElementId { get; init; }
+    public object? ReadbackBinding { get; init; }
     public static OperationReceipt New(long elementId) => new([elementId], []);
     public static OperationReceipt ForParameter(long elementId, string parameter, bool writePerformed)
     {

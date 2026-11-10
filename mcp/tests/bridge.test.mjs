@@ -12,22 +12,136 @@ async function fixture(handler, {oldVersion=false,confirmationMode='chat',featur
   const folder=await fs.mkdtemp(path.join(os.tmpdir(),'revit-bridge-test-'));
   const token='test-only-token-'.repeat(4);
   const sockets=new Set();
+  let bridgeInfoCalls=0;
   const bridge=net.createServer(socket=>{
     sockets.add(socket);socket.on('close',()=>sockets.delete(socket));
     let buffer='';socket.on('data',chunk=>{
       buffer+=chunk.toString('utf8');const i=buffer.indexOf('\n');if(i<0)return;
       const request=JSON.parse(buffer.slice(0,i));buffer='';
       assert.equal(request.token,token);assert.ok(request.deadlineUnixMs>Date.now());
-      if(request.method==='revit.bridge.info') {if(oldVersion)socket.end(JSON.stringify({ok:true,result:{}})+'\n');else send(socket,{protocol:'revit-auto-2027-v2',confirmationMode,features});return;}
+      if(request.method==='revit.bridge.info') {bridgeInfoCalls++;if(oldVersion)socket.end(JSON.stringify({ok:true,result:{}})+'\n');else send(socket,{protocol:'revit-auto-2027-v2',confirmationMode,features});return;}
       handler(request,socket);
     });
   });
   await new Promise(resolve=>bridge.listen(0,'127.0.0.1',resolve));
   const config=path.join(folder,'bridge.json');
   await fs.writeFile(config,JSON.stringify({port:bridge.address().port,token}));
-  return {config,close:async()=>{for(const s of sockets)s.destroy();await new Promise(r=>bridge.close(r));await fs.rm(folder,{recursive:true,force:true});}};
+  return {config,get bridgeInfoCalls(){return bridgeInfoCalls;},close:async()=>{for(const s of sockets)s.destroy();await new Promise(r=>bridge.close(r));await fs.rm(folder,{recursive:true,force:true});}};
 }
 const send=(socket,result)=>socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',ok:true,result})+'\n');
+
+test('bridge.info is queried once instead of being redundantly queried for its own call',async t=>{
+  const f=await fixture(()=>{});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  const info=await callRevit('revit.bridge.info');
+  assert.equal(info.protocol,'revit-auto-2027-v2');
+  assert.equal(f.bridgeInfoCalls,1);
+});
+
+test('room previews stop before forwarding when native room creation readback is not loaded',async t=>{
+  const requests=[],f=await fixture((request,socket)=>{requests.push(request);send(socket,{status:'pending'});},{features:['room-boundaries','architecture-primary-readback']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  await assert.rejects(callRevit('revit.plan.create',{operations:[{operationType:'create_room',levelId:311,xMm:1000,yMm:2000,name:'Office',number:'101'}]}),
+    error=>error.code==='feature_not_loaded'&&error.details.requiredFeatures.includes('room-creation-readback'));
+  assert.deepEqual(requests,[]);
+});
+
+test('a capable room host receives exactly one pinned preview without confirmation',async t=>{
+  const requests=[],f=await fixture((request,socket)=>{requests.push(request);send(socket,{status:'pending'});},{features:['room-creation-readback']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  const input={documentIdentity:'reviewed-room-document',expectedRevision:0,operations:[{operationType:'create_room',levelId:311,xMm:1000,yMm:2000,name:'Office',number:'101'}]};
+  assert.equal((await callRevit('revit.plan.create',input)).status,'pending');
+  assert.deepEqual(requests.map(request=>request.method),['revit.plan.create']);
+  assert.deepEqual(requests[0].params,input);
+});
+
+test('read-only bridge identity can be reused only when explicitly enabled',async t=>{
+  const f=await fixture((request,socket)=>send(socket,{active:true,document:{identity:'d',revision:0,path:'x.rvt',isModified:false},counts:{}}));t.after(f.close);
+  const previousConfig=process.env.REVIT_AI_CONFIG;const previousCache=process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS;
+  process.env.REVIT_AI_CONFIG=f.config;process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS='120000';
+  t.after(()=>{if(previousConfig===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previousConfig;if(previousCache===undefined)delete process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS;else process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS=previousCache;});
+  await callRevit('revit.search',{}); await callRevit('revit.search',{});
+  assert.equal(f.bridgeInfoCalls,1);
+});
+test('explicit read-pin requirements bypass optional cached capability evidence',async t=>{
+  const features=['readonly-query-pins'],forwarded=[];
+  const f=await fixture((req,socket)=>{forwarded.push(req.method);send(socket,{items:[]});},{features});t.after(f.close);
+  const prevConfig=process.env.REVIT_AI_CONFIG,prevCache=process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS;
+  process.env.REVIT_AI_CONFIG=f.config;process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS='120000';
+  t.after(()=>{if(prevConfig===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=prevConfig;
+    if(prevCache===undefined)delete process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS;else process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS=prevCache;});
+  // Establish this fixture's capability snapshot instead of inheriting another test's optional cache.
+  await callRevit('revit.search',{},undefined,{requiredFeatures:['readonly-query-pins']});
+  await callRevit('revit.search',{});features.length=0;
+  await assert.rejects(callRevit('revit.search',{documentIdentity:'doc-a',expectedRevision:0},undefined,{requiredFeatures:['readonly-query-pins']}),
+    e=>e.code==='feature_not_loaded'&&e.details.requiredFeatures.includes('readonly-query-pins'));
+  assert.equal(f.bridgeInfoCalls,3);assert.deepEqual(forwarded,['revit.search','revit.search']);
+});
+test('malformed internal capability requirements fail before bridge I/O',async()=>{
+  await assert.rejects(callRevit('revit.search',{},undefined,{requiredFeatures:[' ']}),{code:'invalid_required_features'});
+});
+
+test('architecture type-copy requires its exact capability before forwarding a preview',async t=>{
+  const requests=[],f=await fixture((request,socket)=>{requests.push(request);send(socket,{status:'pending'});},{features:['controlled-structural-columns','controlled-family-loading']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  await assert.rejects(callRevit('revit.plan.create',{operations:[{operationType:'duplicate_architecture_type'}]}),error=>error.code==='feature_not_loaded'&&error.details.requiredFeatures.includes('architecture-type-copy'));
+  assert.deepEqual(requests,[]);
+});
+
+test('native storage schema audit requires its exact capability before forwarding',async t=>{
+  let forwarded=0;const f=await fixture((_,socket)=>{forwarded++;send(socket,{});},{features:['bounded-element-dependencies']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  await assert.rejects(callRevit('revit.element.storage_schemas',{documentIdentity:'doc',expectedRevision:0,elementIds:[10]}),
+    error=>error.code==='feature_not_loaded'&&error.details.requiredFeatures.includes('element-storage-schema-audit'));
+  assert.equal(forwarded,0);
+});
+
+test('native storage schema audit forwards only a pinned bounded read to capable plugins',async t=>{
+  const requests=[],f=await fixture((request,socket)=>{requests.push(request);send(socket,{status:'captured'});},{features:['element-storage-schema-audit']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  const params={documentIdentity:'reviewed-doc',expectedRevision:4,elementIds:[86962,293247]};
+  assert.deepEqual(await callRevit('revit.element.storage_schemas',params),{status:'captured'});
+  assert.deepEqual(requests.map(request=>request.method),['revit.element.storage_schemas']);
+  assert.deepEqual(requests[0].params,params);
+});
+
+test('document version diff requires the exact loaded read-only capability before forwarding',async t=>{
+  let forwarded=0;const f=await fixture((_,socket)=>{forwarded++;send(socket,{})},{features:[]});t.after(f.close);
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+  await assert.rejects(callRevit('revit.document.version_diff',{documentIdentity:'doc',expectedRevision:0,baseVersionGuid:'954250cd-d791-45e4-8053-602edef74272'}),error=>error.code==='feature_not_loaded'&&error.details.requiredFeatures.includes('document-version-diff'));
+  assert.equal(forwarded,0);
+});
+
+test('document version diff forwards one explicitly pinned read after capability verification',async t=>{
+  const requests=[],f=await fixture((request,socket)=>{requests.push(request);send(socket,{complete:true})},{features:['document-version-diff']});t.after(f.close);
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+  const params={documentIdentity:'reviewed-doc',expectedRevision:0,baseVersionGuid:'954250cd-d791-45e4-8053-602edef74272'};
+  assert.deepEqual(await callRevit('revit.document.version_diff',params),{complete:true});
+  assert.deepEqual(requests.map(request=>request.method),['revit.document.version_diff']);assert.deepEqual(requests[0].params,params);
+});
+
+test('architecture type-copy capability forwards one pinned preview with unchanged native parameter IDs',async t=>{
+  const requests=[],f=await fixture((request,socket)=>{requests.push(request);send(socket,{status:'pending'});},{features:['architecture-type-copy']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  const params={documentIdentity:'reviewed-document',expectedRevision:0,operations:[{operationType:'duplicate_architecture_type',id:'door-type',sourceTypeId:10,name:'Reviewed 900',category:'OST_Doors',dimensions:[{parameterId:-1001301,name:'Width',valueMm:900},{parameterId:102,name:'Height',valueMm:2100}]}]};
+  assert.equal((await callRevit('revit.plan.create',params)).status,'pending');
+  assert.deepEqual(requests.map(request=>request.method),['revit.plan.create']);assert.deepEqual(requests[0].params,params);
+});
+
+test('old running plugins block standalone drawing movement before native plan creation',async t=>{
+  let forwarded=0;const f=await fixture((_,socket)=>{forwarded++;send(socket,{});},{features:['view-configuration']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  await assert.rejects(callRevit('revit.plan.create',{operations:[{operationType:'move_drawing_placement',placementId:10,sheetId:20,viewId:30,xMm:420,yMm:280}]}),e=>e.code==='feature_not_loaded'&&e.details.requiredFeatures.includes('drawing-placement-move'));
+  assert.equal(forwarded,0);
+});
+test('capable plugins receive only the reviewed standalone drawing movement plan',async t=>{
+  const requests=[];const f=await fixture((request,socket)=>{requests.push(request);send(socket,{status:'pending',operations:request.params.operations});},{features:['drawing-placement-move']});t.after(f.close);
+  const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
+  const operation={operationType:'move_drawing_placement',placementId:10,sheetId:20,viewId:30,xMm:420,yMm:280};
+  const preview=await callRevit('revit.plan.create',{operations:[operation]});
+  assert.equal(preview.status,'pending');assert.deepEqual(preview.operations,[operation]);
+  assert.deepEqual(requests.map(request=>request.method),['revit.plan.create']);
+});
 
 test('SDK client completes authenticated tool round-trip with Chinese UTF-8 split across TCP frames',async t=>{
   const f=await fixture((request,socket)=>{
@@ -54,6 +168,40 @@ test('Claude and Codex compatible clients share one serialized plan host and con
   await Promise.all(clients.map(c=>c.callTool({name:'revit_plan_confirm',arguments:{planId:'same'}})));
   assert.equal(commits,1);
 });
+test('SDK preserves titleblock replacement self-dependency evidence without retrying or promoting acceptance (mock)',async t=>{
+  // Synthetic native evidence tests the MCP transport, not Revit replacement behavior.
+  const planId='reviewed-titleblock-replacement',requests=[];
+  const dependencyPreservation={requiredDependentElementIds:[50],exemptOriginalSelfReferenceIds:[10],missingDependentElementIds:[],verified:true};
+  const evidence={titleBlockInstanceId:10,resultingTitleBlockInstanceId:42,sheetId:20,oldTypeId:40,targetTypeId:30,
+    noOp:false,typeWritePerformed:true,replacementOccurred:true,nativeReturnedElementId:42,deletedOriginalInstanceIds:[10],
+    beforeDependentElementIds:[10,50],afterDependentElementIds:[42,50],reviewedDependentsStillExist:false,
+    dependencyPreservation,nativeReadbackVerified:true,sideEffectsVerified:false};
+  const check={phase:'after-transaction-commit',titleBlockInstanceId:10,resultingTitleBlockInstanceId:42,sheetId:20,targetTypeId:30,
+    reviewedDependentsStillExist:false,dependencyPreservation,nativeReadbackVerified:true,writePerformed:true,
+    sideEffectsVerified:false,persistenceVerified:false,visualVerified:false};
+  const receipt={planId,status:'committed',completedOperationCount:1,createdElementIds:[42],changedElementIds:[42],
+    operationEvidence:[{operationIndex:1,operationType:'change_titleblock_type',evidence}],
+    documentationTitleBlockVerification:{phase:'after-transaction-commit',completedTitleBlockCount:1,checks:[check],
+      nativeReadbackVerified:true,sideEffectsVerified:false,persistenceVerified:false,visualVerified:false},
+    nativeChanges:{observedAddedElementIds:[42],observedModifiedElementIds:[20],observedDeletedElementIds:[10],
+      unreportedModifiedElementIds:[20],captureComplete:true,netModelDiffVerified:false,sideEffectsVerified:false},
+    saved:false,confirmationMode:'chat'};
+  const committedPlan={planId,status:'committed',receipt};
+  const f=await fixture((request,socket)=>{
+    requests.push(request);assert.deepEqual(request.params,{planId});
+    if(request.method==='revit.plan.confirm')send(socket,receipt);
+    else {assert.equal(request.method,'revit.plan.get');send(socket,committedPlan);}
+  },{features:['controlled-titleblock-change','native-change-receipts']});t.after(f.close);
+  const client=new Client({name:'titleblock-receipt-test',version:'1.0'});t.after(()=>client.close());
+  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.resolve(import.meta.dirname,'../revit-custom.mjs')],env:{REVIT_AI_CONFIG:f.config},stderr:'pipe'}));
+  const confirmed=await client.callTool({name:'revit_plan_confirm',arguments:{planId}});
+  assert.notEqual(confirmed.isError,true);assert.deepEqual(JSON.parse(confirmed.content[0].text),receipt);
+  const original=await client.callTool({name:'revit_plan_get',arguments:{planId}});
+  assert.notEqual(original.isError,true);assert.deepEqual(JSON.parse(original.content[0].text),committedPlan);
+  assert.deepEqual(requests.map(request=>request.method),['revit.plan.confirm','revit.plan.get']);
+});
+
+
 test('bridge errors propagate as actionable codes',async t=>{
   const f=await fixture((_,socket)=>socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',ok:false,error:{code:'stale_plan',message:'Re-preview'}})+'\n'));t.after(f.close);
   const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
@@ -170,3 +318,25 @@ test('matching stair capability forwards exactly one preview and no commit',asyn
  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
  assert.equal((await callRevit('revit.plan.create',{operations:[{operationType:'create_stair'}]})).status,'pending');assert.deepEqual(methods,['revit.plan.create']);
 });
+
+for(const [operationType,feature] of [
+ ['create_structural_column','controlled-structural-columns'],
+ ['create_grid','explicit-grid-geometry'],
+ ['change_titleblock_type','controlled-titleblock-change']
+]){
+ test(operationType+' refuses an old host before forwarding the new operation',async t=>{
+  const methods=[];const f=await fixture((request,socket)=>{methods.push(request.method);send(socket,{status:'pending'});},{features:[]});t.after(f.close);
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;
+  t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+  await assert.rejects(callRevit('revit.plan.create',{operations:[{operationType}]}),error=>error.code==='feature_not_loaded'&&error.details.requiredFeatures.includes(feature));
+  assert.deepEqual(methods,[]);
+ });
+ test(operationType+' forwards one preview only when its exact capability is loaded',async t=>{
+  const methods=[],operations=[{operationType}];
+  const f=await fixture((request,socket)=>{methods.push(request.method);assert.deepEqual(request.params.operations,operations);send(socket,{status:'pending'});},{features:[feature]});t.after(f.close);
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;
+  t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+  assert.equal((await callRevit('revit.plan.create',{operations})).status,'pending');
+  assert.deepEqual(methods,['revit.plan.create']);
+ });
+}

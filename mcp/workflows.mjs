@@ -1,16 +1,33 @@
 import {validateStair} from './stair-rules.mjs';
 import {validateOpening} from './opening-rules.mjs';
 import {loadFamilyOperationSchema} from './family-load.mjs';
+import {electricalWireOperations} from './electrical-wire.mjs';
+import {electricalCircuitOperations} from './electrical-circuit.mjs';
+import {electricalSheetOperations} from './electrical-sheet.mjs';
+import {drawingPlacementMoveSchema,viewportLabelMoveSchema,drawingPlacementOperations,parseDrawingPlacementInput} from './drawing-placement.mjs';
+import {validateStructuralColumn,validateGrid} from './architecture-rules.mjs';
+import {validateTitleBlockChange,validateTitleBlockChangePlan,titleBlockChangeOperations} from './titleblock-change.mjs';
+import {architectureTypeCopyOperations,validateArchitectureTypeCopy,validateArchitectureTypeCopyPlan} from './architecture-type-copy.mjs';
+import {validateAnnotationInput} from './annotation-input.mjs';
 
 export const OPERATIONS = new Set([
-  'create_family_instance','duplicate_type','set_parameter','delete_element','load_family',
-  'create_level','create_grid','create_wall','create_floor','create_opening','create_room','create_stair',
+  'create_family_instance','duplicate_type','duplicate_architecture_type','set_parameter','delete_element','load_family',
+  'create_level','create_grid','create_structural_column','create_wall','create_floor','create_opening','create_room','create_stair',
   'create_circuit','create_wire','create_view_plan','create_sheet','create_schedule',
-  'create_panel_schedule','configure_view','place_viewport','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
+  'create_panel_schedule','configure_view','place_viewport','move_drawing_placement','move_viewport_label','change_titleblock_type','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
 ]);
 
 function requireField(value, field) {
   if (value[field] === undefined || value[field] === null || value[field] === '') throw new Error(`${value.operationType}: ${field} is required.`);
+}
+const DOTNET_WHITESPACE = /[\u0009-\u000D\u0020\u0085\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/u;
+function isDotnetWhitespace(character) { return DOTNET_WHITESPACE.test(character); }
+function validateRoomIdentity(op) {
+  for (const field of ['name','number']) {
+    const value=op[field];
+    if (typeof value!=='string' || value.length===0 || isDotnetWhitespace(value[0]) || isDotnetWhitespace(value[value.length-1]) || [...value].every(isDotnetWhitespace))
+      throw new Error(`create_room: ${field} must be a nonblank string without leading or trailing whitespace.`);
+  }
 }
 function number(value, field, positive = false) {
   if (typeof value[field] !== 'number' || !Number.isFinite(value[field]) || Math.abs(value[field]) > 1e8 || positive && value[field] <= 0)
@@ -62,7 +79,8 @@ function validatePortReservations(operations){
 }
 export function validateOperations(operations) {
   if (!Array.isArray(operations) || operations.length < 1 || operations.length > 1000) throw new Error('A plan needs 1..1000 operations.');
-  const known = new Set();
+  if(operations.some(op=>op?.operationType==='move_viewport_label')&&operations.length!==1)throw new Error('Viewport label changes must be the only operation in a reviewed plan.');
+  const known = new Set(),movedPlacements=new Set(),gridNames=new Set(),newSheetNumbers=new Set();
   for (const op of operations) {
     if (!op || typeof op !== 'object' || !OPERATIONS.has(op.operationType)) throw new Error(`Unsupported operation '${op?.operationType}'.`);
     for (const [field, value] of Object.entries(op)) {
@@ -81,13 +99,20 @@ export function validateOperations(operations) {
     }
     switch (op.operationType) {
       case 'load_family': loadFamilyOperationSchema.parse(op); break;
+      case 'duplicate_architecture_type': validateArchitectureTypeCopy(op); break;
       case 'create_family_instance':
         if (op.symbolId === undefined) { requireField(op,'family'); requireField(op,'type'); }
         point(op.point || op);
         if(op.placementMode!==undefined&&(op.placementMode!=='legacyPoint'||op.hostElementId!==undefined))throw new Error('legacyPoint cannot be combined with a host and is the only supported explicit placementMode.');
         break;
       case 'create_level': number(op,'elevationMm'); requireField(op,'name'); break;
-      case 'create_grid': case 'create_wall': case 'create_pipe': case 'create_duct':
+      case 'create_grid':
+        validateGrid(op);
+        if(gridNames.has(op.name))throw new Error('Grid names must be unique within the reviewed plan.');
+        gridNames.add(op.name);break;
+      case 'create_structural_column': validateStructuralColumn(op); break;
+      case 'change_titleblock_type': validateTitleBlockChange(op); break;
+      case 'create_wall': case 'create_pipe': case 'create_duct':
         point(op.start); point(op.end);
         if (op.operationType === 'create_wall') { requireField(op,'wallTypeId'); number(op,'heightMm',true); }
         if (op.operationType === 'create_pipe') { requireField(op,'pipeTypeId'); requireField(op,'systemTypeId'); number(op,'diameterMm',true); }
@@ -97,7 +122,7 @@ export function validateOperations(operations) {
         if (!Array.isArray(op.boundary) || op.boundary.length < 3) throw new Error('Floor needs at least three boundary points.');
         requireField(op,'floorTypeId'); op.boundary.forEach(point); break;
       case 'create_opening': validateOpening(op); break;
-      case 'create_room': point(op); break;
+      case 'create_room': validateRoomIdentity(op); point(op); break;
       case 'create_stair': validateStair(op); break;
       case 'duplicate_type': requireField(op,'sourceTypeId'); requireField(op,'name'); break;
       case 'delete_element': requireField(op,'elementId'); break;
@@ -107,11 +132,16 @@ export function validateOperations(operations) {
         requireField(op,'panelId'); break;
       case 'create_wire': ['firstElementId','secondElementId','viewId','wireTypeId'].forEach(f => requireField(op,f)); break;
       case 'create_view_plan': requireField(op,'viewFamilyTypeId'); break;
-      case 'create_sheet': ['number','name'].forEach(f => requireField(op,f)); break;
+      case 'create_sheet':
+        ['number','name'].forEach(f => requireField(op,f));
+        if(typeof op.number!=='string'||!op.number.trim())throw new Error('A new sheet number must be explicit nonblank text.');
+        if(newSheetNumbers.has(op.number))throw new Error('Duplicate new sheet number in one plan: '+op.number);
+        newSheetNumbers.add(op.number);break;
       case 'create_schedule': ['category','fields'].forEach(f => requireField(op,f)); break;
       case 'create_panel_schedule': requireField(op,'panelId'); break;
       case 'configure_view': {
         ['viewId','referenceViewId'].forEach(f=>requireField(op,f));
+        if(op.viewportId!==undefined){if(movedPlacements.has(op.viewportId))throw new Error('A drawing placement cannot be recentered and moved twice in one plan.');movedPlacements.add(op.viewportId);}
         const allowed=['viewRange','crop','discipline','lightingCategories','displayStyle','detailLevel','partsVisibility'];
         if(!Array.isArray(op.settings)||!op.settings.length||op.settings.some(s=>!allowed.includes(s))||new Set(op.settings).size!==op.settings.length)throw new Error('Provide explicit known unique view settings.');
         if(op.discipline!==undefined&&(!op.settings.includes('discipline')||!['Architectural','Structural','Mechanical','Electrical','Plumbing','Coordination'].includes(op.discipline)))throw new Error('Unknown or unrequested discipline.');
@@ -121,13 +151,31 @@ export function validateOperations(operations) {
         if(op.parameters!==undefined)throw new Error('Configure view does not accept ignored parameter maps.');
         break;
       }
-      case 'create_tag': requireField(op,'elementId'); requireField(op,'viewId'); point(op); break;
-      case 'create_dimension': requireField(op,'viewId'); requireField(op,'references'); point(op.start); point(op.end); break;
+      case 'create_tag': validateAnnotationInput(op); requireField(op,'elementId'); requireField(op,'viewId'); point(op);
+        if(Object.hasOwn(op,'leader')&&typeof op.leader!=='boolean')throw new Error('create_tag: leader must be an explicit boolean.');
+        break;
+      case 'create_dimension': validateAnnotationInput(op); requireField(op,'viewId'); point(op.start); point(op.end); break;
       case 'place_viewport': ['sheetId','viewId'].forEach(f => requireField(op,f)); point(op); break;
+      case 'move_drawing_placement': {
+        const {operationType,id,dependencies,...row}=op;
+        drawingPlacementMoveSchema.parse(row);parseDrawingPlacementInput({placementMoves:[row]});
+        if(dependencies!==undefined&&(!Array.isArray(dependencies)||dependencies.length>1000||dependencies.some(value=>typeof value!=='string'||!value.trim()||value.length>80)))throw new Error('Movement dependencies require explicit operation IDs.');
+        if(movedPlacements.has(row.placementId))throw new Error('An existing placement may move only once per plan.');
+        movedPlacements.add(row.placementId);break;
+      }
+      case 'move_viewport_label': {
+        const {operationType,id,dependencies,...row}=op;
+        viewportLabelMoveSchema.parse(row);parseDrawingPlacementInput({viewportLabelMoves:[row]});
+        if(dependencies!==undefined&&(!Array.isArray(dependencies)||dependencies.length>1000||dependencies.some(value=>typeof value!=='string'||!value.trim()||value.length>80)))throw new Error('Viewport label dependencies require explicit operation IDs.');
+        if(movedPlacements.has(row.viewportId))throw new Error('A viewport cannot be moved and have its label moved twice in one plan.');
+        movedPlacements.add(row.viewportId);break;
+      }
       case 'create_fitting': case 'connect_elements': ['firstElementId','secondElementId'].forEach(f => requireField(op,f)); validateConnectorSelection(op,'first'); validateConnectorSelection(op,'second'); break;
     }
   }
   validatePortReservations(operations);
+  validateTitleBlockChangePlan(operations);
+  validateArchitectureTypeCopyPlan(operations);
   return operations;
 }
 
@@ -135,6 +183,10 @@ export function workflowOperations(name, input = {}) {
   const ops = [];
   const add = (rows, type, prefix) => (rows || []).forEach((row,index) => ops.push({ ...row, operationType: type, id: row.id || `${prefix}${index + 1}` }));
   const placements = (rows,prefix,category) => add((rows || []).map(r => ({...r})), 'create_family_instance',prefix);
+  const architecturePlacements = (rows,prefix,category) => placements((rows||[]).map(row=>{
+    if(row.category!==undefined&&row.category!==category)throw new Error('Architecture placement category differs from its explicit door/window list.');
+    return {...row,category};
+  }),prefix,category);
   if (name === 'lighting.full' || name === 'lighting.place') {
     add(input.typeCopies,'duplicate_type','type');
     placements(input.panels,'panel','OST_ElectricalEquipment');
@@ -150,18 +202,11 @@ export function workflowOperations(name, input = {}) {
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
   } else if (name === 'electrical.circuit') {
-    add(input.parameterChanges,'set_parameter','param');
-    add(input.circuits,'create_circuit','circuit');
-    add(input.panelSchedules,'create_panel_schedule','panelSchedule');
+    ops.push(...electricalCircuitOperations(input));
   } else if (name === 'electrical.wire') {
-    add(input.wires,'create_wire','wire');
+    ops.push(...electricalWireOperations(input));
   } else if (name === 'electrical.sheet') {
-    add(input.views,'create_view_plan','view');
-    add(input.viewConfigurations,'configure_view','viewConfiguration');
-    add(input.schedules,'create_schedule','schedule');
-    add(input.panelSchedules,'create_panel_schedule','panelSchedule');
-    add(input.sheets,'create_sheet','sheet');
-    add(input.viewports,'place_viewport','viewport');
+    ops.push(...electricalSheetOperations(input));
   } else if (name === 'architecture.stairs') {
     if(Object.keys(input).some(key=>key!=='stairs'))throw new Error('architecture.stairs accepts only explicit stairs input.');
     add(input.stairs,'create_stair','stair');
@@ -175,9 +220,12 @@ export function workflowOperations(name, input = {}) {
     if(Object.keys(input).some(key=>key!=='openings')||!Array.isArray(input.openings)||!input.openings.length)throw new Error('openings.create requires only an explicit nonempty openings array.');
     add(input.openings,'create_opening','opening');
   } else if (name === 'architecture.openings') {
-    placements(input.doors,'door','OST_Doors'); placements(input.windows,'window','OST_Windows');
+    ops.push(...architectureTypeCopyOperations({typeCopies:input.typeCopies}));
+    architecturePlacements(input.doors,'door','OST_Doors'); architecturePlacements(input.windows,'window','OST_Windows');
     add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');
   } else if (name === 'architecture.documentation') {
+    ops.push(...drawingPlacementOperations({placementMoves:input.placementMoves,viewportLabelMoves:input.viewportLabelMoves}));
+    ops.push(...titleBlockChangeOperations({titleBlockChanges:input.titleBlockChanges}));
     add(input.views,'create_view_plan','view');
     add(input.viewConfigurations,'configure_view','viewConfiguration');
     add(input.schedules,'create_schedule','schedule');
@@ -185,9 +233,11 @@ export function workflowOperations(name, input = {}) {
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
   } else if (name === 'architecture.build') {
+    ops.push(...architectureTypeCopyOperations({typeCopies:input.typeCopies}));
     add(input.levels,'create_level','level'); add(input.grids,'create_grid','grid');
+    add(input.columns,'create_structural_column','column');
     add(input.walls,'create_wall','wall'); add(input.floors,'create_floor','floor');
-    placements(input.doors,'door','OST_Doors'); placements(input.windows,'window','OST_Windows');
+    architecturePlacements(input.doors,'door','OST_Doors'); architecturePlacements(input.windows,'window','OST_Windows');
     add(input.rooms,'create_room','room'); add(input.views,'create_view_plan','view');
     add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');
   } else if (name === 'pump_room.route') {

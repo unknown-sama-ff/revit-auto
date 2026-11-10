@@ -79,7 +79,7 @@ test('MCP audit preserves native tri-state evidence and read-only annotations (m
   const audit = tools.tools.find(tool => tool.name === 'revit_audit_run');
   assert.equal(audit.annotations.readOnlyHint, true);
   assert.equal(audit.annotations.destructiveHint, false);
-  assert.deepEqual(Object.keys(audit.inputSchema.properties), []);
+  assert.deepEqual(Object.keys(audit.inputSchema.properties), ['documentIdentity','expectedRevision']);
   const result = await client.callTool({name:'revit_audit_run', arguments:{}});
   assert.notEqual(result.isError, true);
   assert.deepEqual(JSON.parse(result.content[0].text), payload);

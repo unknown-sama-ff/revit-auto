@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revit-auto.local/schemas/run-evidence-v1.json",
+  "title": "Revit acceptance run evidence",
+  "type": "object",
+  "required": ["schemaVersion", "artifactType", "runId", "taskId", "capturedAtUtc", "status"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "artifactType": {
+      "enum": ["manifest", "baseline", "preview", "confirmation", "attempt", "execution", "readback", "saved", "reopen", "visual", "summary"]
+    },
+    "runId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "taskId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,79}$" },
+    "capturedAtUtc": { "type": "string", "format": "date-time" },
+    "status": { "enum": ["initialized", "not-run", "not-applicable", "captured", "accepted", "rejected", "unknown", "expired"] },
+    "sourceArtifactHashes": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "repository": {
+      "type": ["object", "null"],
+      "properties": {
+        "commit": { "type": ["string", "null"] },
+        "dirty": { "type": ["boolean", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "plugin": {
+      "type": ["object", "null"],
+      "properties": {
+        "version": { "type": ["string", "null"] },
+        "mvid": { "type": ["string", "null"] },
+        "dllSha256": { "type": ["string", "null"], "pattern": "^([0-9a-f]{64})?$" },
+        "revitVersion": { "type": ["string", "null"] },
+        "revitBuild": { "type": ["string", "null"] },
+        "pid": { "type": ["integer", "null"], "minimum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "document": {
+      "type": ["object", "null"],
+      "properties": {
+        "path": { "type": ["string", "null"] },
+        "sha256": { "type": ["string", "null"], "pattern": "^([0-9a-f]{64})?$" },
+        "identity": { "type": ["string", "null"] },
+        "revision": { "type": ["integer", "null"], "minimum": 0 },
+        "isModified": { "type": ["boolean", "null"] },
+        "isReadOnly": { "type": ["boolean", "null"] },
+        "isFamilyDocument": { "type": ["boolean", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "contract": {
+      "type": "object",
+      "required": ["schemaVersion", "tools", "sha256"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "annotations", "inputSchema"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "annotations": { "type": "object" },
+              "inputSchema": { "type": "object" }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "planId": { "type": "string", "minLength": 1 },
+    "expiresAtUtc": { "type": "string", "format": "date-time" },
+    "attemptId": { "type": "string", "minLength": 1 },
+    "previewSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "previewDigestScope": { "const": "native-preview-pretty-json-v1" },
+    "preview": {
+      "type": "object",
+      "required": ["planId", "documentIdentity", "documentRevision", "operations", "warnings", "status", "expiresAtUtc"],
+      "properties": {
+        "planId": { "type": "string", "minLength": 1 },
+        "documentIdentity": { "type": "string", "minLength": 1 },
+        "documentRevision": { "type": "integer", "minimum": 0 },
+        "operations": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+        "warnings": { "type": "array" },
+        "status": { "const": "pending" },
+        "expiresAtUtc": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "documentBefore": {
+      "type": "object",
+      "required": ["path", "identity", "revision", "isModified"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "identity": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 0 },
+        "isModified": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "approvedText": { "type": "string", "minLength": 1 },
+    "confirmCalls": { "const": 1 },
+    "receipt": { "type": "object" },
+    "comparison": { "type": "object" },
+    "manualSaveConfirmed": { "type": "boolean" },
+    "previousSession": { "type": "object" },
+    "currentSession": { "type": "object" },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "bytes", "sha256", "widthPixels", "heightPixels"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\\\:\\u0000]+$" },
+          "bytes": { "type": "integer", "minimum": 24 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "widthPixels": { "type": "integer", "minimum": 1 },
+          "heightPixels": { "type": "integer", "minimum": 1 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "reviewerDecision": { "enum": ["accepted", "rejected", "inconclusive"] },
+    "validity": { "enum": ["current", "historical", "expired", "unknown"] },
+    "readOnly": { "type": "boolean" },
+    "sideEffectCounters": {
+      "type": "object",
+      "properties": {
+        "planCreateCalls": { "type": "integer", "minimum": 0 },
+        "confirmCalls": { "type": "integer", "minimum": 0 },
+        "modelWritesRequested": { "type": "integer", "minimum": 0 },
+        "saveCalls": { "type": "integer", "minimum": 0 },
+        "restartCalls": { "type": "integer", "minimum": 0 },
+        "automaticRetries": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "artifactType": { "const": "manifest" }, "auditProfile": { "const": "committed-write-archive-bindings" } },
+        "required": ["artifactType", "auditProfile"]
+      },
+      "then": {
+        "required": ["planId", "document", "plugin"],
+        "properties": { "document": { "type": "object" }, "plugin": { "type": "object" } }
+      }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "baseline" } }, "required": ["artifactType"] },
+      "then": { "required": ["contract"] }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "preview" } }, "required": ["artifactType"] },
+      "then": {
+        "required": ["planId", "expiresAtUtc", "document", "plugin", "preview", "previewSha256", "previewDigestScope"],
+        "properties": {
+          "document": { "type": "object", "required": ["identity", "revision"] },
+          "plugin": { "type": "object", "required": ["mvid"] }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "confirmation" } }, "required": ["artifactType"] },
+      "then": { "required": ["planId", "previewSha256", "previewDigestScope", "approvedText", "confirmCalls", "document", "plugin"] }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "attempt" } }, "required": ["artifactType"] },
+      "then": {
+        "required": ["planId", "attemptId", "previewSha256", "confirmCalls", "document", "plugin", "reservedAction"],
+        "properties": { "reservedAction": { "const": "revit.plan.confirm" } }
+      }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "execution" } }, "required": ["artifactType"] },
+      "then": {
+        "required": ["planId", "attemptId", "receipt", "documentBefore", "sideEffectCounters"],
+        "properties": {
+          "receipt": { "type": "object", "required": ["planId", "status"] },
+          "sideEffectCounters": { "type": "object", "required": ["confirmCalls"], "properties": { "confirmCalls": { "const": 1 } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "readback" } }, "required": ["artifactType"] },
+      "then": { "required": ["comparison"] }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "saved" } }, "required": ["artifactType"] },
+      "then": { "required": ["manualSaveConfirmed", "document"] }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "reopen" } }, "required": ["artifactType"] },
+      "then": { "required": ["previousSession", "currentSession", "comparison"] }
+    },
+    {
+      "if": { "properties": { "artifactType": { "const": "visual" } }, "required": ["artifactType"] },
+      "then": { "required": ["images", "reviewerDecision"] }
+    },
+    {
+      "if": {
+        "properties": { "artifactType": { "const": "summary" }, "auditProfile": { "const": "committed-write-archive-bindings" } },
+        "required": ["artifactType", "auditProfile"]
+      },
+      "then": {
+        "required": ["currentState", "acceptance", "sourceArtifactHashes"],
+        "properties": { "acceptance": { "type": "object", "required": ["confirmCalls"], "properties": { "confirmCalls": { "const": 1 } } } }
+      }
+    }
+  ],
+  "additionalProperties": true
+}

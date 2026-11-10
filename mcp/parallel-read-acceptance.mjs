@@ -26,7 +26,7 @@ try{
  const plugin=await callRevit('revit.bridge.info');
  const listings=await Promise.all(clients.map(client=>client.listTools()));
  if(!isDeepStrictEqual(listings[0].tools.map(tool=>tool.name),listings[1].tools.map(tool=>tool.name)))throw new Error('The two clients do not expose the same MCP contract.');
- const before=await call(clients[0],'revit_context_get');assertTestDocument(before,project,path.resolve(root,'../考生文件夹/照明模型+方昱.rvt'));
+ const before=await call(clients[0],'revit_context_get');assertTestDocument(before,project,path.resolve(root,'../考生文件夹/sample-lighting-model.rvt'));
  const rounds=[];
  for(let index=0;index<5;index++){
   const values=await Promise.all(clients.map(client=>call(client,'revit_context_get')));

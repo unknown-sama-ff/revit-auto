@@ -10,6 +10,15 @@ test('stale plan diagnostics carry actual transaction history without disabling 
   assert.match(router,/previewRevision=plan.DocumentRevision/); assert.match(router,/currentRevision=Revision\(doc\)/);
   assert.match(router,/plan.DocumentRevision != Revision\(doc\)/); assert.match(router,/return StalePlan/);
   assert.match(app,/RevitCommandRouter.Changed\(e\)/); assert.match(mcp,/revit\.changes\.get/);
+  assert.match(router,/currentRevision = Revision\(doc\)/);
+  assert.match(router,/documentIdentity = Identity\(doc\), currentRevision, history/);
+});
+test('change history has a stable named response for empty history and no-op revisions',async()=>{
+  const journal=await fs.readFile(path.resolve(import.meta.dirname,'../../v27/DocumentChangeJournal.cs'),'utf8');
+  assert.match(journal,/internal sealed record DocumentChangeHistory/);
+  assert.match(journal,/new DocumentChangeHistory\(/);
+  for(const field of ['SinceRevision','CurrentRevision','HistoryComplete','Changes','HasMore','RetainedFromRevision','Note'])
+    assert.match(journal,new RegExp(`\\b${field}\\b`));
 });
 test('failed operation receipts identify the actual step and target',async()=>{
   const router=await fs.readFile(path.resolve(import.meta.dirname,'../../v27/RevitCommandRouter.cs'),'utf8');

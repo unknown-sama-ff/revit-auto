@@ -2,7 +2,7 @@
   "name": "revit-custom-mcp",
   "version": "0.4.0",
   "private": true,
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE",
   "description": "Local MCP stdio bridge for the RevitAuto 2027 add-in",
   "type": "module",
   "scripts": {
@@ -15,5 +15,9 @@
     "fast-xml-parser": "5.11.2",
     "fflate": "0.8.3",
     "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1"
   }
 }

@@ -49,3 +49,10 @@ families/library.json.backup-*
 # Local legacy audit/preflight outputs (not public fixtures)
 /audit.json
 /preflight.json
+
+# Local SDK caches, temporary evidence and developer probes
+/.dotnet-home/
+/.tmp/
+**/.tmp/
+/work/
+/mcp/tmp-*.mjs

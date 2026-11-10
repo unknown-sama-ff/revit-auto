@@ -10,7 +10,7 @@ import {stableContext,assertTestDocument,CASE_TARGETS,caseOperations,snapshot,as
 // No commit/confirm call is allowed here. Submission of an existing plan belongs to the assistant after chat approval.
 const args=process.argv.slice(2);const command=args[0];
 const option=name=>{const index=args.indexOf('--'+name);return index>=0?args[index+1]:undefined;};
-const original=path.resolve(import.meta.dirname,'../../考生文件夹/照明模型+方昱.rvt');
+const original=path.resolve(import.meta.dirname,'../../考生文件夹/sample-lighting-model.rvt');
 const workspace=path.resolve(import.meta.dirname,'..');
 const stateFile=option('state')?path.resolve(option('state')):null;
 const client=new Client({name:'identity-write-rollback-acceptance',version:'0.3.9'});

@@ -1,6 +1,14 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # Revit 2027 AI 建模桥接器 v0.4.0
 
+## 项目总目标
+
+2026-10-12 明确采用两阶段路线：**先实现与旧项目功能对等，再优化、扩展为完整的 Revit 自动化助手**。第一阶段按旧版来源矩阵逐项迁移和实机验收；第二阶段逐步覆盖 Revit 各类功能，完善自然语言驱动的任务规划、执行与结果核验。详见 [项目路线](docs/project-roadmap.md)。该目标不表示当前已经全功能覆盖或全部验收通过。
+
 ## 当前状态
+
+2026-10-19：失败哨兵回滚门禁通过（run `01a15095-9a98-7e5b-99c0-3934e28987fb`，plan `6a28bf42…`，`rolledBack=true`、revision 0→1、35 项墙/楼板/门/窗快照恢复）；同轮修正回滚校验器的门窗 BuiltInCategory 常量。单墙仍为 `visual-accepted`，楼板/门/窗待分别验收。交接说明见 [docs/handoff-2026-10-19.md](docs/handoff-2026-10-19.md)。
 
 2026-10-09：候选程序集 `0.4.0+ffa1d98…` 已在实际 Revit 中加载并通过构建/模块指纹核验。固定上下文与原生电气只读字段验收已通过，只有该审计范围登记为已验收；新变更收据写入/回滚、楼梯/洞口实际几何及完整其他专业功能仍需分别预览、聊天批准和原生验收。不因所有能力已加载而宣布全部功能完成。
 
@@ -127,14 +135,14 @@ v0.3.1 使用 Document.Equals 匹配同一底层文档，并在成功 DocumentCl
 只读实机检查：
 
 ```powershell
-node D:\Desktop\revitt\revit-auto\mcp\health.mjs
-node D:\Desktop\revitt\revit-auto\mcp\acceptance.mjs
+node C:\src\revit-auto\mcp\health.mjs
+node C:\src\revit-auto\mcp\acceptance.mjs
 ```
 
 第二项只创建内存预览并取消，不写模型。照明样例必须替换为目标文档的真实 ids/点位后另存 reviewed 文件：
 
 ```powershell
-node D:\Desktop\revitt\revit-auto\mcp\acceptance.mjs --lighting D:\Desktop\revitt\revit-auto\examples\lighting.reviewed.json
+node C:\src\revit-auto\mcp\acceptance.mjs --lighting C:\src\revit-auto\examples\lighting.reviewed.json
 ```
 
 默认预览后取消；独立命令行验收的 `--confirm` 是写入开关，只能在用户已于聊天中批准该计划后使用，不会再弹 Revit 确认窗口。
@@ -174,10 +182,8 @@ node D:\Desktop\revitt\revit-auto\mcp\acceptance.mjs --lighting D:\Desktop\revit
 
 新增事务变更历史、类型解析、房间布灯预览、PNG 视图证据导出。当前源码已编译并通过自动化测试，实机需重启后核验。完整目标进度和未完成边界见 docs/goal-progress.md；Claude Code 的自然语言行为约定见 CLAUDE.md。
 
-## 许可证
+## 许可证与商业授权
 
-Copyright 2026 unknown-sama-ff。
+本次新增原创代码和修改采用 [RevitAuto 非商业源码许可协议 1.0](LICENSE)。非商业学习、研究、测试和个人求职展示免费；公司内部经营使用、接单建模/咨询、转售、商业集成和商业托管须作者事先书面授权。允许保留许可、署名及修改说明的免费非商业传播。
 
-除另有声明外，本项目原创源代码和文档采用 [Apache License 2.0](LICENSE)。使用、修改和分发时须遵守该许可证；本软件按原样提供，不附带保证。
-
-第三方代码及依赖保留各自的版权、许可和来源声明，详见 [NOTICE](NOTICE)、[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 [third_party/licenses](third_party/licenses/)。本项目的许可声明不替代第三方许可，也不授予 Autodesk/Revit 组件或工程模型、族及其他素材的使用权。
+这是源码可查看项目，不是标准开源许可。已经公开的 Apache-2.0 内容及第三方原许可继续有效，详见 [许可边界](LICENSING.md)、[NOTICE](NOTICE) 和 [第三方声明](THIRD_PARTY_NOTICES.md)。商业授权请通过 [GitHub Issues](https://github.com/unknown-sama-ff/revit-auto/issues) 联系作者。

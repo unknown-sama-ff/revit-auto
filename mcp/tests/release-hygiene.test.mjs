@@ -6,8 +6,6 @@ import {execFileSync} from 'node:child_process';
 
 const root = path.resolve(import.meta.dirname, '../..');
 const tracked = execFileSync('git', ['ls-files', '-z'], {cwd: root}).toString().split('\0').filter(Boolean);
-
-
 test('private model, family, runtime and generated manifest files are not tracked', () => {
   const forbidden = tracked.filter(file => /(^|\/)(runtime|acceptance)\//i.test(file)
     || /(^|\/)families\/library\.json$/i.test(file)

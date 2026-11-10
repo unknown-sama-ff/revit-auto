@@ -1,10 +1,12 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # Codex 接入 `revit-custom`
 
 本项目的 Codex 接入使用 Revit 2027 社区/自定义 MCP，不接入 Autodesk 官方 MCP。
 
 ## 当前入口
 
-- MCP 服务：`D:\Desktop\revitt\revit-auto\mcp\revit-custom.mjs`
+- MCP 服务：`C:\src\revit-auto\mcp\revit-custom.mjs`
 - Node：脚本会优先解析本机 Node 的绝对路径。
 - Codex 配置：`%USERPROFILE%\.codex\config.toml`
 - Claude Code：使用本包的 `start-claude-2027.ps1`；运行时生成专用配置。详见 `docs/claude-code.md`。
@@ -14,9 +16,9 @@
 先确认 Revit 2027 已启动并加载新版插件，然后在 PowerShell 中运行：
 
 ```powershell
-D:\Desktop\revitt\revit-auto\install-codex-revit-custom.ps1 -Mode CheckOnly
-D:\Desktop\revitt\revit-auto\install-codex-revit-custom.ps1 -Mode Install
-D:\Desktop\revitt\revit-auto\install-codex-revit-custom.ps1 -Mode CheckOnly
+C:\src\revit-auto\install-codex-revit-custom.ps1 -Mode CheckOnly
+C:\src\revit-auto\install-codex-revit-custom.ps1 -Mode Install
+C:\src\revit-auto\install-codex-revit-custom.ps1 -Mode CheckOnly
 ```
 
 `Install` 会：
@@ -50,9 +52,9 @@ D:\Desktop\revitt\revit-auto\install-codex-revit-custom.ps1 -Mode CheckOnly
 如果接入失败，使用安装脚本输出的备份路径恢复：
 
 ```powershell
-D:\Desktop\revitt\revit-auto\install-codex-revit-custom.ps1 `
+C:\src\revit-auto\install-codex-revit-custom.ps1 `
   -Mode Restore `
-  -BackupPath 'C:\Users\unknown_sama\.codex\config.toml.bak-YYYYMMDD-HHMMSS'
+  -BackupPath 'C:\Users\example\.codex\config.toml.bak-YYYYMMDD-HHMMSS'
 ```
 
 恢复后重启 Codex。备份必须位于 Codex 配置目录内，脚本拒绝覆盖其他位置的文件。

@@ -9,12 +9,12 @@ import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 const serverPath=path.resolve(import.meta.dirname,'../revit-custom.mjs');
 async function clientFixture(t,{contextRevision=0,changeAfterSearch=false,failSearch=false}={}){
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'revit-family-mcp-'));
- const calls=[],sockets=new Set();let searched=false;
+ const calls=[],requests=[],sockets=new Set();let searched=false;
  const bridge=net.createServer(socket=>{
   sockets.add(socket);socket.on('close',()=>sockets.delete(socket));
   let buffer='';socket.on('data',chunk=>{
    buffer+=chunk.toString('utf8');if(!buffer.includes('\n'))return;
-   const request=JSON.parse(buffer.slice(0,buffer.indexOf('\n')));assert.equal(request.token,'family-fixture-token-'.repeat(4));calls.push(request.method);
+   const request=JSON.parse(buffer.slice(0,buffer.indexOf('\n')));assert.equal(request.token,'family-fixture-token-'.repeat(4));calls.push(request.method);requests.push(request);
    let payload;
    if(request.method==='revit.bridge.info')payload={ok:true,result:{protocol:'revit-auto-2027-v2',features:[],confirmationMode:'chat'}};
    else if(request.method==='revit.context.get')payload={ok:true,result:{active:true,document:{identity:'doc-a',revision:changeAfterSearch&&searched?contextRevision+1:contextRevision,isModified:false}}};
@@ -30,17 +30,19 @@ async function clientFixture(t,{contextRevision=0,changeAfterSearch=false,failSe
  const config=path.join(dir,'bridge.json');await fs.writeFile(config,JSON.stringify({port:bridge.address().port,token:'family-fixture-token-'.repeat(4)}));
  const client=new Client({name:'family-audit-contract',version:'1.0'});t.after(()=>client.close());
  await client.connect(new StdioClientTransport({command:process.execPath,args:[serverPath],env:{REVIT_AI_CONFIG:config},stderr:'pipe'}));
- return {client,calls};
+ return {client,calls,requests};
 }
 async function call(client,name,input){const r=await client.callTool({name,arguments:input});return {error:r.isError===true,data:JSON.parse(r.content[0].text)};}
 
 test('direct and workflow family-audit surfaces return identical catalog data without plan requests (mock)',async t=>{
- const {client,calls}=await clientFixture(t);
+ const {client,calls,requests}=await clientFixture(t);
  const list=await client.listTools();const direct=list.tools.find(t=>t.name==='revit_families_audit');assert.equal(direct.annotations.readOnlyHint,true);assert.equal(direct.annotations.destructiveHint,false);assert.equal(direct.inputSchema.additionalProperties,false);
  const a=await call(client,'revit_families_audit',{names:['水泵','未装族'],documentIdentity:'doc-a',expectedRevision:0});
  const b=await call(client,'revit_workflow_run',{name:'families.audit',documentIdentity:'doc-a',expectedRevision:0,input:{names:['水泵','未装族']}});
  assert.equal(a.error,false);assert.equal(b.error,false);assert.deepEqual(a.data,b.data);assert.deepEqual(a.data.results.map(r=>r.status),['found','missing']);assert.equal(a.data.planCreated,false);
  assert.ok(calls.every(c=>['revit.bridge.info','revit.context.get','revit.search'].includes(c)));
+ assert.ok(calls.filter(c=>c==='revit.search').length>=1);
+ assert.ok(requests.filter(request=>request.method==='revit.search').every(request=>request.params.documentIdentity==='doc-a'&&request.params.expectedRevision===0));
  const registry=await call(client,'revit_workflow_list',{});const family=registry.data.workflows.find(w=>w.workflowId==='families.audit');assert.equal(family.operationBuilder,null);assert.equal(family.readAdapter,'families.audit');
 });
 test('workflow top-level revision is checked before catalog queries (mock)',async t=>{

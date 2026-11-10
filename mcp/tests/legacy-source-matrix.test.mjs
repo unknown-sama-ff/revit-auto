@@ -18,9 +18,20 @@ test('migration matrix does not count reference scripts or ModelBuilder Build st
  for(const row of matrix.sources.filter(r=>r.sourceRole==='test-reference'))assert.notEqual(row.acceptanceStatus,'implemented-and-accepted');
 });
 test('legacy openings matrix explicitly maps doors/windows rather than naked wall/shaft openings',()=>{
- const row=matrix.sources.find(r=>r.legacyScript==='openings.csx');assert.deepEqual(row.generatedOperations,['duplicate_type','create_family_instance']);assert.match(row.migrationNotes,/does not implement wall or shaft/);
+ const row=matrix.sources.find(r=>r.legacyScript==='openings.csx');assert.deepEqual(row.generatedOperations,['duplicate_architecture_type','create_family_instance']);assert.match(row.migrationNotes,/implements reviewed dedicated architecture type copying/);assert.match(row.migrationNotes,/does not implement wall or shaft/);assert.equal(row.acceptanceStatus,'implemented-not-accepted');assert.equal(row.acceptanceEvidence,null);
 });
 test('legacy SaveAs and external RFA audits cannot silently become active project behavior',()=>{
  assert.equal(matrix.sources.find(r=>r.legacyScript==='save-as.csx').acceptanceStatus,'intentionally-not-exposed');
  for(const name of ['audit-template.csx','audit-windows.csx'])assert.equal(matrix.sources.find(r=>r.legacyScript===name).acceptanceStatus,'legacy-source-needs-redesign');
+});
+
+test('circuit migration metadata stays attached to the correct legacy source',()=>{
+ const architecture=matrix.sources.find(r=>r.legacyScript==='architecture.csx');
+ assert.doesNotMatch(architecture.supportedInputs,/circuit|DistributionSys/);
+ assert.doesNotMatch(architecture.migrationNotes,/circuit|electrical connectors/);
+ const creation=matrix.sources.find(r=>r.legacyScript==='create-circuits.csx');
+ assert.match(creation.supportedInputs,/elementIds/);assert.match(creation.supportedInputs,/panelId/);
+ const names=matrix.sources.find(r=>r.legacyScript==='name-circuits.csx');
+ assert.match(names.supportedInputs,/ElectricalSystem/);assert.match(names.supportedInputs,/RBS_ELEC_CIRCUIT_NAME/);
+ assert.equal(names.acceptanceStatus,'implemented-not-accepted');
 });

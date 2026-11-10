@@ -1,4 +1,16 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # 照明视图显示与图纸裁剪修复（v0.3.7）
+
+## 当前归档状态（2026-10-28）
+
+原待办说明已过期：照明视图配置计划 `37cb056d5181cd2ccdc7ad914f3b84ef` 已在 2026-10-03 单次提交，执行回执和 `PASS_NATIVE_SETTINGS` 记录均存在；限定视图 PNG 的照明符号可见性曾通过，整图当时仍需位置复核。泵房显式裁剪计划 `05ef8cb4b5b0eb275115dc6e8cdb24e7` 也已有提交、原生设置及限定 PNG 证据。两份计划都不能重放。
+
+当前隔离副本只读复核确认：照明视图 `2295719` 已为 Electrical，七项设置符合原意图；泵房视图 `2295843` 的明确裁剪 XY、Mechanical 规程与视图范围也相符。此次仅核对设置，没有用现代位置参数替代视口原生盒中心，也没有把不同路径/会话接成历史保存重开链。复核当时 AI-E035 的视口标签超出图框左侧和下侧；它随后由独立标签run `d49a24d6-bbad-4ffe-a96d-80a00370c09f` 单次修复，限定原生边界、PNG和32项保存重开已通过，归档检查0项问题，不再重复该操作。右侧Notes拥挤等整图问题、完整副作用及历史持久化链缺口继续保留；标签修复不重复视图配置。
+
+历史文件、当前原始回读引用和 SHA-256 已汇总到 `acceptance/archive-reviews/view-configuration-history-20261028-01a18167.json`。队列按子范围记录已有结论；不要因旧版“待验收步骤”再配置同一视图。下一项为独立的图纸名称元数据验收。
+
+2026-10-28 进一步只读调查右侧Notes：项目 `OST_TextNotes` 查询为空且完整，图纸级注释放置为空；图框实例和THS-A1类型均未公开Notes正文参数。原生Family1017607仅含类型1018076，该类型由三张图纸（2290510、2295739、2295825）的实例共用。当前证据不能识别族内具体文字对象，也不能区分文字布局/字体度量原因，Notes问题保持未解决，不能据此猜参数或盲改共享族。原始证据在 `acceptance/diagnostics/ai-e035-notes-20261028.json`；需要受控族内注释/字体/布局查询或明确的来源RFA后再提出单项修复，此前不重复相同参数扫描或要求人工保存重启。
 
 ## 范围
 仅修改明确指定的新照明视图及它的视口；不创建、删除或移动灯具/开关/配电箱/回路/导线，不修改参考视图，不自动保存RVT。
@@ -13,10 +25,10 @@
 - 可显式将规程改为Electrical，并在裁剪后按已审核纸面XY重设视口中心。
 - 新建照明场景可传newView.referenceViewId与discipline；没有参考时保留默认行为但返回图形显示风险警告，不声称可出图。
 
-## 当前实例待验收步骤
-加载v0.3.7后先分别读参考770796与目标2295719，再准备一份仅配置视图的预览。建议复制viewRange/crop/lightingCategories/displayStyle/detailLevel/partsVisibility，目标规程明确Electrical，视口2295745保持纸面(420,280)。
+## 历史实例验收步骤（已执行，保留供理解原范围）
+原方案在加载v0.3.7后读取参考770796与目标2295719，预览复制viewRange/crop/lightingCategories/displayStyle/detailLevel/partsVisibility，目标规程明确Electrical，并请求视口2295745保持纸面(420,280)。当前不得依据这些旧坐标再移动实例；纸面位置和标签属于独立验收范围。
 
-使用D:\Desktop\revitt\revit-auto\mcp\view-acceptance.mjs prepare --project TEST_COPY.rvt --target 2295719 --reference 770796 --viewport 2295745 --state NEW_RECORD.json只生成预览。获得聊天批准后通过正常MCP确认该同一计划，再运行verify。
+使用C:\src\revit-auto\mcp\view-acceptance.mjs prepare --project TEST_COPY.rvt --target 2295719 --reference 770796 --viewport 2295745 --state NEW_RECORD.json只生成预览。获得聊天批准后通过正常MCP确认该同一计划，再运行verify。
 
 验收器检查参考设置不变、只有目标视图/视口修改、完整电气基线不变，并导出新视图/图纸。原生设置PASS不是视觉PASS；仍必须检查灯具符号和图纸排版的真实PNG。
 

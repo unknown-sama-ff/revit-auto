@@ -18,7 +18,7 @@ export async function runModelAuditWorkflow(args,call,signal){
   requireContext(before);
   if(before.document?.identity!==args.documentIdentity)fail('document_changed','The active project is not the reviewed audit document.');
   if(expectedRevision!==undefined && before.document?.revision!==expectedRevision)fail('document_revision_changed','The audit project changed after the reviewed context.');
-  const report=await call('revit.audit.run',{},signal);
+  const report=await call('revit.audit.run',{documentIdentity:before.document.identity,expectedRevision:before.document.revision},signal);
   if(report.documentIdentity!==before.document.identity)fail('audit_scope_mismatch','Native audit evidence does not identify the reviewed project.');
   if(report.documentRevision!==undefined && report.documentRevision!==before.document.revision)fail('audit_scope_mismatch','Native audit evidence identifies a different model revision.');
   const after=await call('revit.context.get',{},signal);

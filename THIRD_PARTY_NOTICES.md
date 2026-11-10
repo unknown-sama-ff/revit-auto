@@ -1,9 +1,6 @@
 # Third-party notices
 
-Original project source code and documentation are licensed under Apache-2.0
-unless otherwise stated; see the root LICENSE and NOTICE files. Third-party
-components retain the copyrights, licenses, and attribution recorded below.
-The project license does not replace or remove those third-party terms.
+Original new material is subject to the RevitAuto Noncommercial Source License 1.0; see LICENSE and LICENSING.md for historical Apache-2.0 boundaries. Third-party components retain the copyrights, licenses, and attribution recorded below. The project license does not replace or remove those third-party terms.
 
 ## Argument-name diagnostics adapted from rvt-mcp
 

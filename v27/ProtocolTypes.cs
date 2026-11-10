@@ -33,17 +33,43 @@ internal sealed class BridgeException(string code, string message, object? detai
 internal sealed record ApiError(string Code, string Message, object? Details = null);
 internal sealed record CommandResult(bool Ok, object? Result, ApiError? Error)
 {
+    private string? preparedSerialization;
     public static CommandResult Success(object? result = null) => new(true, result, null);
     public static CommandResult Failure(string code, string message, object? details = null) => new(false, null, new(code, message, details));
+    private string SerializeEnvelope() => JsonSerializer.Serialize(new { protocol = "revit-auto-2027-v2", ok = Ok, result = Result, error = Error }, JsonDefaults.Options);
+    // Writes check the real envelope while their transaction group can still roll back.
+    // Never use Serialize's transport fallback as evidence that a receipt is encodable.
+    public CommandResult PrepareBounded(int reservedBytes = 0)
+    {
+        string encoded;
+        try { encoded = SerializeEnvelope(); }
+        catch (Exception exception) when (exception is ArgumentException or JsonException or NotSupportedException)
+        { throw new BridgeException("response_serialization_failed", "The complete prospective receipt cannot be encoded; roll back before ending the transaction group.", new { exceptionType = exception.GetType().Name }); }
+        CommandResponseBudget.RequireFits(encoded, reservedBytes);
+        return this with { preparedSerialization = encoded };
+    }
     public string Serialize()
     {
-        try { return JsonSerializer.Serialize(new { protocol = "revit-auto-2027-v2", ok = Ok, result = Result, error = Error }, JsonDefaults.Options); }
+        if (preparedSerialization is not null) return preparedSerialization;
+        try { return SerializeEnvelope(); }
         catch (Exception exception) when (exception is ArgumentException or JsonException or NotSupportedException)
         {
             // Return a valid envelope before the stream is disposed. The result/receipt
             // remains in native memory: a client must query its same plan ID, never retry writes.
             return JsonSerializer.Serialize(new { protocol="revit-auto-2027-v2", ok=false, error=new ApiError("response_serialization_failed", "The response could not be encoded as JSON. For a write, query the same planId; do not recreate or retry the write.", new { exceptionType=exception.GetType().Name }) }, JsonDefaults.Options);
         }
+    }
+}
+internal static class CommandResponseBudget
+{
+    public const int MaxWireBytes = 16 * 1024 * 1024;
+    // StreamWriter uses CRLF on Windows. Reserve both bytes even on other test hosts.
+    public static void RequireFits(string encodedEnvelope, int reservedBytes = 0)
+    {
+        if (reservedBytes < 0) throw new ArgumentOutOfRangeException(nameof(reservedBytes));
+        long bytes = System.Text.Encoding.UTF8.GetByteCount(encodedEnvelope);
+        if (bytes + reservedBytes + 2 > MaxWireBytes)
+            throw new BridgeException("response_too_large", "The complete plan or execution receipt exceeds the bounded bridge response. Narrow the reviewed plan; do not retry this failed write.", new { encodedBytes = bytes, reservedBytes, maxWireBytes = MaxWireBytes });
     }
 }
 internal sealed record BridgeSettings(int Port, string Token)
@@ -63,14 +89,16 @@ internal sealed class ModelPlan
     public string Status { get; set; } = "pending";
     public DateTime ExpiresAtUtc { get; init; } = PlanLifetimePolicy.Expires(DateTime.UtcNow);
     public object? Receipt { get; set; }
-    public object View() => new
+    public object View() => ViewState(Status, Receipt);
+    public object ProspectiveCommittedView(object receipt) => ViewState("committed", receipt);
+    private object ViewState(string status, object? receipt) => new
     {
         planId = PlanId, documentIdentity = DocumentIdentity, documentRevision = DocumentRevision,
         source = Source, summary = Summary, operations = Operations,
         affectedCategories = Operations.Select(o => JsonDefaults.String(o, "category") ?? JsonDefaults.String(o, "operationType")).Distinct(),
         warnings = Warnings, requiresConfirmation = true, confirmation = "User approval in chat",
         confirmationMode = "chat", requiresRevitConfirmation = false,
-        status = Status, expiresAtUtc = ExpiresAtUtc, receipt = Receipt
+        status, expiresAtUtc = ExpiresAtUtc, receipt
     };
 }
 
@@ -123,10 +151,10 @@ internal static class PlanRules
     public const int MaxOperations = 1000;
     public static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
-        "create_family_instance", "duplicate_type", "set_parameter", "delete_element", "load_family",
-        "create_level", "create_grid", "create_wall", "create_floor", "create_opening", "create_room", "create_stair",
+        "create_family_instance", "duplicate_type", "duplicate_architecture_type", "set_parameter", "delete_element", "load_family",
+        "create_level", "create_grid", "create_structural_column", "create_wall", "create_floor", "create_opening", "create_room", "create_stair",
         "create_circuit", "create_wire", "create_view_plan", "create_sheet", "create_schedule",
-        "create_panel_schedule", "configure_view", "place_viewport", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension"
+        "create_panel_schedule", "configure_view", "place_viewport", "move_drawing_placement", "move_viewport_label", "change_titleblock_type", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension"
     };
     public static List<JsonElement> Validate(JsonElement input)
     {
@@ -153,7 +181,9 @@ internal static class PlanRules
                         throw new BridgeException("invalid_placement", "legacyPoint is the only supported explicit placementMode and cannot be combined with a hostElementId.");
                     break;
                 case "create_level": Number(op, "elevationMm"); Require(op, "name"); break;
-                case "create_grid": case "create_wall": case "create_pipe": case "create_duct":
+                case "create_structural_column": ArchitectureRules.StructuralColumn(op); break;
+                case "create_grid": ArchitectureRules.Grid(op); break;
+                case "create_wall": case "create_pipe": case "create_duct":
                     Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end"));
                     if (type == "create_wall") Positive(op, "heightMm");
                     if (type == "create_pipe") { Require(op, "pipeTypeId"); Require(op, "systemTypeId"); Positive(op, "diameterMm"); }
@@ -163,11 +193,12 @@ internal static class PlanRules
                     if (JsonDefaults.Array(op, "boundary").Count() < 3) throw new BridgeException("invalid_geometry", "Floor boundary needs 3+ points.");
                     foreach (var p in JsonDefaults.Array(op, "boundary")) Point(p); break;
                 case "create_opening": OpeningRules.Validate(op); break;
-                case "create_room": Point(op); break;
+                case "create_room": RequireRoomIdentity(op, "name"); RequireRoomIdentity(op, "number"); Point(op); break;
                 case "create_stair": StairRules.Validate(op); break;
                 case "delete_element": Require(op, "elementId"); break;
                 case "set_parameter": Require(op, "elementId"); Require(op, "parameter"); Require(op, "value"); break;
                 case "duplicate_type": Require(op, "sourceTypeId"); Require(op, "name"); break;
+                case "duplicate_architecture_type": ArchitectureTypeCopyRules.Validate(op); break;
                 case "create_circuit":
                     if (!JsonDefaults.Array(op, "elementIds").Any()) throw new BridgeException("invalid_circuit", "A circuit needs loads in elementIds.");
                     Require(op, "panelId"); break;
@@ -176,13 +207,21 @@ internal static class PlanRules
                 case "create_schedule": Require(op, "category"); Require(op, "fields"); break;
                 case "create_panel_schedule": Require(op, "panelId"); break;
                 case "configure_view": Require(op,"viewId"); Require(op,"referenceViewId"); ViewConfigurationRules.Settings(op); break;
-                case "create_tag": Require(op, "viewId"); Require(op, "elementId"); Point(op); break;
-                case "create_dimension": Require(op, "viewId"); Require(op, "references"); Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end")); break;
+                case "create_tag": AnnotationInputRules.Validate(op); Require(op, "viewId"); Require(op, "elementId"); Point(op); TagLeaderRules.Requested(op); break;
+                case "create_dimension": AnnotationInputRules.Validate(op); Require(op, "viewId"); Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end")); break;
                 case "place_viewport": Require(op, "sheetId"); Require(op, "viewId"); Point(op); break;
+                case "move_drawing_placement": DrawingPlacementRules.Validate(op); break;
+                case "move_viewport_label": ViewportLabelRules.Validate(op); break;
+                case "change_titleblock_type": TitleBlockChangeRules.Validate(op); break;
                 case "connect_elements": case "create_fitting": Require(op, "firstElementId"); Require(op, "secondElementId"); ConnectorSelectionRules.ValidateSelection(op,"first"); ConnectorSelectionRules.ValidateSelection(op,"second"); break;
             }
         }
         ConnectionPortReservationRules.ValidatePlan(operations);
+        DrawingPlacementRules.ValidatePlan(operations);
+        ViewportLabelRules.ValidatePlan(operations);
+        TitleBlockChangeRules.ValidatePlan(operations);
+        ArchitectureRules.ValidatePlan(operations);
+        ArchitectureTypeCopyRules.ValidatePlan(operations);
         return operations;
     }
     private static void CheckReferences(JsonElement op, HashSet<string> known)
@@ -214,6 +253,14 @@ internal static class PlanRules
     {
         if (!JsonDefaults.Has(op, name) || (JsonDefaults.Get(op, name).ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(JsonDefaults.String(op, name))))
             throw new BridgeException("missing_field", $"{JsonDefaults.String(op, "operationType")}: {name} is required.");
+    }
+    private static void RequireRoomIdentity(JsonElement op, string field)
+    {
+        if (!op.TryGetProperty(field, out var value))
+            throw new BridgeException("missing_field", $"create_room: {field} is required.");
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        if (text is null || string.IsNullOrWhiteSpace(text) || !string.Equals(text, text.Trim(), StringComparison.Ordinal))
+            throw new BridgeException("invalid_room_identity", $"create_room: {field} must be a nonblank string without leading or trailing whitespace.");
     }
     private static void RequireAny(JsonElement op, params string[] names)
     {

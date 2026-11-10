@@ -1,3 +1,5 @@
+> 发布副本说明：本机路径、模型名称及运行标识已匿名化。原始私有证据未随源码发布；历史验收不代表当前会话授权或完整业务认证。
+
 # Codex MCP 接入设计
 
 - 日期：2026-10-03
@@ -34,12 +36,12 @@
 
 ### 方案 A：合并当前 Codex 全局配置（采用）
 
-在现有 `C:\Users\unknown_sama\.codex\config.toml` 中增加一个明确的 `[mcp_servers.revit-custom]` 节点：
+在现有 `C:\Users\example\.codex\config.toml` 中增加一个明确的 `[mcp_servers.revit-custom]` 节点：
 
 ```toml
 [mcp_servers.revit-custom]
 command = "node"
-args = ["D:\\Desktop\\revitt\\revit-auto\\mcp\\revit-custom.mjs"]
+args = ["C:\\src\\revit-auto\\mcp\\revit-custom.mjs"]
 startup_timeout_sec = 120
 ```
 

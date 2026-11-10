@@ -5,17 +5,89 @@ int tests = 0;
 void Test(string name, Action action) { action(); tests++; Console.WriteLine("PASS " + name); }
 JsonElement Json(string s) => JsonDocument.Parse(s).RootElement.Clone();
 void Throws(string code, Action action) { try { action(); } catch (BridgeException e) when (e.Code == code) { return; } throw new Exception("Expected " + code); }
-var valid = Json("""[{"operationType":"create_level","id":"level1","name":"AI Level","elevationMm":0},{"operationType":"create_grid","id":"grid1","start":{"xMm":0,"yMm":0},"end":{"xMm":3000,"yMm":0}}]""");
+string RoomJson(string? name = "\"办公室\"", string? number = "\"101\"") =>
+    "{\"operationType\":\"create_room\",\"levelId\":311,\"xMm\":10,\"yMm\":10" +
+    (name is null ? "" : ",\"name\":" + name) +
+    (number is null ? "" : ",\"number\":" + number) + "}";
+ViewportReadPolicyTests.Run(Test);
+DocumentVersionDiffRulesTests.Run(Test);
+DocumentReadPinRulesTests.Run(Test);
+ViewExportRulesTests.Run(Test);
+ArchitectureRulesTests.Run(Test);
+ArchitectureTypeCopyRulesTests.Run(Test);
+ArchitecturePlacementReadbackRulesTests.Run(Test);
+ArchitecturePrimaryReadbackRulesTests.Run(Test);
+GridCreationReadbackRulesTests.Run(Test);
+OpeningCreationReadbackRulesTests.Run(Test);
+OpeningProfileFailureDiagnosticsTests.Run(Test);
+OpeningHostSurfaceRulesTests.Run(Test);
+RoomCreationReadbackRulesTests.Run(Test);
+DocumentationReadbackRulesTests.Run(Test);
+DocumentationCreationReadbackRulesTests.Run(Test);
+DimensionCreationReadbackRulesTests.Run(Test);
+GridDimensionReferenceRulesTests.Run(Test);
+RoomTagLeaderGeometryRulesTests.Run(Test);
+AnnotationInputRulesTests.Run(Test);
+DocumentationMetadataReadbackRulesTests.Run(Test);
+ElementDependencyRulesTests.Run(Test);
+StairConnectionRulesTests.Run(Test);
+FamilyTextRulesTests.Run(Test);
+ElementStorageSchemaRulesTests.Run(Test);
+SheetLayoutRulesTests.Run(Test);
+ViewportLabelRulesTests.Run(Test);
+DocumentLifecycleRulesTests.Run(Test);
+LifecycleQueuePolicyTests.Run(Test);
+TitleBlockChangeRulesTests.Run(Test);
+CommandResponseBudgetTests.Run(Test);
+var valid = Json("""[{"operationType":"create_level","id":"level1","name":"AI Level","elevationMm":0},{"operationType":"create_grid","id":"grid1","name":"AI Grid","start":{"xMm":0,"yMm":0},"end":{"xMm":3000,"yMm":0}}]""");
 Test("valid read-only plan data", () => { if (PlanRules.Validate(valid).Count != 2) throw new Exception(); });
+Test("existing drawing placement movement validates explicit IDs and paper XY", () => PlanRules.Validate(Json("""[{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280,"zMm":0}]""")));
+Test("drawing placement movement rejects duplicate targets and nonzero paper Z", () => {
+    Throws("invalid_drawing_placement", () => PlanRules.Validate(Json("""[{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280,"zMm":1}]""")));
+    Throws("invalid_drawing_placement", () => PlanRules.Validate(Json("""[{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280},{"operationType":"move_drawing_placement","placementId":10,"sheetId":21,"viewId":31,"xMm":430,"yMm":290}]""")));
+});
+Test("drawing placement movement rejects unknown fields unsafe IDs and reused IDs", () => {
+    foreach (var row in new[] {
+        """{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280,"parameters":{"Comments":"hidden"}}""",
+        """{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":20,"xMm":420,"yMm":280}""",
+        """{"operationType":"move_drawing_placement","placementId":9007199254740992,"sheetId":20,"viewId":30,"xMm":420,"yMm":280}""",
+        """{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280,"zMm":null}""",
+        """{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280,"xMm":421}"""
+    }) Throws("invalid_drawing_placement", () => PlanRules.Validate(Json("[" + row + "]")));
+    Throws("invalid_drawing_placement", () => PlanRules.Validate(Json("""[{"operationType":"create_sheet","id":"newSheet","number":"TEST","name":"Test"},{"operationType":"move_drawing_placement","placementId":10,"sheetId":"@newSheet","viewId":30,"xMm":420,"yMm":280}]""")));
+});
+Test("drawing placement metadata cannot bypass strict shape validation", () => {
+    foreach (var metadata in new[] { "\"id\":null", "\"dependencies\":null", "\"dependencies\":\"\"", "\"dependencies\":{}" })
+        Throws("invalid_drawing_placement", () => PlanRules.Validate(Json("[{\"operationType\":\"move_drawing_placement\",\"placementId\":10,\"sheetId\":20,\"viewId\":30,\"xMm\":420,\"yMm\":280," + metadata + "}]")));
+    PlanRules.Validate(Json("""[{"operationType":"move_drawing_placement","id":"move1","dependencies":[],"placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280}]"""));
+});
+Test("drawing placement movement rejects a competing configuration recenter", () => {
+    Throws("invalid_drawing_placement", () => PlanRules.Validate(Json("""[{"operationType":"configure_view","viewId":30,"referenceViewId":31,"settings":["crop"],"viewportId":10,"paperPoint":{"xMm":400,"yMm":200}},{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280}]""")));
+});
 Test("arbitrary code not supported", () => Throws("unsupported_operation", () => PlanRules.Validate(Json("""[{"operationType":"send_code_to_revit","code":"bad"}]"""))));
-Test("missing geometry rejected", () => Throws("invalid_number", () => PlanRules.Validate(Json("""[{"operationType":"create_grid","start":{"yMm":0},"end":{"xMm":1,"yMm":0}}]"""))));
+Test("missing geometry rejected", () => Throws("invalid_number", () => PlanRules.Validate(Json("""[{"operationType":"create_grid","name":"AI Grid","start":{"yMm":0},"end":{"xMm":1,"yMm":0}}]"""))));
 Test("coordinate strings rejected", () => Throws("invalid_number", () => PlanRules.Validate(Json("""[{"operationType":"create_level","name":"a","elevationMm":"3000"}]"""))));
 Test("forward references rejected", () => Throws("invalid_reference", () => PlanRules.Validate(Json("""[{"operationType":"set_parameter","elementId":"@later","parameter":"a","value":"b"}]"""))));
 Test("duplicate operation ids rejected", () => Throws("invalid_operation_id", () => PlanRules.Validate(Json("""[{"operationType":"create_level","id":"a","name":"A","elevationMm":0},{"operationType":"create_level","id":"a","name":"B","elevationMm":3000}]"""))));
 Test("existing symbol id required or exact family/type", () => Throws("missing_field", () => PlanRules.Validate(Json("""[{"operationType":"create_family_instance","xMm":0,"yMm":0}]"""))));
 Test("zero-valued connector index accepted", () => PlanRules.Validate(Json("""[{"operationType":"connect_elements","firstElementId":1,"secondElementId":2,"firstConnectorId":0,"secondConnectorId":1}]""")));
 Test("negative connector index rejected", () => Throws("invalid_connector", () => PlanRules.Validate(Json("""[{"operationType":"connect_elements","firstElementId":1,"secondElementId":2,"firstConnectorId":-1}]"""))));
-Test("prior level reference accepted", () => PlanRules.Validate(Json("""[{"operationType":"create_level","id":"L","name":"L","elevationMm":0},{"operationType":"create_room","levelId":"@L","xMm":10,"yMm":10}]""")));
+Test("prior level reference accepted", () => PlanRules.Validate(Json("""[{"operationType":"create_level","id":"L","name":"L","elevationMm":0},{"operationType":"create_room","levelId":"@L","xMm":10,"yMm":10,"name":"办公室","number":"101"}]""")));
+Test("room identity requires explicit nonblank unpadded strings", () => {
+    foreach (var field in new[] { "name", "number" })
+    {
+        Throws("missing_field", () => PlanRules.Validate(Json("[" + RoomJson(field == "name" ? null : "\"办公室\"", field == "number" ? null : "\"101\"") + "]")));
+        var bomPrefixed = field == "name" ? "\uFEFF办公室" : "\uFEFF101";
+        var bomSuffixed = field == "name" ? "办公室\uFEFF" : "101\uFEFF";
+        PlanRules.Validate(Json("[" + RoomJson(field == "name" ? JsonSerializer.Serialize(bomPrefixed) : "\"办公室\"", field == "number" ? JsonSerializer.Serialize(bomPrefixed) : "\"101\"") + "]"));
+        PlanRules.Validate(Json("[" + RoomJson(field == "name" ? JsonSerializer.Serialize(bomSuffixed) : "\"办公室\"", field == "number" ? JsonSerializer.Serialize(bomSuffixed) : "\"101\"") + "]"));
+        var invalidValues = field == "name"
+            ? new[] { "null", "42", "\"\"", "\"   \"", "\" 办公室\"", "\"办公室 \"", JsonSerializer.Serialize("\u0085"), JsonSerializer.Serialize("\u0085办公室"), JsonSerializer.Serialize("办公室\u0085") }
+            : new[] { "null", "42", "\"\"", "\"   \"", "\" 101\"", "\"101 \"", JsonSerializer.Serialize("\u0085"), JsonSerializer.Serialize("\u0085101"), JsonSerializer.Serialize("101\u0085") };
+        foreach (var replacement in invalidValues)
+            Throws("invalid_room_identity", () => PlanRules.Validate(Json("[" + RoomJson(field == "name" ? replacement : "\"办公室\"", field == "number" ? replacement : "\"101\"") + "]")));
+    }
+});
 Test("explicit legacyPoint geometry is accepted as plan data", () => PlanRules.Validate(Json("""[{"operationType":"create_family_instance","symbolId":1,"levelId":311,"xMm":0,"yMm":0,"zMm":3000,"placementMode":"legacyPoint"}]""")));
 Test("legacyPoint cannot attach a host implicitly", () => Throws("invalid_placement", () => PlanRules.Validate(Json("""[{"operationType":"create_family_instance","symbolId":1,"levelId":311,"xMm":0,"yMm":0,"placementMode":"legacyPoint","hostElementId":9}]"""))));
 Test("unknown placement mode is rejected", () => Throws("invalid_placement", () => PlanRules.Validate(Json("""[{"operationType":"create_family_instance","symbolId":1,"levelId":311,"xMm":0,"yMm":0,"placementMode":"any"}]"""))));
@@ -100,17 +172,17 @@ Test("unexpected connector errors are not suppressed", () => {
 });
 Test("change journal explains intervening transactions and exact element ids", () => {
     var journal=new DocumentChangeJournal();journal.Record(1,"TransactionCommitted",["注释写入"],[],[2290242],[]);journal.Record(2,"TransactionCommitted",["视图设置"],[],[770796],[]);
-    var value=JsonSerializer.SerializeToElement(journal.Since(1,2));
-    if(!value.GetProperty("historyComplete").GetBoolean()||value.GetProperty("changes")[0].GetProperty("ModifiedElementIds")[0].GetInt64()!=770796)throw new Exception("Change diagnosis missing.");
+    var value=JsonSerializer.SerializeToElement(journal.Since(1,2),JsonDefaults.Options);
+    if(!value.GetProperty("historyComplete").GetBoolean()||value.GetProperty("changes")[0].GetProperty("modifiedElementIds")[0].GetInt64()!=770796)throw new Exception("Change diagnosis missing.");
 });
 Test("bounded journal reports missing history instead of asserting unchanged", () => {
     var journal=new DocumentChangeJournal(2);for(int i=1;i<=3;i++)journal.Record(i,"TransactionCommitted",["t"],[],[i],[]);
-    var value=JsonSerializer.SerializeToElement(journal.Since(0,3));if(value.GetProperty("historyComplete").GetBoolean())throw new Exception("Incomplete journal claimed complete.");
+    var value=JsonSerializer.SerializeToElement(journal.Since(0,3),JsonDefaults.Options);if(value.GetProperty("historyComplete").GetBoolean())throw new Exception("Incomplete journal claimed complete.");
 });
 Test("change journal caps element payload while preserving real counts", () => {
     var journal=new DocumentChangeJournal(4,2);journal.Record(1,"Undo",["撤销"],[1,2,3],[],[]);
-    var change=JsonSerializer.SerializeToElement(journal.Since(0,1)).GetProperty("changes")[0];
-    if(change.GetProperty("AddedCount").GetInt32()!=3||change.GetProperty("AddedElementIds").GetArrayLength()!=2||!change.GetProperty("ElementIdsTruncated").GetBoolean())throw new Exception("Change truncation hidden.");
+    var change=JsonSerializer.SerializeToElement(journal.Since(0,1),JsonDefaults.Options).GetProperty("changes")[0];
+    if(change.GetProperty("addedCount").GetInt32()!=3||change.GetProperty("addedElementIds").GetArrayLength()!=2||!change.GetProperty("elementIdsTruncated").GetBoolean())throw new Exception("Change truncation hidden.");
 });
 Test("a chat approval after 30 minutes still has a valid default preview", () => {
     var plan=new ModelPlan {DocumentIdentity="A",DocumentRevision=2,Summary="waiting for human chat",Operations=[]};

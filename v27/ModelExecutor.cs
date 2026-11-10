@@ -15,6 +15,18 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private readonly Dictionary<string, Type> predicted = new(StringComparer.Ordinal);
     private readonly Dictionary<string, JsonElement> predictedOperations = new(StringComparer.Ordinal);
     private readonly Dictionary<long, JsonElement> materializedOperations = new();
+    private readonly ArchitectureTypeCopyService architectureCopies = new();
+    private readonly ViewportLabelService viewportLabels = new();
+    private readonly ArchitecturePrimaryReadbackService primaryReadback = new();
+    private readonly List<(long ElementId, JsonElement Operation)> gridCreations = new();
+    private Document? gridCreationDocument;
+    private readonly List<(long ElementId, JsonElement Operation, OpeningHostSurfaceBinding? HostSurface)> openingCreations = new();
+    private Document? openingCreationDocument;
+    private readonly List<(long InstanceId, long TypeId, JsonElement Operation, bool WasActive, double? ExpectedRotationRadians)> architecturePlacements = new();
+    private readonly List<(JsonElement Operation, bool WritePerformed)> documentationPlacements = new();
+    private readonly List<(JsonElement Operation, bool WritePerformed)> documentationMetadata = new();
+    private readonly List<(TitleBlockChangeService.ReadbackBinding Binding, bool WritePerformed)> documentationTitleBlocks = new();
+    private readonly DocumentationCreationReadbackService documentationCreations = new();
     private static BridgeException Invalid(string message) => new("invalid_operation", message);
     private static bool Deferred(JsonElement value) => value.ValueKind == JsonValueKind.String && value.GetString()!.StartsWith('@');
     private ElementId Id(JsonElement value)
@@ -47,10 +59,242 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     }
     private FamilySymbol? Symbol(JsonElement op)
     {
-        if (JsonDefaults.Has(op, "symbolId")) return Check<FamilySymbol>(op, "symbolId");
+        if (JsonDefaults.Has(op, "symbolId"))
+        {
+            var symbol = Check<FamilySymbol>(op, "symbolId");
+            return symbol ?? PredictedSymbol(JsonDefaults.Get(op, "symbolId"), new HashSet<string>(StringComparer.Ordinal));
+        }
         var family = JsonDefaults.String(op, "family"); var name = JsonDefaults.String(op, "type");
         var matches = new FilteredElementCollector(Doc).OfClass(typeof(FamilySymbol)).Cast<FamilySymbol>().Where(s => s.FamilyName == family && s.Name == name).ToList();
         return matches.Count == 1 ? matches[0] : throw Invalid($"Family/type '{family}/{name}' was not found uniquely. Load the correct family manually and re-preview.");
+    }
+    private FamilySymbol PredictedSymbol(JsonElement value, HashSet<string> visited)
+    {
+        if (!Deferred(value) || references.ContainsKey(value.GetString()![1..]))
+            return Doc.GetElement(Id(value)) as FamilySymbol ?? throw Invalid("The referenced source must be a native FamilySymbol.");
+        var key = value.GetString()![1..];
+        if (!visited.Add(key) || !predictedOperations.TryGetValue(key, out var source) ||
+            JsonDefaults.String(source, "operationType") is not ("duplicate_type" or "duplicate_architecture_type"))
+            throw Invalid("A predicted family symbol requires an earlier reviewed type-copy operation.");
+        return PredictedSymbol(JsonDefaults.Get(source, "sourceTypeId"), visited);
+    }
+    private JsonElement? ArchitectureCopyForPlacement(JsonElement op)
+    {
+        var value = JsonDefaults.Get(op, "symbolId");
+        if (!Deferred(value)) return null;
+        if (!predictedOperations.TryGetValue(value.GetString()![1..], out var copy))
+            throw Invalid("Placement references an unavailable earlier type operation.");
+        return JsonDefaults.String(copy, "operationType") == "duplicate_architecture_type" ? copy : null;
+    }
+    private JsonElement MaterializeArchitectureColumn(JsonElement op)
+    {
+        var value = JsonDefaults.Get(op, "symbolId");
+        if (!Deferred(value)) return op;
+        var copy = ArchitectureCopyForPlacement(op) ?? throw Invalid("A column type reference requires a dedicated architecture copy.");
+        if (JsonDefaults.String(copy, "category") != "OST_StructuralColumns") throw Invalid("A column type reference has the wrong reviewed category.");
+        var symbol = Symbol(op)!;
+        var fields = op.EnumerateObject().ToDictionary(property => property.Name, property => property.Value.Clone(), StringComparer.Ordinal);
+        fields["symbolId"] = JsonSerializer.SerializeToElement(symbol.Id.Value);
+        return JsonSerializer.SerializeToElement(fields, JsonDefaults.Options);
+    }
+    private void ValidateFamilyTypeReference(JsonElement op, FamilySymbol symbol)
+    {
+        var copy = ArchitectureCopyForPlacement(op);
+        var category = symbol.Category?.Id.Value;
+        if (copy is not null)
+        {
+            var explicitCategory = JsonDefaults.String(op, "category");
+            if (explicitCategory is not ("OST_Doors" or "OST_Windows") || explicitCategory != JsonDefaults.String(copy.Value, "category"))
+                throw Invalid("A dedicated architecture copy requires its explicit matching door/window placement category.");
+            if (JsonDefaults.Has(op, "rotationDegrees")) _ = PlanRules.Number(op, "rotationDegrees");
+        }
+        if (Deferred(JsonDefaults.Get(op, "symbolId")) && copy is null &&
+            category is (long)BuiltInCategory.OST_Doors or (long)BuiltInCategory.OST_Windows or (long)BuiltInCategory.OST_StructuralColumns)
+            throw Invalid("Architecture placements cannot use a generic duplicated-type reference; use the controlled architecture copy.");
+        if (JsonDefaults.String(op, "category") is "OST_Doors" or "OST_Windows" or "OST_StructuralColumns")
+        {
+            var requested = Enum.Parse<BuiltInCategory>(JsonDefaults.String(op, "category")!);
+            if (category != (long)requested) throw Invalid("Native placement category differs from the explicit architecture category.");
+        }
+        if (category is (long)BuiltInCategory.OST_Doors or (long)BuiltInCategory.OST_Windows)
+        {
+            if (symbol.Family.FamilyPlacementType != FamilyPlacementType.OneLevelBasedHosted || Check<Element>(op, "hostElementId") is not Wall)
+                throw Invalid("Controlled door/window point placement requires an existing wall host and OneLevelBasedHosted family.");
+        }
+    }
+    internal void ValidateArchitectureCopyPlan(IReadOnlyList<JsonElement> operations)
+    {
+        ArchitectureTypeCopyService.ValidatePlanEvidenceBudget(Doc, operations);
+        var names = new HashSet<(long FamilyId, string Name)>();
+        foreach (var op in operations.Where(op => JsonDefaults.String(op, "operationType") == "duplicate_architecture_type"))
+        {
+            var source = Required<FamilySymbol>(op, "sourceTypeId");
+            if (!names.Add((source.Family.Id.Value, JsonDefaults.String(op, "name")!)))
+                throw Invalid("Architecture copy names must be unique within each native family, including different source types.");
+        }
+        ArchitectureTypeCopyRules.ValidateResolvedPlacementTypes(operations, op => Symbol(op)!.Id.Value);
+    }
+    internal void CaptureArchitectureCopySources(IReadOnlyList<JsonElement> operations) => architectureCopies.CaptureSources(Doc, operations);
+    internal object PreviewArchitectureColumn(JsonElement op)
+    {
+        var native = ArchitectureService.PreviewColumn(Doc, MaterializeArchitectureColumn(op));
+        var copy = ArchitectureCopyForPlacement(op);
+        if (copy is null) return native;
+        return new { nativeSourceValidation = native, symbolReference = JsonDefaults.String(op, "symbolId"),
+            requestedTypeName = JsonDefaults.String(copy.Value, "name"), requestedDimensions = JsonDefaults.Get(copy.Value, "dimensions"),
+            previewUsesExistingSource = true, newTypeIdKnown = false, activationScope = "the new copied type only" };
+    }
+    private void AllowArchitecturePlacementActivation(JsonElement op, FamilySymbol symbol)
+    {
+        if (ArchitectureCopyForPlacement(op) is null) return;
+        // During execution this must resolve through the receipt reference map,
+        // never through the source-symbol surrogate used for native preview.
+        if (Id(op, "symbolId") != symbol.Id) throw Invalid("Copied placement did not resolve to its materialized native type.");
+        architectureCopies.AllowPlacementActivation(symbol.Id.Value);
+    }
+    internal object VerifyArchitectureCopiesBeforeCommit()
+    {
+        var copiedTypes = architectureCopies.VerifyCompletedCopies(Doc);
+        foreach (var binding in architecturePlacements)
+        {
+            var instance = Doc.GetElement(new ElementId(binding.InstanceId)) as FamilyInstance ?? throw Invalid("A reviewed architecture placement is missing before commit.");
+            if (instance.Symbol.Id.Value != binding.TypeId) throw Invalid("A placed instance no longer uses the materialized reviewed type; roll back.");
+            if (JsonDefaults.String(binding.Operation, "operationType") == "create_structural_column")
+                _ = ArchitectureService.ColumnReceipt(instance, binding.Operation, binding.WasActive);
+            else VerifyArchitectureFamilyPlacement(instance, binding.Operation, binding.TypeId,
+                binding.ExpectedRotationRadians ?? throw Invalid("Copied door/window initial native rotation evidence is missing; roll back."));
+        }
+        return new { copiedTypes, copiedPlacementCount = architecturePlacements.Count, actualPlacedTypesVerifiedBeforeCommit = true };
+    }
+    internal object VerifyViewportLabels(string phase) => viewportLabels.VerifyCompleted(Doc, phase);
+    internal object PreviewRoomCreation(JsonElement op)
+    {
+        var level = Level(op);
+        return new
+        {
+            reviewedOperation = op,
+            nativeLevelKnownAtPreview = level is not null,
+            resolvedOperation = level is null ? (JsonElement?)null : RoomCreationReadbackRules.Resolve(op, level.Id.Value, JsonDefaults.InternalToMm(level.ProjectElevation)),
+            elevationPolicy = "native-level-and-UV; Z-derived-from-project-level; input-Z-not-used",
+            boundaryKnownAtPreview = false,
+            boundaryPolicy = "derive-from-native-enclosure; verify-after-creation-and-commit"
+        };
+    }
+    internal object VerifyArchitecturePrimary(string phase) => primaryReadback.VerifyCompleted(Doc, phase);
+    internal object VerifyOpeningCreations(string phase)
+    {
+        var document = Doc;
+        if (openingCreationDocument is not null && (!openingCreationDocument.IsValidObject || !openingCreationDocument.Equals(document)))
+            throw new BridgeException("invalid_opening", "Opening creation readback belongs to a different native document; roll back.");
+        var elements = openingCreations.Select(binding =>
+        {
+            var opening = document.GetElement(new ElementId(binding.ElementId)) as Opening ??
+                throw new BridgeException("invalid_opening", "A reviewed opening disappeared or changed native class before final verification; roll back.");
+            return OpeningService.Verify(document, opening, binding.Operation, phase, binding.HostSurface).Evidence ??
+                throw new BridgeException("invalid_opening", "Final opening readback evidence is unavailable; roll back.");
+        }).ToArray();
+        return new { verificationPhase = phase, verifiedElementCount = elements.Length, elements, nativeReadbackVerified = true,
+            sideEffectsVerified = false, persistenceVerified = false, visualVerified = false, engineeringComplianceVerified = false };
+    }
+    private OperationReceipt RememberOpeningCreation(Opening opening, JsonElement operation, OpeningHostSurfaceBinding? hostSurface)
+    {
+        var document = opening.Document;
+        if (openingCreationDocument is null) openingCreationDocument = document;
+        else if (!openingCreationDocument.IsValidObject || !openingCreationDocument.Equals(document))
+            throw new BridgeException("invalid_opening", "Opening creation cannot cross native documents; roll back.");
+        var reviewed = operation.Clone();
+        document.Regenerate();
+        var receipt = OpeningService.Verify(document, opening, reviewed, surfaceBinding: hostSurface);
+        openingCreations.Add((opening.Id.Value, reviewed, hostSurface));
+        return receipt;
+    }
+    internal object VerifyGridCreations(string phase)
+    {
+        var document = Doc;
+        if (gridCreationDocument is not null && (!gridCreationDocument.IsValidObject || !gridCreationDocument.Equals(document)))
+            throw Invalid("Grid creation readback belongs to a different native document.");
+        var elements = gridCreations.Select(binding =>
+        {
+            var grid = document.GetElement(new ElementId(binding.ElementId)) as Grid ??
+                throw new BridgeException("invalid_grid", "A reviewed grid disappeared or changed native class before final verification; roll back.");
+            return ArchitectureService.VerifyGrid(grid, binding.Operation, phase);
+        }).ToArray();
+        return new { verificationPhase = phase, verifiedElementCount = elements.Length, elements, nativeReadbackVerified = true,
+            sideEffectsVerified = false, persistenceVerified = false, visualVerified = false, engineeringComplianceVerified = false };
+    }
+    private OperationReceipt RememberGridCreation(Grid grid, JsonElement operation)
+    {
+        var document = grid.Document;
+        if (gridCreationDocument is null) gridCreationDocument = document;
+        else if (!gridCreationDocument.IsValidObject || !gridCreationDocument.Equals(document))
+            throw Invalid("Grid creation readback belongs to a different native document.");
+        var reviewed = operation.Clone();
+        var evidence = ArchitectureService.VerifyGrid(grid, reviewed, "after-creation");
+        gridCreations.Add((grid.Id.Value, reviewed));
+        return new([grid.Id.Value], []) { Evidence = evidence };
+    }
+    internal object VerifyDocumentationPlacements(string phase)
+    {
+        var checks = documentationPlacements
+            .Select(binding => DrawingPlacementService.VerifyReadback(Doc, binding.Operation, phase, binding.WritePerformed))
+            .ToArray();
+        return new
+        {
+            completedPlacementCount = documentationPlacements.Count,
+            reviewedPlacementsComplete = true,
+            checks,
+            nativeReadbackVerified = true,
+            sideEffectsVerified = false,
+            persistenceVerified = false,
+            visualVerified = false,
+            verificationPhase = phase
+        };
+    }
+    internal object VerifyDocumentationMetadata(string phase)
+    {
+        var checks = documentationMetadata.Select(binding => VerifyDocumentationMetadataItem(binding.Operation, binding.WritePerformed, phase)).ToArray();
+        return new { phase, completedMetadataCount = checks.Length, checks,
+            nativeReadbackVerified = true, sideEffectsVerified = false, persistenceVerified = false, visualVerified = false };
+    }
+    internal object VerifyDocumentationTitleBlocks(string phase)
+    {
+        var checks=documentationTitleBlocks.Select(binding=>TitleBlockChangeService.VerifyReadback(Doc,binding.Binding,phase,binding.WritePerformed)).ToArray();
+        return new { phase, completedTitleBlockCount=checks.Length, checks,nativeReadbackVerified=true,sideEffectsVerified=false,persistenceVerified=false,visualVerified=false };
+    }
+    internal object VerifyDocumentationCreations(string phase) => documentationCreations.VerifyCompleted(Doc, phase);
+    private object VerifyDocumentationMetadataItem(JsonElement op, bool writePerformed, string phase)
+    {
+        var target = Required<Element>(op, "elementId");
+        var parameterName = JsonDefaults.String(op, "parameter") ?? throw Invalid("Documentation metadata parameter is required.");
+        if (!parameterName.StartsWith("BIP:SHEET_", StringComparison.Ordinal) && !parameterName.StartsWith("BIP:VIEW_", StringComparison.Ordinal))
+            throw Invalid("Only reviewed documentation metadata parameters are verified by the documentation readback gate.");
+        var parameter = Parameter(target, parameterName);
+        object actual = parameter.StorageType switch
+        {
+            StorageType.String => parameter.AsString() ?? "",
+            StorageType.Integer => parameter.AsInteger(),
+            _ => throw Invalid("Documentation metadata parameter has an unsupported storage type.")
+        };
+        var expected = ConvertValue(parameter, JsonDefaults.Get(op, "value"));
+        var expectedValue = expected is ElementId id ? id.Value : expected;
+        DocumentationMetadataReadbackRules.Require(
+            new(target.Id.Value, target.GetType().Name, parameterName, expectedValue, expectedValue),
+            new(target.Id.Value, target.GetType().Name, parameterName, expectedValue, actual));
+        return new { phase, elementId = target.Id.Value, elementClass = target.GetType().Name, parameter = parameterName,
+            expected = expectedValue, actual, writePerformed, nativeReadbackVerified = true,
+            sideEffectsVerified = false, persistenceVerified = false, visualVerified = false };
+    }
+    private void VerifyArchitectureFamilyPlacement(FamilyInstance instance, JsonElement op, long typeId, double expectedRotationRadians)
+    {
+        if (instance.Symbol.Id.Value != typeId || instance.Host?.Id != Id(op, "hostElementId") || instance.LevelId != Level(op)!.Id ||
+            instance.Category?.Id.Value != (long)Enum.Parse<BuiltInCategory>(JsonDefaults.String(op, "category")!) ||
+            instance.Location is not LocationPoint location)
+            throw Invalid("Native copied door/window type, wall host, level or point differs from the reviewed placement; roll back.");
+        var expected = Point(op);
+        var actual = location.Point;
+        ArchitecturePlacementReadbackRules.Require(
+            new(JsonDefaults.InternalToMm(expected.X), JsonDefaults.InternalToMm(expected.Y), JsonDefaults.InternalToMm(expected.Z), expectedRotationRadians),
+            new(JsonDefaults.InternalToMm(actual.X), JsonDefaults.InternalToMm(actual.Y), JsonDefaults.InternalToMm(actual.Z), location.Rotation));
     }
     private static double Mm(double value) => UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters);
     private static XYZ Point(JsonElement payload)
@@ -74,6 +318,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "load_family": FamilyLibraryService.Validate(Doc, op); break;
             case "create_family_instance":
                 var symbol = Symbol(op); Level(op); var host = Check<Element>(op, "hostElementId", false);
+                if (symbol is not null) ValidateFamilyTypeReference(op, symbol);
                 if (JsonDefaults.String(op, "mark") is { } proposedMark && new FilteredElementCollector(Doc).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().Any(f => f.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString() == proposedMark)) throw Invalid($"Mark {proposedMark} already exists; choose a distinct mark or modify the existing element.");
                 if (JsonDefaults.Has(op, "clearanceMm") && PlanRules.Number(op, "clearanceMm") < 0) throw Invalid("clearanceMm cannot be negative.");
                 if (JsonDefaults.String(op, "placementMode") == "legacyPoint" && symbol is not null &&
@@ -96,10 +341,12 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 var originalType = Check<ElementType>(op, "sourceTypeId");
                 if (originalType is not null && new FilteredElementCollector(Doc).WhereElementIsElementType().Any(e => e.GetType() == originalType.GetType() && e.Name == JsonDefaults.String(op, "name"))) throw Invalid("Duplicate type name already exists.");
                 break;
+            case "duplicate_architecture_type": ArchitectureTypeCopyService.Validate(Doc, op); break;
             case "create_wall": Check<WallType>(op, "wallTypeId"); Level(op); Line(op); break;
+            case "create_structural_column": ArchitectureService.ValidateColumn(Doc, MaterializeArchitectureColumn(op)); break;
             case "create_floor": Check<FloorType>(op, "floorTypeId"); Level(op); FloorLoop(op); break;
             case "create_opening": ValidateOpening(op); break;
-            case "create_grid": Line(op); break;
+            case "create_grid": ArchitectureService.ValidateGrid(Doc, op); break;
             case "create_room": Level(op); break;
             case "create_stair": ValidateStair(op); break;
             case "create_level":
@@ -143,10 +390,12 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "create_panel_schedule": Check<FamilyInstance>(op, "panelId"); break;
             case "create_tag": Check<View>(op, "viewId"); Check<Element>(op, "elementId"); Check<FamilySymbol>(op, "tagTypeId", false); break;
             case "create_dimension": Check<View>(op, "viewId"); Check<DimensionType>(op, "dimensionTypeId", false); Line(op);
-                if (JsonDefaults.Array(op, "references").Count() < 2) throw Invalid("A dimension needs at least two stable Revit geometry references.");
-                foreach (var reference in JsonDefaults.Array(op, "references")) Reference.ParseFromStableRepresentation(Doc, reference.GetString()!);
+                DimensionNativeEvidence.Resolve(Doc, op);
                 break;
             case "place_viewport": Check<ViewSheet>(op, "sheetId"); Check<View>(op, "viewId"); break;
+            case "move_drawing_placement": DrawingPlacementService.Validate(Doc, op); break;
+            case "move_viewport_label": ViewportLabelService.Validate(Doc, op); break;
+            case "change_titleblock_type": TitleBlockChangeService.Validate(Doc, op); break;
             case "create_pipe": Check<PipeType>(op, "pipeTypeId"); Check<PipingSystemType>(op, "systemTypeId"); Level(op); Line(op); break;
             case "create_duct": Check<DuctType>(op, "ductTypeId"); Check<MechanicalSystemType>(op, "systemTypeId"); Level(op); Line(op);
                 if (!JsonDefaults.Has(op, "diameterMm") && (!JsonDefaults.Has(op, "widthMm") || !JsonDefaults.Has(op, "heightMm"))) throw Invalid("Duct requires diameterMm or widthMm + heightMm."); break;
@@ -166,8 +415,9 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             var resultType = kind switch
             {
                 "load_family" => typeof(Family),
-                "create_family_instance" or "create_fitting" => typeof(FamilyInstance),
+                "create_family_instance" or "create_fitting" or "create_structural_column" => typeof(FamilyInstance),
                 "duplicate_type" => Check<ElementType>(op, "sourceTypeId")?.GetType() ?? typeof(ElementType),
+                "duplicate_architecture_type" => typeof(FamilySymbol),
                 "create_level" => typeof(Level), "create_grid" => typeof(Grid), "create_wall" => typeof(Wall), "create_floor" => typeof(Floor),
                 "create_opening" => typeof(Opening), "create_room" => typeof(Autodesk.Revit.DB.Architecture.Room), "create_circuit" => typeof(ElectricalSystem), "create_wire" => typeof(Wire),
                 "create_view_plan" => typeof(ViewPlan), "create_sheet" => typeof(ViewSheet), "create_schedule" => typeof(ViewSchedule), "create_panel_schedule" => typeof(PanelScheduleView),
@@ -272,11 +522,27 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     {
         var kind = JsonDefaults.String(op, "operationType")!;
         Element? created = null;
+        OpeningHostSurfaceBinding? openingHostSurface = null;
+        bool? columnSymbolWasActive = null;
+        JsonElement? materializedColumn = null;
+        double? familyExpectedRotationRadians = null;
+        JsonElement? resolvedPrimary = null;
+        ArchitectureHostedReadback? hostedExpected = null;
+        TagTargetReadback? tagExpected = null;
+        DimensionCreationReadback? dimensionExpected = null;
         switch (kind)
         {
             case "load_family": return FamilyLibraryService.Load(Doc, op);
+            case "change_titleblock_type":
+                var titleBlockReceipt=TitleBlockChangeService.Apply(Doc,op);
+                if (titleBlockReceipt.ReadbackBinding is not TitleBlockChangeService.ReadbackBinding titleBlockBinding)
+                    throw Invalid("Titleblock execution did not return a native readback binding.");
+                documentationTitleBlocks.Add((titleBlockBinding,titleBlockReceipt.Changed.Count>0));
+                return titleBlockReceipt;
             case "create_family_instance":
                 var symbol = Symbol(op)!; var level = Level(op)!; var point = Point(op);
+                ValidateFamilyTypeReference(op, symbol);
+                AllowArchitecturePlacementActivation(op, symbol);
                 if (!symbol.IsActive) { symbol.Activate(); Doc.Regenerate(); }
                 var placement = symbol.Family.FamilyPlacementType;
                 if (placement == FamilyPlacementType.WorkPlaneBased && JsonDefaults.String(op, "placementMode") == "legacyPoint")
@@ -299,25 +565,51 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 else if (placement == FamilyPlacementType.OneLevelBasedHosted)
                     created = Doc.Create.NewFamilyInstance(point, symbol, Required<Element>(op, "hostElementId"), level, StructuralType.NonStructural);
                 else created = Doc.Create.NewFamilyInstance(point, symbol, level, StructuralType.NonStructural);
+                if (ArchitecturePrimaryReadbackService.IsHostedArchitecture(symbol))
+                {
+                    Doc.Regenerate();
+                    if (created.Location is not LocationPoint initialLocation) throw Invalid("Door/window has no native point and rotation evidence; roll back.");
+                    familyExpectedRotationRadians = ArchitecturePlacementReadbackRules.ExpectedRotation(initialLocation.Rotation,
+                        JsonDefaults.Has(op, "rotationDegrees") ? PlanRules.Number(op, "rotationDegrees") : 0);
+                    hostedExpected = new(symbol.Id.Value, Id(op,"hostElementId").Value, level.Id.Value, symbol.Category!.Id.Value,
+                        new(JsonDefaults.InternalToMm(point.X), JsonDefaults.InternalToMm(point.Y), JsonDefaults.InternalToMm(point.Z), familyExpectedRotationRadians.Value));
+                }
                 if (JsonDefaults.Double(op, "rotationDegrees") is double rotation && rotation != 0)
                     ElementTransformUtils.RotateElement(Doc, created.Id, Autodesk.Revit.DB.Line.CreateBound(point, point + XYZ.BasisZ), rotation * Math.PI / 180);
                 break;
             case "duplicate_type": created = Required<ElementType>(op, "sourceTypeId").Duplicate(JsonDefaults.String(op, "name")!); break;
+            case "duplicate_architecture_type": return architectureCopies.Apply(Doc, op);
             case "set_parameter":
                 var target = Required<Element>(op, "elementId");
                 var parameterName = JsonDefaults.String(op, "parameter")!;
                 var wroteParameter = SetParameter(target, parameterName, JsonDefaults.Get(op, "value"));
+                if (parameterName is "BIP:SHEET_NUMBER" or "BIP:SHEET_NAME" or "BIP:VIEW_NAME" or "BIP:VIEW_SCALE_PULLDOWN_METRIC")
+                    documentationMetadata.Add((op.Clone(), wroteParameter));
                 return OperationReceipt.ForParameter(target.Id.Value, parameterName, wroteParameter);
             case "delete_element": return new([], Doc.Delete(Id(op, "elementId")).Select(id => id.Value).ToList());
             case "create_level": created = Autodesk.Revit.DB.Level.Create(Doc, Mm(PlanRules.Number(op, "elevationMm"))); created.Name = JsonDefaults.String(op, "name")!; break;
-            case "create_grid": created = Grid.Create(Doc, Line(op)); if (JsonDefaults.String(op, "name") is { } gridName) created.Name = gridName; break;
-            case "create_wall": created = Wall.Create(Doc, Line(op), Id(op, "wallTypeId"), Level(op)!.Id, Mm(PlanRules.Number(op, "heightMm")), Mm(JsonDefaults.Double(op, "offsetMm") ?? 0), JsonDefaults.Bool(op, "flip"), JsonDefaults.Bool(op, "structural")); break;
-            case "create_floor": created = Floor.Create(Doc, [FloorLoop(op)], Id(op, "floorTypeId"), Level(op)!.Id); break;
-            case "create_opening": created = CreateOpening(op); break;
+            case "create_grid": created = ArchitectureService.CreateGrid(Doc, op); break;
+            case "create_structural_column":
+                materializedColumn = MaterializeArchitectureColumn(op);
+                var columnSymbol = Required<FamilySymbol>(materializedColumn.Value, "symbolId");
+                AllowArchitecturePlacementActivation(op, columnSymbol);
+                columnSymbolWasActive = columnSymbol.IsActive;
+                created = ArchitectureService.CreateColumn(Doc, materializedColumn.Value); break;
+            case "create_wall":
+                var wallTypeId = Id(op,"wallTypeId"); var wallLevel = Level(op)!;
+                resolvedPrimary = ArchitecturePrimaryReadbackService.Resolve(op,wallTypeId.Value,wallLevel);
+                created = Wall.Create(Doc, Line(op), wallTypeId, wallLevel.Id, Mm(PlanRules.Number(op, "heightMm")), Mm(JsonDefaults.Double(op, "offsetMm") ?? 0), JsonDefaults.Bool(op, "flip"), JsonDefaults.Bool(op, "structural")); break;
+            case "create_floor":
+                var floorTypeId = Id(op,"floorTypeId"); var floorLevel = Level(op)!; var floorLoop = FloorLoop(op);
+                resolvedPrimary = ArchitecturePrimaryReadbackService.Resolve(op,floorTypeId.Value,floorLevel,floorLoop);
+                created = Floor.Create(Doc, [floorLoop], floorTypeId, floorLevel.Id); break;
+            case "create_opening": created = CreateOpening(op, out openingHostSurface); break;
             case "create_room":
-                var roomPoint = Point(op); var room = Doc.Create.NewRoom(Level(op)!, new UV(roomPoint.X, roomPoint.Y));
-                if (JsonDefaults.String(op, "name") is { } roomName) room.Name = roomName;
-                if (JsonDefaults.String(op, "number") is { } number) room.Number = number;
+                var roomLevel = Level(op)!; var roomPoint = Point(op);
+                resolvedPrimary = RoomCreationReadbackRules.Resolve(op, roomLevel.Id.Value, JsonDefaults.InternalToMm(roomLevel.ProjectElevation));
+                var room = Doc.Create.NewRoom(roomLevel, new UV(roomPoint.X, roomPoint.Y)) ?? throw Invalid("Revit did not return the reviewed room.");
+                room.Name = JsonDefaults.String(op, "name")!;
+                room.Number = JsonDefaults.String(op, "number")!;
                 Doc.Regenerate(); if (room.Area <= 0) throw Invalid("The requested room is not enclosed."); created = room; break;
             case "create_circuit":
                 Doc.Regenerate(); var loads = JsonDefaults.Array(op, "elementIds").Select(Id).ToList();
@@ -341,6 +633,11 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 if (JsonDefaults.Int64(op, "scale") is long scale && scale > 0) view.Scale = (int)scale;
                 created = view; break;
             case "configure_view": return ViewConfigurationService.Apply(Required<ViewPlan>(op,"viewId"),Required<ViewPlan>(op,"referenceViewId"),Check<Viewport>(op,"viewportId",false),op);
+            case "move_drawing_placement":
+                var placementReceipt = DrawingPlacementService.Apply(Doc, op);
+                documentationPlacements.Add((op.Clone(), placementReceipt.Changed.Count > 0));
+                return placementReceipt;
+            case "move_viewport_label": return viewportLabels.Apply(Doc, op);
             case "create_sheet":
                 var sheet = ViewSheet.Create(Doc, JsonDefaults.Has(op, "titleBlockId") ? Id(op, "titleBlockId") : ElementId.InvalidElementId);
                 sheet.SheetNumber = JsonDefaults.String(op, "number")!; sheet.Name = JsonDefaults.String(op, "name")!; created = sheet; break;
@@ -364,16 +661,35 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 {
                     var roomTag = Doc.Create.NewRoomTag(new LinkElementId(taggedRoom.Id), new UV(tagPoint.X, tagPoint.Y), tagView.Id);
                     if (JsonDefaults.Has(op, "tagTypeId")) roomTag.ChangeTypeId(Id(op, "tagTypeId"));
+                    if (TagLeaderRules.Requested(op) is bool roomLeader) roomTag.HasLeader = roomLeader;
                     created = roomTag;
                 }
                 else if (JsonDefaults.Has(op, "tagTypeId")) created = IndependentTag.Create(Doc, Id(op, "tagTypeId"), tagView.Id, new Reference(tagElement), JsonDefaults.Bool(op, "leader"), TagOrientation.Horizontal, tagPoint);
                 else created = IndependentTag.Create(Doc, tagView.Id, new Reference(tagElement), JsonDefaults.Bool(op, "leader"), TagMode.TM_ADDBY_CATEGORY, TagOrientation.Horizontal, tagPoint);
+                if (created is null) throw Invalid("Revit did not return a created tag.");
+                // Capture the request and chosen type before generic parameter writes can change them.
+                tagExpected = new(created.Id.Value, tagElement is Autodesk.Revit.DB.Architecture.Room ? "RoomTag" : "IndependentTag",
+                    tagView.Id.Value, JsonDefaults.Has(op, "tagTypeId") ? Id(op, "tagTypeId").Value : created.GetTypeId().Value,
+                    false, new[] { new TagTargetReference(tagElement.Id.Value, -1, -1) });
                 break;
             case "create_dimension":
-                var dimensionReferences = new ReferenceArray();
-                foreach (var reference in JsonDefaults.Array(op, "references")) dimensionReferences.Append(Reference.ParseFromStableRepresentation(Doc, reference.GetString()!));
-                created = JsonDefaults.Has(op, "dimensionTypeId") ? Doc.Create.NewDimension(Required<View>(op, "viewId"), Line(op), dimensionReferences, Required<DimensionType>(op, "dimensionTypeId")) : Doc.Create.NewDimension(Required<View>(op, "viewId"), Line(op), dimensionReferences);
+            {
+                var dimensionView = Required<View>(op, "viewId");
+                var dimensionLine = Line(op);
+                var requestedDimensionAxis = DimensionNativeEvidence.Axis(dimensionLine);
+                var resolvedDimensionReferences = DimensionNativeEvidence.Resolve(Doc, op);
+                using var dimensionReferences = new ReferenceArray();
+                foreach (var reference in resolvedDimensionReferences.Native) dimensionReferences.Append(reference);
+                var dimensionType = JsonDefaults.Has(op, "dimensionTypeId") ? Required<DimensionType>(op, "dimensionTypeId") : null;
+                var dimension = dimensionType is not null ? Doc.Create.NewDimension(dimensionView, dimensionLine, dimensionReferences, dimensionType)
+                    : Doc.Create.NewDimension(dimensionView, dimensionLine, dimensionReferences);
+                if (dimension is null) throw Invalid("Revit did not return a created dimension.");
+                created = dimension;
+                // Freeze requested axis/references and chosen type before generic parameters or later operations.
+                dimensionExpected = new(dimension.Id.Value, dimension.UniqueId, dimension.GetType().Name, dimensionView.Id.Value,
+                    dimensionType?.Id.Value ?? dimension.GetTypeId().Value, true, requestedDimensionAxis, resolvedDimensionReferences.Evidence, true);
                 break;
+            }
             case "place_viewport":
                 var placeView = Required<View>(op, "viewId"); var position = Point(op);
                 if (placeView is PanelScheduleView) created = PanelScheduleSheetInstance.Create(Doc, placeView.Id, Required<ViewSheet>(op, "sheetId"));
@@ -414,6 +730,14 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             default: throw Invalid($"Unsupported operation '{kind}'.");
         }
         if (created is null) throw Invalid("Revit did not return a created element.");
+        if (kind == "create_sheet")
+            documentationCreations.RememberSheet(Doc, (ViewSheet)created, op, true);
+        if (kind == "place_viewport")
+        {
+            var ownerSheet = Required<ViewSheet>(op, "sheetId");
+            var sourceView = Required<View>(op, "viewId");
+            documentationCreations.RememberViewport(ownerSheet, sourceView, created, op, true);
+        }
         foreach (var property in JsonDefaults.ObjectOrEmpty(op, "parameters").EnumerateObject()) SetParameter(created, property.Name, property.Value);
         if (JsonDefaults.String(op, "mark") is { } mark) SetParameter(created, "BIP:ALL_MODEL_MARK", JsonSerializer.SerializeToElement(mark));
         if (JsonDefaults.Double(op, "clearanceMm") is double gap && created.Category?.Id.Value == (long)BuiltInCategory.OST_MechanicalEquipment)
@@ -425,11 +749,39 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             if (clashes.Length > 0) throw Invalid($"Equipment clearance/bounding-box overlap with {string.Join(",", clashes)}; adjust the layout.");
         }
         materializedOperations[created.Id.Value] = op.Clone();
-        if(kind=="create_opening")return OpeningService.Verify(Doc,(Opening)created,op);
+        if (kind == "create_family_instance" && ArchitectureCopyForPlacement(op) is not null)
+        {
+            var placed = (FamilyInstance)created;
+            Doc.Regenerate();
+            VerifyArchitectureFamilyPlacement(placed, op, Id(op, "symbolId").Value, familyExpectedRotationRadians!.Value);
+            architecturePlacements.Add((created.Id.Value, Id(op, "symbolId").Value, op.Clone(), true, familyExpectedRotationRadians));
+        }
+        if(kind=="create_opening")return RememberOpeningCreation((Opening)created, op, openingHostSurface);
+        if (kind == "create_grid") return RememberGridCreation((Grid)created, op);
+        if(kind=="create_structural_column")
+        {
+            architecturePlacements.Add((created.Id.Value, ((FamilyInstance)created).Symbol.Id.Value, materializedColumn!.Value.Clone(), columnSymbolWasActive!.Value, null));
+            return ArchitectureService.ColumnReceipt((FamilyInstance)created,materializedColumn.Value,columnSymbolWasActive.Value);
+        }
+        if (resolvedPrimary is { } primaryOperation) return primaryReadback.Remember(Doc,created,op,primaryOperation);
+        if (hostedExpected is { } hosted) return primaryReadback.Remember(Doc,created,op,op,hosted);
+        if (tagExpected is { } expectedTag)
+            return documentationCreations.RememberTagCreation(Doc, created, expectedTag, op);
+        if (dimensionExpected is { } expectedDimension)
+            return documentationCreations.RememberDimensionCreation(Doc, (Dimension)created, expectedDimension);
         return OperationReceipt.New(created.Id.Value);
     }
     private void ValidateOpening(JsonElement op)=>OpeningService.Validate(Doc,op);
-    private Opening CreateOpening(JsonElement op)=>OpeningService.Create(Doc,op);
+    private Opening CreateOpening(JsonElement op, out OpeningHostSurfaceBinding? hostSurface)
+    {
+        var document = Doc;
+        if (openingCreationDocument is null) openingCreationDocument = document;
+        else if (!openingCreationDocument.IsValidObject || !openingCreationDocument.Equals(document))
+            throw new BridgeException("invalid_opening", "Opening prewrite surface belongs to another native document.");
+        var reviewed = op.Clone();
+        hostSurface = OpeningHostSurfaceReadbackService.CaptureBeforeCreation(document, reviewed);
+        return OpeningService.Create(document, reviewed);
+    }
     private CurveLoop FloorLoop(JsonElement op)
     {
         var points = JsonDefaults.Array(op, "boundary").Select(Point).ToList();

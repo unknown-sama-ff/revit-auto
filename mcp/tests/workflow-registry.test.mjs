@@ -25,8 +25,9 @@ test('registry exposes enabled workflows and blocks pending migration workflows'
   assert.equal(getWorkflow('architecture.stairs').enabled, true);
   assert.equal(getWorkflow('pump_room.route').enabled, true);
   assert.equal(getWorkflow('pump_room.connect').enabled, true);
-  assert.equal(getWorkflow('pump_room.audit').enabled, false);
-  assert.throws(() => assertWorkflowEnabled('pump_room.audit'), error => error.code === 'workflow_migration_pending' && error.details.legacySources.includes('audit-final.csx'));
+  assert.equal(getWorkflow('pump_room.audit').enabled, true);
+  assert.equal(getWorkflow('pump_room.audit').destructiveLevel, 'read-only');
+  assert.equal(getWorkflow('pump_room.audit').operationBuilder, null);
 });
 
 test('registered enabled workflow builds through the same operation validator', () => {
@@ -52,8 +53,10 @@ test('MCP exposes workflow registry and controlled workflow gate', async () => {
   const source = await fs.readFile(path.join(root, 'mcp/revit-custom.mjs'), 'utf8');
   assert.match(source, /revit\.workflow\.list/);
   assert.match(source, /assertWorkflowEnabled\(args\.name\)/);
-  assert.match(source, /buildRegisteredWorkflow\(args\.name/);
-  assert.match(source, /workflowId:workflow\.workflowId/);
+  assert.match(source, /previewRegisteredWriteWorkflow\(args,workflow,callRevit,signal\)/);
+  const adapter = await fs.readFile(path.join(root, 'mcp/registered-planning.mjs'), 'utf8');
+  assert.match(adapter, /buildRegisteredWorkflow\(workflow\.workflowId, input\)/);
+  assert.match(adapter, /workflowId: workflow\.workflowId/);
 });
 
 test('registry metadata explains the Revit 2027-only runtime boundary', async () => {
@@ -64,7 +67,7 @@ test('registry metadata explains the Revit 2027-only runtime boundary', async ()
 
 test('disabled legacy workflows remain discoverable without becoming callable writes', () => {
   const pending = registryPreviewMetadata('pump_room.audit');
-  assert.equal(pending.acceptanceStatus, 'legacy-source-registered-migration-pending');
+  assert.equal(pending.acceptanceStatus, 'implemented-not-fully-migrated');
   assert.deepEqual(pending.planningModes, ['explicit','ask','assisted']);
 });
 
@@ -97,6 +100,15 @@ test('architecture openings adapter builds explicit hosted door and window opera
   assert.deepEqual(built.operations.map(op=>op.operationType),['create_family_instance','create_family_instance']);
   assert.equal(built.operations[0].hostElementId,301);
   assert.equal(built.operations[1].hostElementId,302);
+});
+
+test('architecture registry discloses dedicated copies and all supported type categories without claiming acceptance',()=>{
+  for(const name of ['architecture.build','architecture.openings']){
+    const workflow=getWorkflow(name);assert.match(workflow.inputSchema,/typeCopies.*sourceTypeId.*parameterId\/name\/valueMm/);
+    assert.match(workflow.notes.join(' '),/duplicate_architecture_type.*architecture-type-copy/);
+    for(const category of ['OST_StructuralColumns','OST_Doors','OST_Windows'])assert.ok(workflow.affectedCategories.includes(category));
+    assert.equal(workflow.acceptanceStatus,'implemented-not-fully-migrated');assert.match(workflow.notes.join(' '),/Native write\/rollback\/save acceptance remains pending/);
+  }
 });
 
 
