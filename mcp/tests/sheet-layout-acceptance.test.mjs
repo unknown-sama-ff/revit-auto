@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import {
   NATIVE_READ_METHODS,
   REQUIRED_FEATURE,
@@ -9,7 +10,7 @@ import {
   verifySheetLayoutAcceptance
 } from '../sheet-layout-acceptance.mjs';
 
-const project = 'C:/src/revit-auto/acceptance/models/sample-lighting-model-验收-v031.rvt';
+const project = path.resolve('fixtures', 'sheet-layout-test.rvt');
 const plugin = {
   protocol: 'revit-auto-2027-v2',
   version: '0.4.0',
