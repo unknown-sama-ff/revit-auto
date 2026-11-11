@@ -75,4 +75,4 @@ identity-acceptance.mjs / acceptance-helpers.mjs：五次稳定 identity 检查�
 
 ## 源码许可
 
-当前新增原创部分适用 [RevitAuto 非商业源码许可协议 1.0](LICENSE)，商业用途须事先书面授权；历史 Apache 与第三方权利保留。详见 [许可边界](../LICENSING.md)。
+本包采用 [Apache License 2.0](LICENSE)，允许按许可条件商用、修改和分发；第三方许可保留。详见 [许可说明](../LICENSING.md)。

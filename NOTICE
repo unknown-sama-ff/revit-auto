@@ -1,10 +1,9 @@
 RevitAuto
 Copyright 2026 unknown-sama-ff
 
-Original additions and modifications first published after the Apache baseline
-are subject to the RevitAuto Noncommercial Source License 1.0. See LICENSE
-and LICENSING.md. Historical Apache-2.0 and third-party rights remain valid.
+Original project source code and documentation are licensed under the
+Apache License, Version 2.0, unless otherwise stated. See LICENSE.
 
 This project includes code adapted from bimwright/rvt-mcp and
 oakplank/RevitMCP. See THIRD_PARTY_NOTICES.md and third_party/licenses/
-for attribution and applicable third-party license texts.
+for third-party attribution, modifications, and applicable license texts.

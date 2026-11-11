@@ -2,6 +2,8 @@
 
 # Revit 2027 AI 建模桥接器 v0.4.0
 
+> 本项目原创源代码和文档采用 [Apache License 2.0](LICENSE)，允许按许可条件商用、修改和分发；第三方许可另行保留。
+
 ## 项目总目标
 
 2026-10-12 明确采用两阶段路线：**先实现与旧项目功能对等，再优化、扩展为完整的 Revit 自动化助手**。第一阶段按旧版来源矩阵逐项迁移和实机验收；第二阶段逐步覆盖 Revit 各类功能，完善自然语言驱动的任务规划、执行与结果核验。详见 [项目路线](docs/project-roadmap.md)。该目标不表示当前已经全功能覆盖或全部验收通过。
@@ -182,8 +184,10 @@ node C:\src\revit-auto\mcp\acceptance.mjs --lighting C:\src\revit-auto\examples\
 
 新增事务变更历史、类型解析、房间布灯预览、PNG 视图证据导出。当前源码已编译并通过自动化测试，实机需重启后核验。完整目标进度和未完成边界见 docs/goal-progress.md；Claude Code 的自然语言行为约定见 CLAUDE.md。
 
-## 许可证与商业授权
+## 许可证
 
-本次新增原创代码和修改采用 [RevitAuto 非商业源码许可协议 1.0](LICENSE)。非商业学习、研究、测试和个人求职展示免费；公司内部经营使用、接单建模/咨询、转售、商业集成和商业托管须作者事先书面授权。允许保留许可、署名及修改说明的免费非商业传播。
+Copyright 2026 unknown-sama-ff。
 
-这是源码可查看项目，不是标准开源许可。已经公开的 Apache-2.0 内容及第三方原许可继续有效，详见 [许可边界](LICENSING.md)、[NOTICE](NOTICE) 和 [第三方声明](THIRD_PARTY_NOTICES.md)。商业授权请通过 [GitHub Issues](https://github.com/unknown-sama-ff/revit-auto/issues) 联系作者。
+除另有声明外，本项目原创源代码和文档采用 [Apache License 2.0](LICENSE)。允许在遵守该许可条件的前提下商用、修改和分发，无需另行取得作者的商业使用批准。
+
+许可范围及历史说明见 [LICENSING.md](LICENSING.md)；第三方版权与许可继续保留，详见 [NOTICE](NOTICE) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
