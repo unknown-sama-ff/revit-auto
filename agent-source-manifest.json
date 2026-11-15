@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-15T18:53:59.693Z",
+  "generatedAtUtc": "2026-11-15T20:41:08.698Z",
   "publicationPerformed": false,
   "counts": {
     "files": 234,
@@ -604,8 +604,8 @@
     {
       "path": "tests/CoreTests/ExternalFamilyMetadataRulesTests.cs",
       "source": "tests/CoreTests/ExternalFamilyMetadataRulesTests.cs",
-      "bytes": 17581,
-      "sha256": "8f68acb697a87d4c72ea4fd8152f6b4e165702ca5e52bd26a59d996ef29c075a"
+      "bytes": 17583,
+      "sha256": "ea246b7299ec199bd58829db736032ae63d318152e4f82b27109af9524eee815"
     },
     {
       "path": "tests/CoreTests/FamilyHostGeometryRulesTests.cs",

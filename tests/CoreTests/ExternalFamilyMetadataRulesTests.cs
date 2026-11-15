@@ -12,6 +12,15 @@ internal static class ExternalFamilyMetadataRulesTests
         catch (BridgeException e) when (code is null || e.Code == code) { return; }
         throw new Exception("Expected bounded external family contract rejection.");
     }
+    private static void RequireWindowsWriteExclusion(string path)
+    {
+        // FileShare.Read denies concurrent writers on Windows; Unix sharing locks
+        // do not provide the same access-denial contract.
+        if (!OperatingSystem.IsWindows()) return;
+        try { using var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite); }
+        catch (IOException) { return; }
+        throw new Exception("Source write lock was not held.");
+    }
     internal static void Run(Action<string, Action> test)
     {
         test("external family metadata requires strict pins and exact unique keys", () => {
@@ -173,10 +182,7 @@ internal static class ExternalFamilyMetadataRulesTests
                 using (var stream = FamilyLibraryRules.OpenVerified(root, "sample.rfa", hash))
                 {
                     if (!stream.CanRead || stream.CanWrite) throw new Exception("Source stream is not read-only.");
-                    try { using var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite); }
-                    catch (IOException) { goto Locked; }
-                    throw new Exception("Source write lock was not held.");
-                    Locked:;
+                    RequireWindowsWriteExclusion(path);
                 }
                 Reject(() => { using var ignored = FamilyLibraryRules.OpenVerified(root, "sample.rfa", new string('0', 64)); }, "family_asset_changed");
             }
@@ -196,10 +202,7 @@ internal static class ExternalFamilyMetadataRulesTests
                 using (var stream = FamilyLibraryRules.OpenVerified(root, "sample.rte", hash, ".rte"))
                 {
                     if (!stream.CanRead || stream.CanWrite) throw new Exception("Template source is not read-only.");
-                    try { using var writer = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite); }
-                    catch (IOException) { goto LockedTemplate; }
-                    throw new Exception("Template source write lock was not held.");
-                    LockedTemplate:;
+                    RequireWindowsWriteExclusion(path);
                 }
                 Reject(() => { using var ignored = FamilyLibraryRules.OpenVerified(root, "sample.rte", new string('0', 64), ".rte"); }, "family_asset_changed");
                 Reject(() => { using var ignored = FamilyLibraryRules.OpenVerified(root, "missing.rte", hash, ".rte"); }, "family_asset_missing");
