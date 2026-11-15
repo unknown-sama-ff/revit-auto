@@ -20,8 +20,8 @@ internal sealed class DocumentationCreationReadbackService
     private Document? tagDocument;
 
     private static BridgeException Invalid(string message) => new("invalid_documentation_readback", message);
-    internal OperationReceipt RememberDimensionCreation(Document doc, Dimension dimension, DimensionCreationReadback expected) =>
-        dimensions.Remember(doc, dimension, expected);
+    internal OperationReceipt RememberDimensionCreation(Document doc, Dimension dimension, DimensionCreationReadback expected, DimensionReferenceBinding[] references) =>
+        dimensions.Remember(doc, dimension, expected, references);
     internal OperationReceipt RememberTagCreation(Document doc, Element tag, TagTargetReadback expected, JsonElement op)
     {
         if (tagDocument is null) tagDocument = doc;

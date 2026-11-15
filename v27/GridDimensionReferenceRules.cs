@@ -10,4 +10,12 @@ internal static class GridDimensionReferenceRules
             string.IsNullOrWhiteSpace(original.ReferenceType) || original != parsed)
             throw Invalid();
     }
+
+    public static void RequireCurveReference(long gridId, DimensionReferenceReadback original, DimensionReferenceReadback parsed)
+    {
+        if (gridId <= 0 || gridId > 9007199254740991 || original.ElementId != gridId || original.LinkedElementId != -1 ||
+            string.IsNullOrWhiteSpace(original.StableReference) || original.StableReference.Length > DimensionCreationReadbackRules.MaxStableReferenceLength ||
+            string.IsNullOrWhiteSpace(original.ReferenceType) || original != parsed)
+            throw new BridgeException("invalid_grid_curve_reference", "Native model-curve reference did not round-trip to the same local grid and representation.");
+    }
 }

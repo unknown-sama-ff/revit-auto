@@ -68,7 +68,7 @@ internal static class RevitCommandRouter
                 return CommandResult.Success(DocumentLifecycleService.Dispatch(app, method, parameters, cancellation)).PrepareBounded();
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, moduleVersionId = typeof(App).Module.ModuleVersionId.ToString(), features = new[] { "build-fingerprint", "readonly-query-pins", "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "batch-view-image-export", "controlled-structural-columns", "architecture-type-copy", "architecture-primary-readback", "room-creation-readback", "grid-creation-readback", "opening-creation-readback", "opening-profile-failure-evidence", "opening-host-surface-readback", "explicit-grid-geometry", "controlled-titleblock-change", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "drawing-placement-move", "viewport-label-offset", "tag-leader-readback", "tag-target-readback", "tag-head-position-snapshot", "room-tag-leader-geometry-snapshot", "annotation-input-contracts", "dimension-creation-readback", "grid-dimension-reference-snapshot", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "ui-thread-audit-snapshot", "bounded-element-dependencies", "native-stair-connections", "family-text-notes", "family-text-known-empty-owner", "family-text-pagination-view-bounds", "element-storage-schema-audit", "document-version-diff", "sheet-layout-diagnostics", "local-test-copy-lifecycle", "native-opening", "electrical-circuit-audit", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "family-catalog-snapshot", "native-change-receipts", "parameter-noop-receipts", "stair-cleanup-evidence", "explicit-stair-geometry", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, moduleVersionId = typeof(App).Module.ModuleVersionId.ToString(), features = new[] { "build-fingerprint", "readonly-query-pins", "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "batch-view-image-export", "controlled-structural-columns", "architecture-type-copy", "architecture-primary-readback", "room-creation-readback", "grid-creation-readback", "opening-creation-readback", "opening-profile-failure-evidence", "opening-host-surface-readback", "explicit-grid-geometry", "controlled-titleblock-change", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "drawing-placement-move", "viewport-label-offset", "tag-leader-readback", "tag-target-readback", "tag-head-position-snapshot", "room-tag-leader-geometry-snapshot", "annotation-input-contracts", "dimension-creation-readback", "grid-dimension-reference-snapshot", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "fitting-connection-readback", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "ui-thread-audit-snapshot", "bounded-element-dependencies", "element-bounds-snapshot", "controlled-lighting-move", "native-stair-connections", "family-text-notes", "family-text-known-empty-owner", "family-text-pagination-view-bounds", "element-storage-schema-audit", "document-version-diff", "sheet-layout-diagnostics", "local-test-copy-lifecycle", "native-opening", "electrical-circuit-audit", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "external-family-metadata-audit", "external-template-metadata-audit", "duct-dimension-contracts", "multiport-fitting-readback", "known-unassigned-equipment-connection", "family-catalog-snapshot", "native-change-receipts", "parameter-noop-receipts", "stair-cleanup-evidence", "explicit-stair-geometry", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.family.text_notes" => CommandResult.Success(FamilyTextService.Get(app, parameters, cancellation)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
@@ -87,6 +87,7 @@ internal static class RevitCommandRouter
                 "revit.connector.resolve" => CommandResult.Success(ConnectorResolutionService.Resolve(app, parameters)),
                 "revit.collision.check" => CommandResult.Success(CollisionCheckService.Check(app, parameters, cancellation)),
                 "revit.family.library.get" => CommandResult.Success(FamilyLibraryService.Catalog(app, parameters)),
+                "revit.external_asset.metadata" => CommandResult.Success(ExternalFamilyMetadataService.Get(app, parameters, cancellation)),
                 "revit.electrical.audit" => CommandResult.Success(ElectricalAuditService.Run(app, parameters, cancellation)),
                 "revit.audit.run" => CommandResult.Success(RevitQueryService.Audit(app)),
                 "revit.flow.diagnose" => CommandResult.Success(FlowDirectionDiagnostic.Diagnose(app, parameters)),
@@ -135,6 +136,7 @@ internal static class RevitCommandRouter
         var executor = new ModelExecutor(app, new Dictionary<string, ElementId>(StringComparer.Ordinal));
         foreach (var op in operations) executor.Validate(op);
         executor.ValidateArchitectureCopyPlan(operations);
+        executor.ValidateFamilyHostGeometryPlan(operations);
         foreach (var p in Plans.Values.Where(p => p.Status == "pending" && p.ExpiresAtUtc < DateTime.UtcNow)) p.Status = "expired";
         if (Plans.Count >= 500) throw new BridgeException("plan_store_full", "Plan store is full. Restart the bridge in a new Revit session after completing/cancelling pending plans.");
         var plan = new ModelPlan
@@ -154,6 +156,8 @@ internal static class RevitCommandRouter
             plan.Warnings.Add("洞口宿主/范围影响预览："+JsonSerializer.Serialize(OpeningService.Preview(doc,op),JsonDefaults.Options)+"；结构、机电净距、防火与加固需人工审查，不是精确切割影响或合规认证。");
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "move_drawing_placement"))
             plan.Warnings.Add("图纸放置实例移动预览：" + JsonSerializer.Serialize(DrawingPlacementService.Preview(doc, op), JsonDefaults.Options) + "；仅修改该实例纸面XY；图框、视图设置、标签与表定义保持独立，边界/相交/PNG版面仍需核验。");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "move_lighting_fixtures"))
+            plan.Warnings.Add("Controlled lighting XY move preview: " + JsonSerializer.Serialize(LightingMoveService.Preview(doc, op), JsonDefaults.Options) + "; wire vertices, conservative bounds, PNG and full native side effects still require independent verification.");
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "move_viewport_label"))
             plan.Warnings.Add("视口标签偏移预览：" + JsonSerializer.Serialize(ViewportLabelService.Preview(doc, op), JsonDefaults.Options) + "；仅修改该视口标签偏移/明确引线长度，视口内容、图纸、比例与图框保持独立，边界/相交/PNG版面仍需核验。");
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "change_titleblock_type"))
@@ -205,6 +209,7 @@ internal static class RevitCommandRouter
         var executor = new ModelExecutor(app, references);
         foreach (var op in plan.Operations) executor.Validate(op);
         executor.ValidateArchitectureCopyPlan(plan.Operations);
+        executor.ValidateFamilyHostGeometryPlan(plan.Operations);
         if (doc.IsModifiable || doc.IsReadOnly) throw new BridgeException("document_busy", "Revit has another transaction or the document is read-only.");
         cancellation.ThrowIfCancellationRequested();
         // Re-check the native document immediately before every write path, including StairsEditScope.
@@ -253,6 +258,10 @@ internal static class RevitCommandRouter
             executor.VerifyDocumentationMetadata("before-transaction-commit");
             executor.VerifyDocumentationTitleBlocks("before-transaction-commit");
             executor.VerifyDocumentationCreations("before-transaction-commit");
+            executor.VerifyFittingCreations("before-transaction-commit");
+            executor.VerifyMultiportFittingCreations("before-transaction-commit");
+            executor.VerifyUnassignedConnections("before-transaction-commit");
+            executor.VerifyLightingMoves("before-transaction-commit");
             if (transaction.Commit() != TransactionStatus.Committed) throw new InvalidOperationException(string.Join("; ", failureCapture.Messages.Prepend("Revit rejected the transaction.")));
             // Commit runs native regeneration/failure processing. Verify its final result
             // while the containing group is still available for a complete rollback.
@@ -265,10 +274,14 @@ internal static class RevitCommandRouter
             var documentationMetadataVerification = executor.VerifyDocumentationMetadata("after-transaction-commit");
             var documentationTitleBlockVerification = executor.VerifyDocumentationTitleBlocks("after-transaction-commit");
             var documentationCreationVerification = executor.VerifyDocumentationCreations("after-transaction-commit");
+            var fittingCreationVerification = executor.VerifyFittingCreations("after-transaction-commit");
+            var multiportFittingCreationVerification = executor.VerifyMultiportFittingCreations("after-transaction-commit");
+            var unassignedConnectionVerification = executor.VerifyUnassignedConnections("after-transaction-commit");
+            var lightingMoveVerification = executor.VerifyLightingMoves("after-transaction-commit");
             var createdIds = created.Distinct().ToArray(); var changedIds = changed.Distinct().ToArray();
             var resolvedReferences = references.ToDictionary(x => x.Key, x => x.Value.Value);
             var warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray();
-            object Receipt(NativeChangeEvidence? nativeChanges) => new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = createdIds, changedElementIds = changedIds, references = resolvedReferences, operationEvidence, architectureCopyVerification, architecturePrimaryVerification, gridCreationVerification, openingCreationVerification, viewportLabelVerification, documentationVerification, documentationMetadataVerification, documentationTitleBlockVerification, documentationCreationVerification, nativeChanges, warnings, confirmationMode = "chat", saved = false };
+            object Receipt(NativeChangeEvidence? nativeChanges) => new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = createdIds, changedElementIds = changedIds, references = resolvedReferences, operationEvidence, architectureCopyVerification, architecturePrimaryVerification, gridCreationVerification, openingCreationVerification, viewportLabelVerification, documentationVerification, documentationMetadataVerification, documentationTitleBlockVerification, documentationCreationVerification, fittingCreationVerification, multiportFittingCreationVerification, unassignedConnectionVerification, lightingMoveVerification, nativeChanges, warnings, confirmationMode = "chat", saved = false };
             // The full business evidence and recoverable plan view are measured using the
             // real serializer. Reserve a proven upper bound for all native events through
             // group assimilation, rather than freezing an incomplete event capture.

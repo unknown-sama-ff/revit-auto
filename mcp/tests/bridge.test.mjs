@@ -30,6 +30,58 @@ async function fixture(handler, {oldVersion=false,confirmationMode='chat',featur
 }
 const send=(socket,result)=>socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',ok:true,result})+'\n');
 
+test('bridge preserves a native deadline receipt that arrives during transport grace without extending the native deadline',async t=>{
+  const requests=[];
+  const f=await fixture((request,socket)=>{
+    requests.push(request);
+    assert.ok(request.deadlineUnixMs<=Date.now()+1100,'Transport grace leaked into the native execution deadline.');
+    const timer=setTimeout(()=>{
+      if(!socket.destroyed)socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',ok:false,
+        error:{code:'request_expired',message:'Native deadline reached; rolled back.',details:{planId:'late-plan',rolledBack:true}}})+'\n');
+    },1100);
+    t.after(()=>clearTimeout(timer));
+  });t.after(f.close);
+  const oldConfig=process.env.REVIT_AI_CONFIG,oldTimeout=process.env.REVIT_AI_TIMEOUT_MS;
+  process.env.REVIT_AI_CONFIG=f.config;process.env.REVIT_AI_TIMEOUT_MS='1000';
+  t.after(()=>{if(oldConfig===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=oldConfig;
+    if(oldTimeout===undefined)delete process.env.REVIT_AI_TIMEOUT_MS;else process.env.REVIT_AI_TIMEOUT_MS=oldTimeout;});
+  await assert.rejects(callRevit('revit.plan.confirm',{planId:'late-plan'}),error=>error.code==='request_expired'&&error.details?.rolledBack===true);
+  assert.equal(requests.length,1);
+});
+
+test('bridge disconnect after sending a plan preserves one original recovery query and unknown outcome without retry or parameter leakage',async t=>{
+  const requests=[];const f=await fixture((request,socket)=>{requests.push(request);socket.end();});t.after(f.close);
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;
+  t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+  await assert.rejects(callRevit('revit.plan.confirm',{planId:'original-plan',privateValue:'TEST_DO_NOT_ECHO'}),error=>{
+    assert.equal(error.code,'bridge_connection_closed');
+    assert.equal(error.details.requestMayHaveBeenSent,true);
+    assert.equal(error.details.executionOutcome,'unknown');
+    assert.equal(error.details.automaticRetryAllowed,false);
+    assert.equal(error.details.requestId,requests[0].requestId);
+    assert.deepEqual(error.details.recovery,{method:'revit.plan.get',params:{planId:'original-plan'}});
+    assert.equal(JSON.stringify(error.details).includes('TEST_DO_NOT_ECHO'),false);
+    return true;
+  });
+  assert.equal(requests.length,1);
+});
+
+test('bridge cancellation before sending reports not_sent without a handshake or model request',async t=>{
+  const requests=[];const f=await fixture(request=>requests.push(request));t.after(f.close);
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;
+  t.after(()=>{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;});
+  const controller=new AbortController();controller.abort();
+  await assert.rejects(callRevit('revit.plan.confirm',{planId:'never-sent'},controller.signal),error=>{
+    assert.equal(error.code,'bridge_cancelled');
+    assert.equal(error.details.requestMayHaveBeenSent,false);
+    assert.equal(error.details.executionOutcome,'not_sent');
+    assert.equal(error.details.method,'revit.bridge.info');
+    assert.equal(error.details.automaticRetryAllowed,false);
+    return true;
+  });
+  assert.equal(f.bridgeInfoCalls,0);assert.equal(requests.length,0);
+});
+
 test('bridge.info is queried once instead of being redundantly queried for its own call',async t=>{
   const f=await fixture(()=>{});t.after(f.close);
   const previous=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;t.after(()=>{if(previous===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=previous;});
@@ -322,6 +374,7 @@ test('matching stair capability forwards exactly one preview and no commit',asyn
 for(const [operationType,feature] of [
  ['create_structural_column','controlled-structural-columns'],
  ['create_grid','explicit-grid-geometry'],
+ ['create_fitting','fitting-connection-readback'],
  ['change_titleblock_type','controlled-titleblock-change']
 ]){
  test(operationType+' refuses an old host before forwarding the new operation',async t=>{
@@ -340,3 +393,12 @@ for(const [operationType,feature] of [
   assert.deepEqual(methods,['revit.plan.create']);
  });
 }
+
+test('tee cross and known-unassigned branches require their exact loaded native feature before forwarding',async t=>{
+ for(const [operation,feature]of [[{operationType:'create_fitting',fittingType:'tee'},'multiport-fitting-readback'],[{operationType:'create_fitting',fittingType:'cross'},'multiport-fitting-readback'],[{operationType:'connect_elements',allowUnassignedEquipmentPort:true},'known-unassigned-equipment-connection']]){
+  const methods=[];const f=await fixture((request,socket)=>{methods.push(request.method);send(socket,{status:'pending'});},{features:[]});
+  const old=process.env.REVIT_AI_CONFIG;process.env.REVIT_AI_CONFIG=f.config;
+  try{await assert.rejects(callRevit('revit.plan.create',{operations:[operation]}),error=>error.code==='feature_not_loaded'&&error.details.requiredFeatures.includes(feature));assert.deepEqual(methods,[]);}
+  finally{if(old===undefined)delete process.env.REVIT_AI_CONFIG;else process.env.REVIT_AI_CONFIG=old;await f.close();}
+ }
+});

@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "start": "node revit-custom.mjs",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test --test-concurrency=4 tests/*.test.mjs",
     "smoke": "npm test"
   },
   "dependencies": {

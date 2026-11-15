@@ -1,3 +1,4 @@
+import {validateLightingMove} from './lighting-move.mjs';
 import {validateStair} from './stair-rules.mjs';
 import {validateOpening} from './opening-rules.mjs';
 import {loadFamilyOperationSchema} from './family-load.mjs';
@@ -9,9 +10,10 @@ import {validateStructuralColumn,validateGrid} from './architecture-rules.mjs';
 import {validateTitleBlockChange,validateTitleBlockChangePlan,titleBlockChangeOperations} from './titleblock-change.mjs';
 import {architectureTypeCopyOperations,validateArchitectureTypeCopy,validateArchitectureTypeCopyPlan} from './architecture-type-copy.mjs';
 import {validateAnnotationInput} from './annotation-input.mjs';
+import {connectionPrefixes,validateConnectionTopology} from './mep-connection-contracts.mjs';
 
 export const OPERATIONS = new Set([
-  'create_family_instance','duplicate_type','duplicate_architecture_type','set_parameter','delete_element','load_family',
+  'move_lighting_fixtures','create_family_instance','duplicate_type','duplicate_architecture_type','set_parameter','delete_element','load_family',
   'create_level','create_grid','create_structural_column','create_wall','create_floor','create_opening','create_room','create_stair',
   'create_circuit','create_wire','create_view_plan','create_sheet','create_schedule',
   'create_panel_schedule','configure_view','place_viewport','move_drawing_placement','move_viewport_label','change_titleblock_type','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
@@ -32,6 +34,12 @@ function validateRoomIdentity(op) {
 function number(value, field, positive = false) {
   if (typeof value[field] !== 'number' || !Number.isFinite(value[field]) || Math.abs(value[field]) > 1e8 || positive && value[field] <= 0)
     throw new Error(`${field} must be a ${positive ? 'positive ' : ''}finite number. Geometry is in millimeters.`);
+}
+function validateDuctDimensions(op) {
+  const diameter=Object.hasOwn(op,'diameterMm'),width=Object.hasOwn(op,'widthMm'),height=Object.hasOwn(op,'heightMm');
+  for(const field of ['diameterMm','widthMm','heightMm'])if(Object.hasOwn(op,field))number(op,field,true);
+  if(diameter ? width||height : !width||!height)
+    throw new Error('create_duct requires either diameterMm or paired widthMm and heightMm, without mixing specifications.');
 }
 function point(p) { if (!p) throw new Error('Point coordinates are required.'); number(p, 'xMm'); number(p, 'yMm'); if (p.zMm !== undefined) number(p, 'zMm'); }
 function validateCropBounds(op) {
@@ -57,7 +65,7 @@ export function validateConnectorSelection(op,prefix){
 function validatePortReservations(operations){
  const created=new Map(),claimed=new Map();
  for(const [i,op] of operations.entries()){
-  if(['connect_elements','create_fitting'].includes(op.operationType))for(const prefix of ['first','second']){
+  if(['connect_elements','create_fitting'].includes(op.operationType))for(const prefix of connectionPrefixes(op)){
    const owner=op[prefix+'ElementId'],selector=op[prefix+'Connector'];let key;
    const curve=typeof owner==='string'&&owner.startsWith('@')?created.get(owner.slice(1)):null;
    if(curve&&['create_pipe','create_duct'].includes(curve.operationType)){
@@ -80,8 +88,10 @@ function validatePortReservations(operations){
 export function validateOperations(operations) {
   if (!Array.isArray(operations) || operations.length < 1 || operations.length > 1000) throw new Error('A plan needs 1..1000 operations.');
   if(operations.some(op=>op?.operationType==='move_viewport_label')&&operations.length!==1)throw new Error('Viewport label changes must be the only operation in a reviewed plan.');
+  if(operations.some(op=>op?.operationType==='move_lighting_fixtures')&&operations.length!==1)throw new Error('A lighting move must be the only operation in the reviewed plan.');
   const known = new Set(),movedPlacements=new Set(),gridNames=new Set(),newSheetNumbers=new Set();
   for (const op of operations) {
+    if(Object.hasOwn(op,'allowUnassignedEquipmentPort')&&op.operationType!=='connect_elements')throw new Error('allowUnassignedEquipmentPort belongs only to connect_elements.');
     if (!op || typeof op !== 'object' || !OPERATIONS.has(op.operationType)) throw new Error(`Unsupported operation '${op?.operationType}'.`);
     for (const [field, value] of Object.entries(op)) {
       if(op.operationType==='load_family'&&field==='expectedCategoryId')continue;
@@ -98,6 +108,7 @@ export function validateOperations(operations) {
       known.add(op.id);
     }
     switch (op.operationType) {
+      case 'move_lighting_fixtures': validateLightingMove(op); break;
       case 'load_family': loadFamilyOperationSchema.parse(op); break;
       case 'duplicate_architecture_type': validateArchitectureTypeCopy(op); break;
       case 'create_family_instance':
@@ -116,7 +127,7 @@ export function validateOperations(operations) {
         point(op.start); point(op.end);
         if (op.operationType === 'create_wall') { requireField(op,'wallTypeId'); number(op,'heightMm',true); }
         if (op.operationType === 'create_pipe') { requireField(op,'pipeTypeId'); requireField(op,'systemTypeId'); number(op,'diameterMm',true); }
-        if (op.operationType === 'create_duct') { requireField(op,'ductTypeId'); requireField(op,'systemTypeId'); }
+        if (op.operationType === 'create_duct') { requireField(op,'ductTypeId'); requireField(op,'systemTypeId'); validateDuctDimensions(op); }
         break;
       case 'create_floor':
         if (!Array.isArray(op.boundary) || op.boundary.length < 3) throw new Error('Floor needs at least three boundary points.');
@@ -170,7 +181,7 @@ export function validateOperations(operations) {
         if(movedPlacements.has(row.viewportId))throw new Error('A viewport cannot be moved and have its label moved twice in one plan.');
         movedPlacements.add(row.viewportId);break;
       }
-      case 'create_fitting': case 'connect_elements': ['firstElementId','secondElementId'].forEach(f => requireField(op,f)); validateConnectorSelection(op,'first'); validateConnectorSelection(op,'second'); break;
+      case 'create_fitting': case 'connect_elements': for(const prefix of validateConnectionTopology(op))validateConnectorSelection(op,prefix); break;
     }
   }
   validatePortReservations(operations);

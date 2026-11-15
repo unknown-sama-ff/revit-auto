@@ -1,58 +1,17 @@
-# New package build artifacts and private local connection settings
-v27/bin/
-v27/obj/
-v27/build.log
-tests/**/bin/
-tests/**/obj/
-mcp/node_modules/
 runtime/
-imports/
-mcp/*generated*
-
-# Acceptance copies and local test records
+work/
 acceptance/
-v27/build-*.log
-mcp/tests-*.log
-tests/core-*.log
-
-# Proprietary Revit models and source drawings
+**/bin/
+**/obj/
+**/node_modules/
+.dotnet-home/
 *.rvt
 *.rfa
 *.rte
 *.dwg
-*.bak
-*.slog
-
-# Generated exports, local logs and machine-specific manifests
-exports/
 *.log
 *.addin
-
-# Local IDE and OS files
-.vscode/
-.vs/
-.DS_Store
-Thumbs.db
-
-# Root build artifacts
-/bin/
-/obj/
-
-# Generated preview images at repository root
-/*.png
-/*.jpg
-
-# Administrator-local approved proprietary family catalog
-families/library.json
-families/library.json.backup-*
-
-# Local legacy audit/preflight outputs (not public fixtures)
-/audit.json
-/preflight.json
-
-# Local SDK caches, temporary evidence and developer probes
-/.dotnet-home/
-/.tmp/
-**/.tmp/
-/work/
-/mcp/tmp-*.mjs
+!*.addin.example
+imports/
+exports/
+families/

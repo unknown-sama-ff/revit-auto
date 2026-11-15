@@ -18,7 +18,7 @@ internal static class ConnectionPortReservationRules
         foreach(var op in operations)
         {
             ordinal++;var kind=JsonDefaults.String(op,"operationType");
-            if(kind is "connect_elements" or "create_fitting")foreach(var prefix in new[]{"first","second"})
+            if(kind is "connect_elements" or "create_fitting")foreach(var prefix in MepConnectionInputRules.Prefixes(op))
             {
                 var value=JsonDefaults.Get(op,prefix+"ElementId");var owner=value.ValueKind==JsonValueKind.String?value.GetString()!:value.GetRawText();string key;
                 if(created.TryGetValue(owner.TrimStart('@'),out var curve)&&owner.StartsWith('@')&&JsonDefaults.String(curve,"operationType") is "create_pipe" or "create_duct")

@@ -48,6 +48,37 @@ internal static class DimensionCreationReadbackRulesTests
                 receipt.GetProperty("persistenceVerified").GetBoolean() || receipt.GetProperty("visualVerified").GetBoolean())
                 throw new Exception("Receipt overstated its verified geometry scope.");
         });
+        test("grid dimension preserves element input and binds exact native surface readback separately", () =>
+        {
+            var element = new DimensionReferenceReadback("grid-one-uid", 1, -1, "REFERENCE_TYPE_NONE");
+            var curve = new DimensionReferenceReadback("grid-one-uid:0:SURFACE", 1, -1, "REFERENCE_TYPE_SURFACE");
+            var binding = DimensionCreationReadbackRules.BindGridReadbackReference(1, element, element, curve, curve);
+            if (binding.Requested != element || binding.ExpectedReadback != curve || binding.NativeGridElement != element ||
+                binding.ParsedReadback != curve || binding.Kind != "native-grid-element-to-curve-readback")
+                throw new Exception("Grid input evidence was rewritten or native mapping proof was lost.");
+            var secondElement = element with { StableReference = "grid-two-uid", ElementId = 2 };
+            var secondCurve = curve with { StableReference = "grid-two-uid:0:SURFACE", ElementId = 2 };
+            var second = DimensionCreationReadbackRules.BindGridReadbackReference(2, secondElement, secondElement, secondCurve, secondCurve);
+            var actual = Expected() with { References = [curve, secondCurve] };
+            var requested = Expected() with { References = [element, secondElement] };
+            // Replays the previous NONE-versus-SURFACE mismatch, using separately proven expected readback.
+            Reject(() => DimensionCreationReadbackRules.Require(requested, actual));
+            DimensionCreationReadbackRules.Require(requested with { References = [binding.ExpectedReadback, second.ExpectedReadback] }, actual);
+        });
+        test("grid dimension mapping rejects wrong elements links kinds and nonnative representations", () =>
+        {
+            var element = new DimensionReferenceReadback("grid-uid", 1, -1, "REFERENCE_TYPE_NONE");
+            var curve = new DimensionReferenceReadback("grid-uid:0:SURFACE", 1, -1, "REFERENCE_TYPE_SURFACE");
+            foreach (var input in new[] { curve, element with { ElementId = 2 }, element with { LinkedElementId = 5 },
+                element with { StableReference = "other-uid" }, element with { ReferenceType = "REFERENCE_TYPE_LINEAR" } })
+                Reject(() => DimensionCreationReadbackRules.BindGridReadbackReference(1, input, element, curve, curve));
+            foreach (var invalid in new[] { curve with { ElementId = 2 }, curve with { LinkedElementId = 5 },
+                curve with { ReferenceType = "REFERENCE_TYPE_LINEAR" }, curve with { StableReference = "" },
+                curve with { StableReference = new string('x', 4097) }, curve with { StableReference = element.StableReference } })
+                Reject(() => DimensionCreationReadbackRules.BindGridReadbackReference(1, element, element, invalid, invalid));
+            Reject(() => DimensionCreationReadbackRules.BindGridReadbackReference(0, element, element, curve, curve));
+            Reject(() => DimensionCreationReadbackRules.BindGridReadbackReference(1, element, element, curve, curve with { StableReference = "changed" }));
+        });
         test("dimension rejects wrong identity native class type view and unresolved references", () =>
         {
             var expected = Expected();
@@ -154,6 +185,61 @@ internal static class DimensionCreationReadbackRulesTests
             DimensionCreationReadbackRules.RequireStructure(observed);
             Reject(() => DimensionCreationReadbackRules.Require(expected, observed));
             Reject(() => DimensionCreationReadbackRules.Require(observed, expected));
+        });
+        test("dimension defers only transient reference availability until strict post-commit verification", () =>
+        {
+            var expected = Expected();
+            var pending = expected with { AreReferencesAvailable = false };
+            if (!DimensionCreationReadbackRules.CanDeferReferenceResolution(expected, pending))
+                throw new Exception("A sole unavailable-reference state was not identified as pending.");
+            var receipt = JsonSerializer.SerializeToElement(DimensionCreationReadbackRules.PendingReceipt(expected, pending, "immediate-after-creation"), JsonDefaults.Options);
+            if (!receipt.GetProperty("referenceResolutionPending").GetBoolean() || receipt.GetProperty("nativeReadbackVerified").GetBoolean() ||
+                !receipt.GetProperty("referenceMembershipVerified").GetBoolean())
+                throw new Exception("Pending reference resolution was overstated as accepted native readback.");
+            Reject(() => DimensionCreationReadbackRules.Require(expected, pending));
+            if (DimensionCreationReadbackRules.CanDeferReferenceResolution(expected, expected))
+                throw new Exception("A fully available reference set was incorrectly marked pending.");
+            foreach (var invalid in new[] {
+                pending with { ViewId = expected.ViewId + 1 },
+                pending with { TypeId = expected.TypeId + 1 },
+                pending with { References = [expected.References[0]] },
+                pending with { UniqueId = "changed" }
+            })
+            {
+                try { DimensionCreationReadbackRules.CanDeferReferenceResolution(expected, invalid); }
+                catch (BridgeException error) when (error.Code == "invalid_dimension_readback") { continue; }
+                throw new Exception("Reference deferral hid an unrelated native mismatch.");
+            }
+        });
+        test("pending dimension resolution still rejects supporting-line drift in both deferred phases", () =>
+        {
+            var expected = Expected();
+            var pending = expected with { AreReferencesAvailable = false };
+            foreach (var axis in new DimensionAxis[] {
+                new(new(0, 0.011, 0), new(1, 0, 0)),
+                new(new(0, 0, 0.011), new(1, 0, 0)),
+                new(new(0, 0, 0), new(1, 1e-6, 0)) })
+            {
+                var drifted = pending with { Axis = axis };
+                Reject(() => DimensionCreationReadbackRules.CanDeferReferenceResolution(expected, drifted));
+                foreach (var phase in new[] { "immediate-after-creation", "before-transaction-commit" })
+                    Reject(() => DimensionCreationReadbackRules.PendingReceipt(expected, drifted, phase));
+            }
+            var sameLine = pending with { Axis = new(new(500, 0, 0), new(-1, 0, 0)), IsBound = false };
+            foreach (var phase in new[] { "immediate-after-creation", "before-transaction-commit" })
+                DimensionCreationReadbackRules.PendingReceipt(expected, sameLine, phase);
+        });
+        test("pending dimension receipts cannot defer final or unknown phases", () =>
+        {
+            var expected = Expected();
+            var pending = expected with { AreReferencesAvailable = false };
+            foreach (var phase in new[] { "after-transaction-commit", "unknown", "" })
+            {
+                Reject(() => DimensionCreationReadbackRules.PendingReceipt(expected, pending, phase));
+                var receipt = JsonSerializer.SerializeToElement(DimensionCreationReadbackRules.PendingReceipt(expected, expected, phase), JsonDefaults.Options);
+                if (!receipt.GetProperty("nativeReadbackVerified").GetBoolean() || receipt.GetProperty("referenceResolutionPending").GetBoolean())
+                    throw new Exception("Final verification was incorrectly deferred.");
+            }
         });
         test("dimension repeated final verification detects a later operation changing the previously correct result", () =>
         {

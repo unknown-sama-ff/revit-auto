@@ -117,6 +117,7 @@ internal static class FamilyLibraryService
         var asset = Asset(snapshot, input);
         using var file = FamilyLibraryRules.OpenVerified(Root, asset); // Windows sharing lock pins bytes until native loading finishes.
         var existing = Existing(doc, input.ExpectedFamilyName);
+        var existingId = existing?.Id.Value; // LoadFamily may invalidate the old native Family wrapper.
         if (existing is not null && input.ConflictPolicy == "reject") throw new BridgeException("family_already_loaded", "The exact family exists; load conflict strategy changed.");
         if (existing is not null && input.ConflictPolicy == "replace") VerifyExistingReplacementTarget(existing, input);
         if (existing is not null && input.ConflictPolicy == "keep_existing")
@@ -133,7 +134,7 @@ internal static class FamilyLibraryService
         if (family is null) throw new BridgeException("family_load_failed", "Revit did not return the reviewed family; no partial result may commit.");
         Verify(doc, family, input);
         var after = AllFamilyElements(doc);
-        var changed = existing is not null && loaded ? oldTypes.Concat([existing.Id.Value]).Where(after.Contains).Distinct().ToList() : [];
+        var changed = FamilyLibraryRules.ReplacementChangedIds(existingId, oldTypes, after);
         return new(after.Except(before).Order().ToList(), changed) {
             Evidence = NativeEvidence(doc, family, input, loaded ? existing is null ? "loaded-new" : "replaced-existing" : "unchanged-native-file", loaded) };
     }

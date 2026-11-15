@@ -94,17 +94,26 @@ internal static class FamilyLibraryRules
         if (!string.Equals(current, reviewed, StringComparison.OrdinalIgnoreCase))
             throw new BridgeException("family_catalog_changed", "The approved family catalog changed after preview. Read the catalog and review a new plan; no RFA is loaded.");
     }
-    internal static void Relative(string relative)
+    internal static List<long> ReplacementChangedIds(long? existingFamilyId, IEnumerable<long> originalTypeIds, IReadOnlySet<long> survivingIds)
     {
+        if (!existingFamilyId.HasValue) return [];
+        return originalTypeIds.Append(existingFamilyId.Value).Where(survivingIds.Contains).Distinct().ToList();
+    }
+    internal static void Relative(string relative) => Relative(relative, ".rfa");
+    // Audit callers must supply the exact registered kind; loading wrappers stay RFA-only.
+    internal static void Relative(string relative, string expectedExtension)
+    {
+        if (expectedExtension is not (".rfa" or ".rte")) throw Invalid("Unsupported registered asset extension.");
         var parts = relative.Split(['/', '\\']);
         if (Path.IsPathRooted(relative) || relative.Contains(':') || relative.Contains('*') || relative.Contains('?')
             || parts.Any(p => p.Length == 0 || p is "." or ".." || p.EndsWith(' ') || p.EndsWith('.'))
-            || !string.Equals(Path.GetExtension(relative), ".rfa", StringComparison.OrdinalIgnoreCase))
-            throw Invalid("Registered relativePath must stay inside the local family library and end in .rfa.");
+            || !string.Equals(Path.GetExtension(relative), expectedExtension, StringComparison.OrdinalIgnoreCase))
+            throw Invalid("Registered relativePath must stay inside the local family library and end in " + expectedExtension + ".");
     }
-    internal static string Resolve(string root, string relative)
+    internal static string Resolve(string root, string relative) => Resolve(root, relative, ".rfa");
+    internal static string Resolve(string root, string relative, string expectedExtension)
     {
-        Relative(relative);
+        Relative(relative, expectedExtension);
         var fullRoot = Path.GetFullPath(root);
         var path = Path.GetFullPath(Path.Combine(fullRoot, relative));
         if (!path.StartsWith(fullRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
@@ -124,16 +133,22 @@ internal static class FamilyLibraryRules
         }
     }
     internal static FileStream OpenVerified(string root, FamilyAsset asset)
+        => OpenVerified(root, asset.RelativePath, asset.Sha256);
+    // Read-only metadata consumers reuse the same path/hash guard without inventing
+    // expected native family metadata or changing any loading policy.
+    internal static FileStream OpenVerified(string root, string relativePath, string sha256)
+        => OpenVerified(root, relativePath, sha256, ".rfa");
+    internal static FileStream OpenVerified(string root, string relativePath, string sha256, string expectedExtension)
     {
-        var path = Resolve(root, asset.RelativePath);
-        if (!File.Exists(path)) throw new BridgeException("family_asset_missing", "Registered RFA is missing from the local family library.");
+        var path = Resolve(root, relativePath, expectedExtension);
+        if (!File.Exists(path)) throw new BridgeException("family_asset_missing", "Registered asset is missing from the local family library.");
         FileStream? stream = null;
         try
         {
             stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (stream.Length is <= 0 or > MaxFileBytes) throw Invalid("Approved RFA must be nonempty and at most 100 MB.");
+            if (stream.Length is <= 0 or > MaxFileBytes) throw Invalid("Approved asset must be nonempty and at most 100 MB.");
             var hash = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-            if (hash != asset.Sha256) throw new BridgeException("family_asset_changed", "Registered RFA bytes no longer match the reviewed SHA-256.");
+            if (hash != sha256) throw new BridgeException("family_asset_changed", "Registered asset bytes no longer match the reviewed SHA-256.");
             stream.Position = 0;
             return stream;
         }

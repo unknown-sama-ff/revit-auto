@@ -18,7 +18,7 @@ test('transaction warnings are captured and returned to chat instead of asking i
 test('MCP confirmation instructions require one chat approval and no new confirmation input',async t=>{
   const client=new Client({name:'chat-confirmation-contract',version:'1.0'});
   t.after(()=>client.close());
-  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(root,'mcp/revit-custom.mjs')],stderr:'pipe'}));
+  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(root,'mcp/revit-custom.mjs')],env:{REVIT_AI_EXECUTION_AUTHORIZATION:path.join(root,'work','manual-chat-contract-'+process.pid+'.json')},stderr:'pipe'}));
   const list=await client.listTools();
   for(const name of ['revit_plan_confirm','revit_import_commit']){
     const tool=list.tools.find(t=>t.name===name);

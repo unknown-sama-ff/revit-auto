@@ -15,6 +15,9 @@ const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_ROWS = 1000;
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', parseTagValue: false, processEntities: true });
 const array = value => value === undefined ? [] : Array.isArray(value) ? value : [value];
+// Private provenance survives the parser -> mapper handoff without becoming a
+// user field, operation property, or serializable part of a parameter value.
+const sourceRows = new WeakMap();
 function within(root, file) { const relative = path.relative(root, file); return relative === '' || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative)); }
 export async function permittedPath(file) {
   if(typeof file!=='string'||!file||/^(?:\\|\/\/|https?:|file:)/i.test(file))throw new Error('Imports require a local filesystem path; network shares and URLs are not accepted.');
@@ -30,28 +33,33 @@ export async function permittedPath(file) {
 }
 export function parseDelimited(input, separator = ',') {
   input = input.replace(/^\uFEFF/, '');
-  const rows = []; let row = []; let field = ''; let quoted = false; let closed = false;
+  const rows = [], locations = []; let row = []; let field = ''; let quoted = false; let closed = false;
+  let line = 1, recordStart = 1;
   const push = () => { row.push(field); field = ''; closed = false; };
+  const finish = () => { push(); if (row.some(v => v !== '')) { rows.push(row); locations.push(recordStart); } row = []; };
   for (let i = 0; i < input.length; i++) {
     const c = input[i];
-    if (quoted) { if (c === '"') { if (input[i+1] === '"') {field += '"'; i++;} else { quoted = false; closed = true; } } else field += c; continue; }
+    if (quoted) { if (c === '"') { if (input[i+1] === '"') {field += '"'; i++;} else { quoted = false; closed = true; } } else { field += c; if (c === '\r' || c === '\n' && input[i-1] !== '\r') line++; } continue; }
     if (c === '"') { if (field || closed) throw new Error('Malformed CSV quote.'); quoted = true; }
     else if (c === separator) push();
-    else if (c === '\r' || c === '\n') { if (c === '\r' && input[i+1] === '\n') i++; push(); if (row.some(v => v !== '')) rows.push(row); row = []; }
+    else if (c === '\r' || c === '\n') { if (c === '\r' && input[i+1] === '\n') i++; finish(); line++; recordStart = line; }
     else { if (closed) throw new Error('Unexpected text after CSV closing quote.'); field += c; }
   }
   if (quoted) throw new Error('CSV contains an unterminated quoted field.');
-  if (field || row.length || closed) { push(); if (row.some(v => v !== '')) rows.push(row); }
-  return records(rows);
+  if (field || row.length || closed) finish();
+  return records(rows, locations);
 }
-function records(matrix) {
+function records(matrix, locations) {
   if (!matrix.length) throw new Error('Input table is empty.');
   const headers = matrix[0].map(v => String(v).trim());
   if (headers.some(h => !h) || new Set(headers).size !== headers.length) throw new Error('Headers must be non-empty and unique.');
   if (matrix.length - 1 > MAX_ROWS) throw new Error(`Table exceeds ${MAX_ROWS} rows.`);
   return matrix.slice(1).map((values,i) => {
-    if (values.length > headers.length || values.length < headers.length) throw new Error(`Row ${i+2} has ${values.length} cells; expected ${headers.length}.`);
-    return Object.fromEntries(headers.map((h,index) => [h,values[index]]));
+    const sourceRow = locations?.[i+1] ?? i+2;
+    if (values.length > headers.length || values.length < headers.length) throw new Error(`Row ${sourceRow} has ${values.length} cells; expected ${headers.length}.`);
+    const record = Object.fromEntries(headers.map((h,index) => [h,values[index]]));
+    sourceRows.set(record, sourceRow);
+    return record;
   });
 }
 export function readXlsx(bytes, sheetName) {
@@ -87,25 +95,38 @@ export function readXlsx(bytes, sheetName) {
   if (!relationship || relationship['@_TargetMode'] === 'External') throw new Error('Invalid worksheet relationship.');
   const target = relationship['@_Target']; const sheetPath = target.startsWith('/') ? target.slice(1) : path.posix.normalize('xl/' + target);
   const shared = entries['xl/sharedStrings.xml'] ? array(parse('xl/sharedStrings.xml').sst?.si).map(si => si.t?.['#text'] ?? si.t ?? array(si.r).map(r => r.t?.['#text'] ?? r.t ?? '').join('')) : [];
-  const worksheet = parse(sheetPath); const matrix = [];
+  const worksheet = parse(sheetPath); const matrix = [], locations = [];
+  let previousRow = 0;
+  const rowLocation = value => {
+    if (!/^[1-9][0-9]*$/.test(String(value)) || !Number.isSafeInteger(Number(value))) throw new Error('Invalid XLSX row location.');
+    return Number(value);
+  };
   for (const row of array(worksheet.worksheet?.sheetData?.row)) {
     const cells = [];
+    let sourceRow = row['@_r'] === undefined ? undefined : rowLocation(row['@_r']);
     for (const cell of array(row.c)) {
       if (cell.f !== undefined) throw new Error(`Formula in cell ${cell['@_r']} must be replaced by an explicit reviewed value.`);
-      const match = /^([A-Z]+)[0-9]+$/.exec(cell['@_r']); if (!match) throw new Error('Invalid cell address.');
+      const match = /^([A-Z]+)([1-9][0-9]*)$/.exec(cell['@_r']); if (!match) throw new Error('Invalid cell address.');
+      const cellRow = rowLocation(match[2]);
+      if (sourceRow === undefined) sourceRow = cellRow;
+      else if (sourceRow !== cellRow) throw new Error(`XLSX row ${sourceRow} contradicts cell address ${cell['@_r']}.`);
       let index = 0; for (const c of match[1]) index = index*26 + c.charCodeAt(0)-64; index--;
       if (index > 100) throw new Error('Import tables may contain at most 101 columns.');
+      if (Object.hasOwn(cells,index)) throw new Error(`Duplicate XLSX cell address ${cell['@_r']}.`);
       let value = cell.v ?? '';
       if (cell['@_t'] === 's') value = shared[Number(value)] ?? '';
       if (cell['@_t'] === 'inlineStr') value = cell.is?.t?.['#text'] ?? cell.is?.t ?? array(cell.is?.r).map(r => r.t ?? '').join('');
       if (cell['@_t'] === 'e') throw new Error(`Spreadsheet error at ${cell['@_r']}.`);
       cells[index] = value;
     }
-    if (cells.some(v => v !== '')) matrix.push(cells);
+    sourceRow ??= previousRow + 1;
+    if (!Number.isSafeInteger(sourceRow) || sourceRow <= previousRow) throw new Error('XLSX row locations must be strictly increasing.');
+    previousRow = sourceRow;
+    if (cells.some(v => v !== '')) { matrix.push(cells); locations.push(sourceRow); }
   }
   if (!matrix.length) throw new Error('Worksheet contains no data.');
   const width = matrix[0].length;
-  return records(matrix.map(r => Array.from({length: Math.max(width,r.length)}, (_,i) => r[i] ?? '')));
+  return records(matrix.map(r => Array.from({length: Math.max(width,r.length)}, (_,i) => r[i] ?? '')), locations);
 }
 const numericFields = new Set(['xMm','yMm','zMm','elevationMm','heightMm','widthMm','diameterMm','rotationDegrees','scale']);
 function tableRecord(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -165,13 +186,22 @@ function referencedPriorIds(op, known) {
   if(Array.isArray(op.dependencies))for(const dependency of op.dependencies)if(known.has(dependency))refs.add(dependency);
   return refs;
 }
+function decodeParameterJsonCell(encoded) {
+  if(typeof encoded!=='string'||!encoded.trim())throw new Error('valueJson must be a nonblank JSON text cell.');
+  let value;try{value=JSON.parse(encoded);}catch{throw new Error('valueJson contains invalid JSON.');}
+  const scalar=typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value)||typeof value==='string'&&value.length>0;
+  const unit=tableRecord(value)&&Object.keys(value).length===2&&Object.hasOwn(value,'value')&&Object.hasOwn(value,'unit')&&
+    typeof value.value==='number'&&Number.isFinite(value.value)&&typeof value.unit==='string'&&value.unit.trim().length>0;
+  if(!scalar&&!unit)throw new Error('valueJson requires a nonempty JSON scalar or an exact {value: finite number, unit: nonblank string} object.');
+  return value;
+}
 export function mapRows(rows, mapping = {}, defaults = {}) {
   if (!Array.isArray(rows) || rows.length < 1 || rows.length > MAX_ROWS) throw new Error(`Provide 1..${MAX_ROWS} table rows.`);
   if(!tableRecord(mapping)||!tableRecord(defaults))return {operations:[],issues:[{field:!tableRecord(mapping)?'mapping':'defaults',message:'Table mapping and defaults must be objects.'}]};
   const issues=[],operations=[],operationRows=[],known=new Set();
   const destinations=Object.entries(mapping);
   Array.from(rows).forEach((row,index)=>{
-    const rowNumber=index+2;
+    const rowNumber=sourceRows.get(row)??index+2;
     if(!tableRecord(row)){issues.push({row:rowNumber,field:'row',message:'Each table row must be an object.'});return;}
     let op;
     const rowIssues=[];
@@ -186,6 +216,7 @@ export function mapRows(rows, mapping = {}, defaults = {}) {
         else op[destination]=row[column];
       }
     }
+    const hasJsonValue=Object.hasOwn(op,'valueJson'),encodedJsonValue=op.valueJson,hasLiteralValue=Object.hasOwn(op,'value');
     for(const [field,value] of Object.entries(op)){
       if(value===''||value===undefined||value===null){delete op[field];continue;}
       if(typeof value==='string'&&(numericFields.has(field)||/Id$/.test(field)&&!value.startsWith('@'))){
@@ -196,6 +227,13 @@ export function mapRows(rows, mapping = {}, defaults = {}) {
       if(typeof value==='string'&&['parameters','boundary','start','end','elementIds','fields','bends','point','dependencies','settings','paperPoint','cropBounds','firstConnector','secondConnector','references'].includes(field)){
         try{op[field]=JSON.parse(value);}catch(error){rowIssues.push({row:rowNumber,field,message:`${field} contains invalid JSON: ${error.message}`});}
       }
+    }
+    if(hasJsonValue){
+      delete op.valueJson;
+      const issue=message=>rowIssues.push({row:rowNumber,field:'valueJson',...(Object.hasOwn(mapping,'valueJson')?{column:mapping.valueJson}:{}),message});
+      if(op.operationType!=='set_parameter')issue('valueJson is an import-only value field for set_parameter.');
+      else if(hasLiteralValue)issue('Choose exactly one of value and valueJson; neither representation silently overrides the other.');
+      else{try{op.value=decodeParameterJsonCell(encodedJsonValue);}catch(error){issue(error.message);}}
     }
     if(op.dependencies!==undefined&&!Array.isArray(op.dependencies)&&!rowIssues.some(issue=>issue.field==='dependencies'))
       rowIssues.push({row:rowNumber,field:'dependencies',message:'dependencies must be an array of earlier operation IDs.'});

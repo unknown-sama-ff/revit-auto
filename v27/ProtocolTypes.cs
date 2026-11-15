@@ -151,6 +151,7 @@ internal static class PlanRules
     public const int MaxOperations = 1000;
     public static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
+        "move_lighting_fixtures",
         "create_family_instance", "duplicate_type", "duplicate_architecture_type", "set_parameter", "delete_element", "load_family",
         "create_level", "create_grid", "create_structural_column", "create_wall", "create_floor", "create_opening", "create_room", "create_stair",
         "create_circuit", "create_wire", "create_view_plan", "create_sheet", "create_schedule",
@@ -168,10 +169,13 @@ internal static class PlanRules
             if (type is null || !Supported.Contains(type)) throw new BridgeException("unsupported_operation", $"Unsupported operation '{type}'.");
             CheckReferences(op, known);
             var key = JsonDefaults.String(op, "id");
+            if (op.TryGetProperty("allowUnassignedEquipmentPort", out _) && type != "connect_elements")
+                throw new BridgeException("invalid_connection_input", "allowUnassignedEquipmentPort belongs only to connect_elements.");
             if (key is not null && (key.Length > 80 || !known.Add(key) || string.IsNullOrWhiteSpace(key)))
                 throw new BridgeException("invalid_operation_id", $"Duplicate or invalid operation id '{key}'.");
             switch (type)
             {
+                case "move_lighting_fixtures": LightingMoveRules.Parse(op); break;
                 case "load_family": FamilyLibraryRules.Operation(op); break;
                 case "create_family_instance":
                     RequireAny(op, "symbolId", "family");
@@ -187,7 +191,7 @@ internal static class PlanRules
                     Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end"));
                     if (type == "create_wall") Positive(op, "heightMm");
                     if (type == "create_pipe") { Require(op, "pipeTypeId"); Require(op, "systemTypeId"); Positive(op, "diameterMm"); }
-                    if (type == "create_duct") { Require(op, "ductTypeId"); Require(op, "systemTypeId"); }
+                    if (type == "create_duct") { Require(op, "ductTypeId"); Require(op, "systemTypeId"); DuctDimensions(op); }
                     break;
                 case "create_floor":
                     if (JsonDefaults.Array(op, "boundary").Count() < 3) throw new BridgeException("invalid_geometry", "Floor boundary needs 3+ points.");
@@ -213,12 +217,13 @@ internal static class PlanRules
                 case "move_drawing_placement": DrawingPlacementRules.Validate(op); break;
                 case "move_viewport_label": ViewportLabelRules.Validate(op); break;
                 case "change_titleblock_type": TitleBlockChangeRules.Validate(op); break;
-                case "connect_elements": case "create_fitting": Require(op, "firstElementId"); Require(op, "secondElementId"); ConnectorSelectionRules.ValidateSelection(op,"first"); ConnectorSelectionRules.ValidateSelection(op,"second"); break;
+                case "connect_elements": case "create_fitting": MepConnectionInputRules.Validate(op); break;
             }
         }
         ConnectionPortReservationRules.ValidatePlan(operations);
         DrawingPlacementRules.ValidatePlan(operations);
         ViewportLabelRules.ValidatePlan(operations);
+        LightingMoveRules.ValidatePlan(operations);
         TitleBlockChangeRules.ValidatePlan(operations);
         ArchitectureRules.ValidatePlan(operations);
         ArchitectureTypeCopyRules.ValidatePlan(operations);
@@ -275,6 +280,16 @@ internal static class PlanRules
     private static void Positive(JsonElement op, string name)
     {
         if (Number(op, name) <= 0) throw new BridgeException("invalid_number", $"{name} must be positive.");
+    }
+    private static void DuctDimensions(JsonElement op)
+    {
+        var diameter = op.TryGetProperty("diameterMm", out _);
+        var width = op.TryGetProperty("widthMm", out _);
+        var height = op.TryGetProperty("heightMm", out _);
+        foreach (var field in new[] { "diameterMm", "widthMm", "heightMm" })
+            if (op.TryGetProperty(field, out _)) Positive(op, field);
+        if (diameter ? width || height : !width || !height)
+            throw new BridgeException("invalid_duct_dimensions", "Duct requires either diameterMm or paired widthMm and heightMm, without mixing specifications.");
     }
     public static void Point(JsonElement p)
     {

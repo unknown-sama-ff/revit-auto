@@ -1,0 +1,1427 @@
+{
+  "schemaVersion": 1,
+  "kind": "reusable-agent-source",
+  "generatedAtUtc": "2026-11-15T18:53:59.693Z",
+  "publicationPerformed": false,
+  "counts": {
+    "files": 234,
+    "productionModules": 49,
+    "auxiliaryModules": 1,
+    "includedModules": 64,
+    "nativeSources": 147,
+    "portableTestFiles": 14
+  },
+  "externalPackages": [
+    "@modelcontextprotocol/sdk",
+    "fast-xml-parser",
+    "fflate",
+    "zod"
+  ],
+  "notes": [
+    "Publish only this clean tree; the development checkout and its Git history are not sanitized.",
+    "No native Revit acceptance is implied by source export or portable tests.",
+    "No private execution authorization, models, credentials or native acceptance records are included."
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/validate.yml",
+      "source": "public-docs/validate.yml",
+      "bytes": 926,
+      "sha256": "a720d1dbc9457d8e3f199f66c32d2d0ecf741619799f660212fc662d57c37376"
+    },
+    {
+      "path": ".gitignore",
+      "source": null,
+      "transform": "public-runtime-exclusions",
+      "bytes": 157,
+      "sha256": "b04a431d3d25ac994b3737c08d0d8cfd2c8b4c944edebb8e313eb27daf7199ae"
+    },
+    {
+      "path": "AGENTS.md",
+      "source": "public-docs/AGENTS.md",
+      "bytes": 3792,
+      "sha256": "c31d19752b73375b79c40f197470abf12c474f503d8dda86346af22842919c0e"
+    },
+    {
+      "path": "build-v27.ps1",
+      "source": "build-v27.ps1",
+      "bytes": 1955,
+      "sha256": "3e3582eefe0d717e0571a47055fe4d3e15e13c0c5ead0fe63273ada3240dd8ea"
+    },
+    {
+      "path": "docs/agent-modeling-guide.md",
+      "source": "public-docs/agent-modeling-guide.md",
+      "bytes": 8891,
+      "sha256": "fb825cff9417ec65da70145c973bef8e199a845b967a9c28150be2ee12d5f2d4"
+    },
+    {
+      "path": "install-codex-revit-custom.ps1",
+      "source": "install-codex-revit-custom.ps1",
+      "bytes": 6620,
+      "sha256": "b47c61983ab9851219e7dc4cd3efb741a85fafa548404984845536b2022a4ee9"
+    },
+    {
+      "path": "install-v27.ps1",
+      "source": "install-v27.ps1",
+      "bytes": 10234,
+      "sha256": "85bbb4281721bcfcf7622f455dc83be809f66a416e73d98d085f264a1e7ab1ed"
+    },
+    {
+      "path": "LICENSE",
+      "source": "LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "mcp/annotation-input.mjs",
+      "source": "mcp/annotation-input.mjs",
+      "bytes": 1475,
+      "sha256": "34f5e1fa4b6c1c16af9b06458bdae39ce8c6585044bbd484d402151e63720623"
+    },
+    {
+      "path": "mcp/architecture-rules.mjs",
+      "source": "mcp/architecture-rules.mjs",
+      "bytes": 3185,
+      "sha256": "11f0b8b62c9de13a1cc67cd65fb5faff14ca04f120c036d16670579503060c5b"
+    },
+    {
+      "path": "mcp/architecture-type-copy.mjs",
+      "source": "mcp/architecture-type-copy.mjs",
+      "bytes": 6438,
+      "sha256": "b6e25edfddac57cab62e4f774e328736890e06a4c2fc4025e8d3ee24daec9785"
+    },
+    {
+      "path": "mcp/argument-diagnostics.mjs",
+      "source": "mcp/argument-diagnostics.mjs",
+      "bytes": 1941,
+      "sha256": "9d1b1d36e8b5efc18f06d1dba4a261e0f8fc68677a34bb50d5a9fd2a5baa81ad"
+    },
+    {
+      "path": "mcp/bridge.mjs",
+      "source": "mcp/bridge.mjs",
+      "bytes": 13666,
+      "sha256": "43e433db971329a1254be25015e4b0d06ed35063d7a96f837148750fbc050925"
+    },
+    {
+      "path": "mcp/candidate-planning.mjs",
+      "source": "mcp/candidate-planning.mjs",
+      "bytes": 9181,
+      "sha256": "5b3ee91c4c20c914c4576de8c5323fac87ba11205882e805bee590946bf1499f"
+    },
+    {
+      "path": "mcp/collision-request.mjs",
+      "source": "mcp/collision-request.mjs",
+      "bytes": 1375,
+      "sha256": "9b049ce5082011957c9c5dad9b51235163b48fe7c2dfe0c5f662816c463c9388"
+    },
+    {
+      "path": "mcp/diagnostic-results.mjs",
+      "source": "mcp/diagnostic-results.mjs",
+      "bytes": 8100,
+      "sha256": "88a21158999dc5276c58f6647b5c4f45793d4be952e7f44566ebb120d43acefa"
+    },
+    {
+      "path": "mcp/diagnostics-query.mjs",
+      "source": "mcp/diagnostics-query.mjs",
+      "bytes": 9226,
+      "sha256": "58603aaeedadc7604df57d34e6aab655d2015aab72d3653a1663c4081e1bfb05"
+    },
+    {
+      "path": "mcp/document-lifecycle.mjs",
+      "source": "mcp/document-lifecycle.mjs",
+      "bytes": 17372,
+      "sha256": "935473e7636aa7bab2a439703540ec1ab97e4a5bcd7d56cb4a8bd51239c020c9"
+    },
+    {
+      "path": "mcp/document-version-diff.mjs",
+      "source": "mcp/document-version-diff.mjs",
+      "bytes": 4326,
+      "sha256": "ef8284133559a42953aad5a7f2f87fcdc57a0302cfc912e835cca4a3fb275e63"
+    },
+    {
+      "path": "mcp/drawing-candidates.mjs",
+      "source": "mcp/drawing-candidates.mjs",
+      "bytes": 10299,
+      "sha256": "1ffd5f59435959cb9c5778a2e100c632c45dac54da39847819d1d0834467a2d4"
+    },
+    {
+      "path": "mcp/drawing-placement.mjs",
+      "source": "mcp/drawing-placement.mjs",
+      "bytes": 13391,
+      "sha256": "2e280495380c37311793ee9c3e851624c250d113d6b22adbcee07fc0a674ca5a"
+    },
+    {
+      "path": "mcp/electrical-audit.mjs",
+      "source": "mcp/electrical-audit.mjs",
+      "bytes": 4336,
+      "sha256": "d6da643851619611976cd0655e7a38ae48f46dec67396188e0091d80570d2e84"
+    },
+    {
+      "path": "mcp/electrical-circuit.mjs",
+      "source": "mcp/electrical-circuit.mjs",
+      "bytes": 10123,
+      "sha256": "45630747a8a03766e159520b5b910487e9207d15bf6961c37d7c3a6fbbc84a93"
+    },
+    {
+      "path": "mcp/electrical-sheet.mjs",
+      "source": "mcp/electrical-sheet.mjs",
+      "bytes": 18939,
+      "sha256": "20bd76c2e17e0cfadaf987f68389ad4fdd07b99d98034d4e657b207cb622a200"
+    },
+    {
+      "path": "mcp/electrical-wire.mjs",
+      "source": "mcp/electrical-wire.mjs",
+      "bytes": 6114,
+      "sha256": "a0eab4b7b42684d8f37c0c6f91cbd52022c4e964bb8eeca085b873c6ca41b1ab"
+    },
+    {
+      "path": "mcp/element-dependencies.mjs",
+      "source": "mcp/element-dependencies.mjs",
+      "bytes": 7381,
+      "sha256": "a46f58a85f477932a68efff937d2d5e09564419c5ce857ec1974cb8da12dd53e"
+    },
+    {
+      "path": "mcp/element-storage-audit.mjs",
+      "source": "mcp/element-storage-audit.mjs",
+      "bytes": 7558,
+      "sha256": "7aaebe386276d61d2e81a406211796dd76beec6b0ac31a6869c760d81c7924c2"
+    },
+    {
+      "path": "mcp/execution-authorization-setup.mjs",
+      "source": "mcp/execution-authorization-setup.mjs",
+      "bytes": 8629,
+      "sha256": "227ff7d47eda1dbc524aae3950fcdd3ee674df8f3b117cd78ead6edc68a18418"
+    },
+    {
+      "path": "mcp/execution-authorization.mjs",
+      "source": "mcp/execution-authorization.mjs",
+      "bytes": 13766,
+      "sha256": "f40223614f9a82c82abf1836d6c7e85e95d252012994e98da6c038786bee4675"
+    },
+    {
+      "path": "mcp/export-dwg.ps1",
+      "source": "mcp/export-dwg.ps1",
+      "bytes": 5359,
+      "sha256": "011f8a95edb63748b56cbd9766a810a63d02ab5c782ab980aadebe59b247b69a"
+    },
+    {
+      "path": "mcp/external-family-metadata.mjs",
+      "source": "mcp/external-family-metadata.mjs",
+      "bytes": 10430,
+      "sha256": "b6a510dfb4758840eeb8ebb0b3801f8680f11223e36cfd7e7bad1faa60ea04fa"
+    },
+    {
+      "path": "mcp/family-audit.mjs",
+      "source": "mcp/family-audit.mjs",
+      "bytes": 4025,
+      "sha256": "477584d42fdbff220ab6c0bb677105166aff2941c54bb7425ae2c1e1fe9eb3b9"
+    },
+    {
+      "path": "mcp/family-load.mjs",
+      "source": "mcp/family-load.mjs",
+      "bytes": 7168,
+      "sha256": "912b99ce4e3da9da85029dd7c97d440545993cd3104d39951d0bf00e83b58a98"
+    },
+    {
+      "path": "mcp/family-text.mjs",
+      "source": "mcp/family-text.mjs",
+      "bytes": 9587,
+      "sha256": "59e4554c5a748a609810e7408ffdb14574cd29a3bba267c3874ea5ed45e25157"
+    },
+    {
+      "path": "mcp/imports.mjs",
+      "source": "mcp/imports.mjs",
+      "bytes": 22162,
+      "sha256": "17110aa6194d94a5e0ad102ffcd479fc47b66eb427d66b0c916c68d3cf232650"
+    },
+    {
+      "path": "mcp/LICENSE",
+      "source": "mcp/LICENSE",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "mcp/lighting-footprint.mjs",
+      "source": "mcp/lighting-footprint.mjs",
+      "bytes": 3673,
+      "sha256": "b7aca2dc3bb5d6def0119e24bbb10f037efbb5623ea5760f1208edaa3b8d308a"
+    },
+    {
+      "path": "mcp/lighting-move.mjs",
+      "source": "mcp/lighting-move.mjs",
+      "bytes": 2252,
+      "sha256": "43fb2d68f646d0a44367dc6259c9ae9bb198bf396333ae2c2e3cc92fa408868b"
+    },
+    {
+      "path": "mcp/lighting-scene.mjs",
+      "source": "mcp/lighting-scene.mjs",
+      "bytes": 8410,
+      "sha256": "780f96167d5181615260d7ba8d15f179b9195c2c9711f07a30230e869bc07461"
+    },
+    {
+      "path": "mcp/mep-connection-contracts.mjs",
+      "source": "mcp/mep-connection-contracts.mjs",
+      "bytes": 1702,
+      "sha256": "8582353a0e338a311efb229622c42dd04829bb473d04b0b227c204386d0df683"
+    },
+    {
+      "path": "mcp/mep-readonly.mjs",
+      "source": "mcp/mep-readonly.mjs",
+      "bytes": 9912,
+      "sha256": "12d86e304ec5a64ddf69c9e3c9e8a28c220e736b8c4540535b0dd76dcbd6b754"
+    },
+    {
+      "path": "mcp/model-audit.mjs",
+      "source": "mcp/model-audit.mjs",
+      "bytes": 3593,
+      "sha256": "fee026b778d57f2661749e970bd7ee388bc53587e1e6e8cb2d34c035b5bff6ee"
+    },
+    {
+      "path": "mcp/opening-planning.mjs",
+      "source": "mcp/opening-planning.mjs",
+      "bytes": 2811,
+      "sha256": "8171e7ef3e60034a5086bb0da7130145748ae37164e3cac9dd301089311922b0"
+    },
+    {
+      "path": "mcp/opening-rules.mjs",
+      "source": "mcp/opening-rules.mjs",
+      "bytes": 4877,
+      "sha256": "6fdd1593bc21effba197e629c731c2bdd87b3217f9a0d7095efb94f9f450d748"
+    },
+    {
+      "path": "mcp/package-lock.json",
+      "source": "mcp/package-lock.json",
+      "bytes": 46905,
+      "sha256": "271e67df52bd80afb2d1696f5e4c8890917d3d1a920e17dffb3cca2c938c7c68"
+    },
+    {
+      "path": "mcp/package.json",
+      "source": "mcp/package.json",
+      "transform": "public-portable-test-selection",
+      "bytes": 560,
+      "sha256": "9d718151da05baf0730e72b3041f35e18b4ff9f62f9cf64ac2571d886f6d4856"
+    },
+    {
+      "path": "mcp/parameter-import.mjs",
+      "source": "mcp/parameter-import.mjs",
+      "bytes": 6648,
+      "sha256": "7c15da3a33c98d2527ebee444b713026a5bd8c9a2967c982395a532cb8e98fd3"
+    },
+    {
+      "path": "mcp/planning-mode.mjs",
+      "source": "mcp/planning-mode.mjs",
+      "bytes": 1412,
+      "sha256": "0d1633dc35a86e86b52cb1f30fab15572e63df114b5e18ae9e03efbf11ce96b6"
+    },
+    {
+      "path": "mcp/pump-planning.mjs",
+      "source": "mcp/pump-planning.mjs",
+      "bytes": 13205,
+      "sha256": "7e724da410ce52176a249d77bea0a4ae5225f96b3549dc62427eec588106fc26"
+    },
+    {
+      "path": "mcp/registered-planning.mjs",
+      "source": "mcp/registered-planning.mjs",
+      "bytes": 13065,
+      "sha256": "a9c05dee4e61a4470ceaeb6ea5962546b5480d18acf0c0034672375e56ac0784"
+    },
+    {
+      "path": "mcp/revit-custom.mjs",
+      "source": "mcp/revit-custom.mjs",
+      "bytes": 41254,
+      "sha256": "3ff3f3492fb126049c532851dfb471c6ca8de8012b2ab970e985a48de18fa625"
+    },
+    {
+      "path": "mcp/room-lighting.mjs",
+      "source": "mcp/room-lighting.mjs",
+      "bytes": 6034,
+      "sha256": "cdaabe63b9062e08a01ad8ba841cb64bf1ad8061e857753a9ac85d3a1f47f849"
+    },
+    {
+      "path": "mcp/saved-verification.mjs",
+      "source": "mcp/saved-verification.mjs",
+      "bytes": 4077,
+      "sha256": "fa7f66f779ed1c72c4a6823694ae9baa308bccca7c8c47511b4d6943e845aaf2"
+    },
+    {
+      "path": "mcp/sheet-layout.mjs",
+      "source": "mcp/sheet-layout.mjs",
+      "bytes": 12439,
+      "sha256": "f1491f6336990e2afb953ef9f82169e1ad772b5369013642183084879f85f333"
+    },
+    {
+      "path": "mcp/stair-connections.mjs",
+      "source": "mcp/stair-connections.mjs",
+      "bytes": 6084,
+      "sha256": "314cc2f2f148ee97bddf851fd73147b567727a1d9701ae7e0025bb2e87d4fce4"
+    },
+    {
+      "path": "mcp/stair-planning.mjs",
+      "source": "mcp/stair-planning.mjs",
+      "bytes": 3546,
+      "sha256": "614f40abf3312151b981a5cb4189a3e5feea8e9f79907f423ee675864e5d89c6"
+    },
+    {
+      "path": "mcp/stair-rules.mjs",
+      "source": "mcp/stair-rules.mjs",
+      "bytes": 3677,
+      "sha256": "2b93a8e53bf451707a0bb2a6f3142c2cdf23038c367d5817c721b5154dd59544"
+    },
+    {
+      "path": "mcp/tests/annotation-input.test.mjs",
+      "source": "mcp/tests/annotation-input.test.mjs",
+      "bytes": 2941,
+      "sha256": "7a7cdcebc0c93fc8fb4acd0f9a38f5513124f6fed01fae5f4c9dc3a722ab0051"
+    },
+    {
+      "path": "mcp/tests/bridge.test.mjs",
+      "source": "mcp/tests/bridge.test.mjs",
+      "bytes": 36334,
+      "sha256": "ac9ba84262bf2feca37fe468b06feef3430b44f98af2ccd06d4a526df5a9f9c4"
+    },
+    {
+      "path": "mcp/tests/chat-confirmation.test.mjs",
+      "source": "mcp/tests/chat-confirmation.test.mjs",
+      "bytes": 1989,
+      "sha256": "735730cc4e30cacb0143142f54e828d233d6ae82fbdb2074b94815c69d96deee"
+    },
+    {
+      "path": "mcp/tests/connector-selection.test.mjs",
+      "source": "mcp/tests/connector-selection.test.mjs",
+      "bytes": 2022,
+      "sha256": "b981337869848c804fadd6b3ae261cead90daef4db7449a13ee2801431594985"
+    },
+    {
+      "path": "mcp/tests/execution-authorization-setup.test.mjs",
+      "source": "mcp/tests/execution-authorization-setup.test.mjs",
+      "bytes": 8366,
+      "sha256": "a4c9f48b3a7b1632b5c0e2ccbac272b74ea56a7baf4c0c9be3f9a5e6fbc8af8a"
+    },
+    {
+      "path": "mcp/tests/family-audit.test.mjs",
+      "source": "mcp/tests/family-audit.test.mjs",
+      "bytes": 6060,
+      "sha256": "2d4d4fd92fa8de9069fdf65b00ecca5437d7a2bf6cebee3a5d3831a237d69a6b"
+    },
+    {
+      "path": "mcp/tests/imports.test.mjs",
+      "source": "mcp/tests/imports.test.mjs",
+      "bytes": 3913,
+      "sha256": "01f763c21886bef8e19a3a87a0da1de365bddde68b97c1f1340fe0acc79275ff"
+    },
+    {
+      "path": "mcp/tests/lighting-footprint.test.mjs",
+      "source": "mcp/tests/lighting-footprint.test.mjs",
+      "bytes": 5060,
+      "sha256": "8540e8ccbd57c42202704104139f83d54c6682274175d84d5cd11afaf5738c81"
+    },
+    {
+      "path": "mcp/tests/mep-connection-topology.test.mjs",
+      "source": "mcp/tests/mep-connection-topology.test.mjs",
+      "bytes": 4654,
+      "sha256": "10428f86ef809ed79dadc29f1475e96c31dd5f16e5c6784bf3accab82905b93a"
+    },
+    {
+      "path": "mcp/tests/mep-native-integration.test.mjs",
+      "source": "mcp/tests/mep-native-integration.test.mjs",
+      "bytes": 2018,
+      "sha256": "9da9cdd31392cf66eb1849945533eb4075dbee4f4b362e5570ddaae6fbd681ec"
+    },
+    {
+      "path": "mcp/tests/parameter-import.test.mjs",
+      "source": "mcp/tests/parameter-import.test.mjs",
+      "bytes": 10749,
+      "sha256": "9cf2eeb8d184c65a6c89994da4ef0b6bf1a5cc669475869992a736627f124e96"
+    },
+    {
+      "path": "mcp/tests/protocol.test.mjs",
+      "source": "mcp/tests/protocol.test.mjs",
+      "bytes": 1682,
+      "sha256": "1fd05c870fb845363846cc0dbaa51e8af886795a3abc91418baaacdd7fc39c1b"
+    },
+    {
+      "path": "mcp/tests/room-lighting.test.mjs",
+      "source": "mcp/tests/room-lighting.test.mjs",
+      "bytes": 2562,
+      "sha256": "8b1b2b2526ad6c7d5ba0cb4c4cc708d50a0a297400bca92a9aa8cc16dc4e06e5"
+    },
+    {
+      "path": "mcp/tests/view-export.test.mjs",
+      "source": "mcp/tests/view-export.test.mjs",
+      "bytes": 2412,
+      "sha256": "5f2dcc0d6975d4666e5aa1792ef00fb8e6635cc97756acec78d505de6b0d458c"
+    },
+    {
+      "path": "mcp/titleblock-change.mjs",
+      "source": "mcp/titleblock-change.mjs",
+      "bytes": 6410,
+      "sha256": "f77ea260d1ecf91c540d795de54a464d5c552e4186d805bf01e51412f275a9da"
+    },
+    {
+      "path": "mcp/view-export.mjs",
+      "source": "mcp/view-export.mjs",
+      "bytes": 804,
+      "sha256": "eb3d800b9c74d91f9a221484bdc48b1f20b9f0a69718a413fb4bafd13d24dae0"
+    },
+    {
+      "path": "mcp/workflow-adapter.mjs",
+      "source": "mcp/workflow-adapter.mjs",
+      "bytes": 948,
+      "sha256": "c653f02abcc00de3ee76e513135ef6b4c741c123391814304ece392d8ddc810b"
+    },
+    {
+      "path": "mcp/workflow-registry.mjs",
+      "source": "mcp/workflow-registry.mjs",
+      "bytes": 21923,
+      "sha256": "5f80a50b8c063d1cb2073d12595085da6c6f74c8a0018330d814ace951e69857"
+    },
+    {
+      "path": "mcp/workflows.mjs",
+      "source": "mcp/workflows.mjs",
+      "bytes": 21969,
+      "sha256": "82d02e039f6735f92481bb432cb04095eb60dcaa9f3583392ae66ddc518f2598"
+    },
+    {
+      "path": "NOTICE",
+      "source": "NOTICE",
+      "bytes": 388,
+      "sha256": "ab6d3b70b546d54477633498cbfa6beaf14f47680e867129298b6e38964fcdf4"
+    },
+    {
+      "path": "README.md",
+      "source": "public-docs/README.md",
+      "bytes": 7709,
+      "sha256": "6627b581ea62fc0362f664a65a454c037e7e58b3cbbae6458d320c96c8aacb41"
+    },
+    {
+      "path": "tests/CoreTests/AnnotationInputRulesTests.cs",
+      "source": "tests/CoreTests/AnnotationInputRulesTests.cs",
+      "bytes": 4044,
+      "sha256": "5eb503dc716acffe4bc3ffa59e3fd88ddd1f7a0024f18501f555e88cc76b7d90"
+    },
+    {
+      "path": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
+      "source": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
+      "bytes": 3649,
+      "sha256": "f31d21aef6816f75eb923fd492ea78519c854e536c76261743ce31912a4109ec"
+    },
+    {
+      "path": "tests/CoreTests/ArchitecturePrimaryReadbackRulesTests.cs",
+      "source": "tests/CoreTests/ArchitecturePrimaryReadbackRulesTests.cs",
+      "bytes": 6517,
+      "sha256": "db5aa2faa300862699362f6d038e3c11bc287a273b9120365256b22f0b532311"
+    },
+    {
+      "path": "tests/CoreTests/ArchitectureRulesTests.cs",
+      "source": "tests/CoreTests/ArchitectureRulesTests.cs",
+      "bytes": 4872,
+      "sha256": "fafad6886f5cbd794e1363085b35ba43193f87be51a04bbcae3d14473ea6ff96"
+    },
+    {
+      "path": "tests/CoreTests/ArchitectureTypeCopyRulesTests.cs",
+      "source": "tests/CoreTests/ArchitectureTypeCopyRulesTests.cs",
+      "bytes": 18058,
+      "sha256": "508f6e402fb1f93100763f448cc27c0906f79f6ec360ea8352c77abc2c7446e5"
+    },
+    {
+      "path": "tests/CoreTests/CommandResponseBudgetTests.cs",
+      "source": "tests/CoreTests/CommandResponseBudgetTests.cs",
+      "bytes": 4797,
+      "sha256": "7c37359c2ec5e01d7345a78033166b7a56900c77d2290ef73d632a8477c21509"
+    },
+    {
+      "path": "tests/CoreTests/CoreTests.csproj",
+      "source": "tests/CoreTests/CoreTests.csproj",
+      "bytes": 6489,
+      "sha256": "c9e6acaf047fc38ab28b5d56c82d754da0dfd444956f5a5e5f074864615e0336"
+    },
+    {
+      "path": "tests/CoreTests/DimensionCreationReadbackRulesTests.cs",
+      "source": "tests/CoreTests/DimensionCreationReadbackRulesTests.cs",
+      "bytes": 19978,
+      "sha256": "298aa58ce136e1bd91e07f4ee6b0a787a52010d602ee908bc026aef556b18e8e"
+    },
+    {
+      "path": "tests/CoreTests/DocumentationCreationReadbackRulesTests.cs",
+      "source": "tests/CoreTests/DocumentationCreationReadbackRulesTests.cs",
+      "bytes": 16490,
+      "sha256": "d32fb521da4be25abfbd48d34b4a72e02a0be99b7d51bf9c1e0e8e416881ed7c"
+    },
+    {
+      "path": "tests/CoreTests/DocumentationMetadataReadbackRulesTests.cs",
+      "source": "tests/CoreTests/DocumentationMetadataReadbackRulesTests.cs",
+      "bytes": 1780,
+      "sha256": "f450dee988279d27c9b015b282a0b52d89f2fc6f448bd47a84c63349a0a65ed1"
+    },
+    {
+      "path": "tests/CoreTests/DocumentationReadbackRulesTests.cs",
+      "source": "tests/CoreTests/DocumentationReadbackRulesTests.cs",
+      "bytes": 2402,
+      "sha256": "7edbee75afc4fa935df382b6b74f453e9ba27a4eb601a0d9d2259ba78d025dac"
+    },
+    {
+      "path": "tests/CoreTests/DocumentLifecycleRulesTests.cs",
+      "source": "tests/CoreTests/DocumentLifecycleRulesTests.cs",
+      "bytes": 18558,
+      "sha256": "fdfa2055a70da803174c85510805e78a3ce54500837ba8c2d1ca64341906cc4a"
+    },
+    {
+      "path": "tests/CoreTests/DocumentReadPinRulesTests.cs",
+      "source": "tests/CoreTests/DocumentReadPinRulesTests.cs",
+      "bytes": 1749,
+      "sha256": "4351e7337dec8bc399051e889d49732cf44d24ca3016f3e7afa0c5a68c2aa19e"
+    },
+    {
+      "path": "tests/CoreTests/DocumentVersionDiffRulesTests.cs",
+      "source": "tests/CoreTests/DocumentVersionDiffRulesTests.cs",
+      "bytes": 3475,
+      "sha256": "318b3c883015c2bb06c7a81648956689179fb9bd904856e812fa942ceb69083e"
+    },
+    {
+      "path": "tests/CoreTests/DuctDimensionRulesTests.cs",
+      "source": "tests/CoreTests/DuctDimensionRulesTests.cs",
+      "bytes": 2696,
+      "sha256": "a3fe64ba8371a6b59a14be8c65bd5b9fb2fb34549355f87df6ffe0fc3ec0f683"
+    },
+    {
+      "path": "tests/CoreTests/ElementBoundsRulesTests.cs",
+      "source": "tests/CoreTests/ElementBoundsRulesTests.cs",
+      "bytes": 5671,
+      "sha256": "021e3174609d81e8fbeec8215d469f809ec2e41b19189f2dfe537bab559ca05e"
+    },
+    {
+      "path": "tests/CoreTests/ElementDependencyRulesTests.cs",
+      "source": "tests/CoreTests/ElementDependencyRulesTests.cs",
+      "bytes": 12564,
+      "sha256": "308294069d90ac537fa963e178cc0c61f934a992ec29bba4d53ce75a4612bbd7"
+    },
+    {
+      "path": "tests/CoreTests/ElementStorageSchemaRulesTests.cs",
+      "source": "tests/CoreTests/ElementStorageSchemaRulesTests.cs",
+      "bytes": 6795,
+      "sha256": "8d0f22c053c6e9b8eb9b8f323744bbf38b1266d3f472330287cf1a444ce98ae7"
+    },
+    {
+      "path": "tests/CoreTests/ExternalFamilyMetadataRulesTests.cs",
+      "source": "tests/CoreTests/ExternalFamilyMetadataRulesTests.cs",
+      "bytes": 17581,
+      "sha256": "8f68acb697a87d4c72ea4fd8152f6b4e165702ca5e52bd26a59d996ef29c075a"
+    },
+    {
+      "path": "tests/CoreTests/FamilyHostGeometryRulesTests.cs",
+      "source": "tests/CoreTests/FamilyHostGeometryRulesTests.cs",
+      "bytes": 2553,
+      "sha256": "5aa74938e1953c6a6d5faeedc00ba7de2df29d14708f590bbaceaad022515aa9"
+    },
+    {
+      "path": "tests/CoreTests/FamilyReplacementReceiptRulesTests.cs",
+      "source": "tests/CoreTests/FamilyReplacementReceiptRulesTests.cs",
+      "bytes": 1751,
+      "sha256": "ece0e7af97cbb46e804f95342f482847b4ca7c9612a60bb3b169289ed0a7e647"
+    },
+    {
+      "path": "tests/CoreTests/FamilyTextRulesTests.cs",
+      "source": "tests/CoreTests/FamilyTextRulesTests.cs",
+      "bytes": 10838,
+      "sha256": "37782550f5ae6376b17aea371ebb97ce82a1f095db86a068b8338796d7365cd2"
+    },
+    {
+      "path": "tests/CoreTests/FittingConnectionReadbackRulesTests.cs",
+      "source": "tests/CoreTests/FittingConnectionReadbackRulesTests.cs",
+      "bytes": 5796,
+      "sha256": "6cbfb7ce0f6b2ea2b3a2a7b88e70e81a64ea29b156d9de66e932c1756e1bdfa3"
+    },
+    {
+      "path": "tests/CoreTests/GridCreationReadbackRulesTests.cs",
+      "source": "tests/CoreTests/GridCreationReadbackRulesTests.cs",
+      "bytes": 4306,
+      "sha256": "2dec7c33ba6fd2cc316b66bd85cbc838bedbf93210cc5e960b3f6653586f1564"
+    },
+    {
+      "path": "tests/CoreTests/GridDimensionReferenceRulesTests.cs",
+      "source": "tests/CoreTests/GridDimensionReferenceRulesTests.cs",
+      "bytes": 4333,
+      "sha256": "d82ebca545372d0db8505f40dff2ab594fd1f469ae95cd2d7c6741e8e0c947f7"
+    },
+    {
+      "path": "tests/CoreTests/LifecycleQueuePolicyTests.cs",
+      "source": "tests/CoreTests/LifecycleQueuePolicyTests.cs",
+      "bytes": 3532,
+      "sha256": "c5e0269f39c34eaddb922ca983fa459a0677299c82c2c5f2ba81c011e8242da2"
+    },
+    {
+      "path": "tests/CoreTests/LightingMoveRulesTests.cs",
+      "source": "tests/CoreTests/LightingMoveRulesTests.cs",
+      "bytes": 7042,
+      "sha256": "888e6c96033ac3fe5bb58fdb5de5093df0bc9a88beda6739858f6ba52dc4c17d"
+    },
+    {
+      "path": "tests/CoreTests/MepConnectionInputRulesTests.cs",
+      "source": "tests/CoreTests/MepConnectionInputRulesTests.cs",
+      "bytes": 2199,
+      "sha256": "1b9c4286d075ae1d9e77360e374037a3d631e66c6a0fd5dfc28e3c6633eb3af7"
+    },
+    {
+      "path": "tests/CoreTests/MultiportFittingReadbackRulesTests.cs",
+      "source": "tests/CoreTests/MultiportFittingReadbackRulesTests.cs",
+      "bytes": 13556,
+      "sha256": "476f379e85d3f9d274f2f88459a1c64eeeb8db857af5b23779a9a9cf2d3861af"
+    },
+    {
+      "path": "tests/CoreTests/OpeningCreationReadbackRulesTests.cs",
+      "source": "tests/CoreTests/OpeningCreationReadbackRulesTests.cs",
+      "bytes": 1763,
+      "sha256": "50a1220f4247e958389956ea966345db769673719f177611d0ea83f25873da8f"
+    },
+    {
+      "path": "tests/CoreTests/OpeningHostSurfaceRulesTests.cs",
+      "source": "tests/CoreTests/OpeningHostSurfaceRulesTests.cs",
+      "bytes": 8266,
+      "sha256": "be1c779c7b82087e5aea4245b0336484d4915c5cd1b11fcec488400e85ac0693"
+    },
+    {
+      "path": "tests/CoreTests/OpeningProfileFailureDiagnosticsTests.cs",
+      "source": "tests/CoreTests/OpeningProfileFailureDiagnosticsTests.cs",
+      "bytes": 5952,
+      "sha256": "4eba6f60e33183ffc843ad621ec537b8f21bc4a6c1cccfff88810e77adf4c743"
+    },
+    {
+      "path": "tests/CoreTests/Program.cs",
+      "source": "tests/CoreTests/Program.cs",
+      "bytes": 78067,
+      "sha256": "fdd865b4f8dcf4fe01174a6d1d73265fa5ac48281d53098ffbca70b4df4af54b"
+    },
+    {
+      "path": "tests/CoreTests/RoomCreationReadbackRulesTests.cs",
+      "source": "tests/CoreTests/RoomCreationReadbackRulesTests.cs",
+      "bytes": 6463,
+      "sha256": "163b5003e2edc19dfe691b7277b6300e6742de7bb9d5805ce86ee202c5a3e288"
+    },
+    {
+      "path": "tests/CoreTests/RoomTagLeaderGeometryRulesTests.cs",
+      "source": "tests/CoreTests/RoomTagLeaderGeometryRulesTests.cs",
+      "bytes": 5149,
+      "sha256": "cace8346ff1443d3d47402dd729d94a1af2ebac798330f5dc0e6ba7e37fcd851"
+    },
+    {
+      "path": "tests/CoreTests/SheetLayoutRulesTests.cs",
+      "source": "tests/CoreTests/SheetLayoutRulesTests.cs",
+      "bytes": 2702,
+      "sha256": "28f8a0dafb19ccea5b43ab53f4a950c6dbfef638ca0ffc6aae173663f783f030"
+    },
+    {
+      "path": "tests/CoreTests/StairConnectionRulesTests.cs",
+      "source": "tests/CoreTests/StairConnectionRulesTests.cs",
+      "bytes": 7429,
+      "sha256": "5e1710589be7707a5380ade177c72ffe47544c662023647a3dbdb6305c25eb2a"
+    },
+    {
+      "path": "tests/CoreTests/TitleBlockChangeRulesTests.cs",
+      "source": "tests/CoreTests/TitleBlockChangeRulesTests.cs",
+      "bytes": 17840,
+      "sha256": "2209fab58a0960bfeb643a092889dfdea3b021864b01436da126d8a56a26bccb"
+    },
+    {
+      "path": "tests/CoreTests/UnassignedEquipmentConnectionRulesTests.cs",
+      "source": "tests/CoreTests/UnassignedEquipmentConnectionRulesTests.cs",
+      "bytes": 11906,
+      "sha256": "edfe4905137c683ff01884562fede31df34cf61422d0a073666c8ff6ce3df3df"
+    },
+    {
+      "path": "tests/CoreTests/ViewExportRulesTests.cs",
+      "source": "tests/CoreTests/ViewExportRulesTests.cs",
+      "bytes": 3517,
+      "sha256": "17d8fa03272903fdbd3209d82817bca324229d178cf4ce36a769a5356ebbd775"
+    },
+    {
+      "path": "tests/CoreTests/ViewportLabelRulesTests.cs",
+      "source": "tests/CoreTests/ViewportLabelRulesTests.cs",
+      "bytes": 7762,
+      "sha256": "d4b6c095c4e8e8119a50e9052549a1471807d500213037fe75bc0713f235dffa"
+    },
+    {
+      "path": "tests/CoreTests/ViewportReadPolicyTests.cs",
+      "source": "tests/CoreTests/ViewportReadPolicyTests.cs",
+      "bytes": 2829,
+      "sha256": "64e67ac49bf1644fca08269a84351ead2074ca2c6c23fd21690bff23a685de9a"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "source": "THIRD_PARTY_NOTICES.md",
+      "bytes": 11551,
+      "sha256": "f1f36c7cc10099ba84047aeb3936b1d0108678f14e665007296e4f77a6291cd8"
+    },
+    {
+      "path": "third_party/licenses/RevitMCP-MIT.txt",
+      "source": "third_party/licenses/RevitMCP-MIT.txt",
+      "bytes": 1065,
+      "sha256": "db28711dd4c1daaf932bc0e5fad6322cfd76250720aee13d4a6f9d6ba8567145"
+    },
+    {
+      "path": "third_party/licenses/rvt-mcp-APACHE-2.0.txt",
+      "source": "third_party/licenses/rvt-mcp-APACHE-2.0.txt",
+      "bytes": 11338,
+      "sha256": "d0591c477b6048592124878a14533adf975d8e00e303b30f693b2bfcd84e52a8"
+    },
+    {
+      "path": "v27/AnnotationInputRules.cs",
+      "source": "v27/AnnotationInputRules.cs",
+      "bytes": 2415,
+      "sha256": "3dd8b92272b5649ad44d1396a6031662e5dccd165c8438fb967f59b11961f7c9"
+    },
+    {
+      "path": "v27/App.cs",
+      "source": "v27/App.cs",
+      "bytes": 5067,
+      "sha256": "fd0f94e3b324f73dbf7a29936b05c79a8c9c28343b411594ebebdf80684a6789"
+    },
+    {
+      "path": "v27/ArchitecturePlacementReadbackRules.cs",
+      "source": "v27/ArchitecturePlacementReadbackRules.cs",
+      "bytes": 1853,
+      "sha256": "3b426835170f615846a87397c6ca212bfa111eb40bd76b8d58e96bb8c90323d5"
+    },
+    {
+      "path": "v27/ArchitecturePrimaryReadbackRules.cs",
+      "source": "v27/ArchitecturePrimaryReadbackRules.cs",
+      "bytes": 7155,
+      "sha256": "d9f762d2a7ba5a1243bb1e9068184786eb35410fd3c88a05d43286868b19d989"
+    },
+    {
+      "path": "v27/ArchitecturePrimaryReadbackService.cs",
+      "source": "v27/ArchitecturePrimaryReadbackService.cs",
+      "bytes": 13437,
+      "sha256": "607069a2dc900718d83af8376819a88937268c0ec35633837cb7b9c6491a6312"
+    },
+    {
+      "path": "v27/ArchitectureRules.cs",
+      "source": "v27/ArchitectureRules.cs",
+      "bytes": 5575,
+      "sha256": "197e706c2b0a454e7905f52ceeb75a7887976614e6f20d4f94dd439636d52cf7"
+    },
+    {
+      "path": "v27/ArchitectureService.cs",
+      "source": "v27/ArchitectureService.cs",
+      "bytes": 14550,
+      "sha256": "53adfaf53ee70b45c3c56b39a38b9aefd9272944fb62e5f9c775c63a656e7f99"
+    },
+    {
+      "path": "v27/ArchitectureTypeCopyRules.cs",
+      "source": "v27/ArchitectureTypeCopyRules.cs",
+      "bytes": 11974,
+      "sha256": "3eba370ce04c0f18384fa4bdfc48b1f4dc0258a03ce267d84d7772e27626f4e0"
+    },
+    {
+      "path": "v27/ArchitectureTypeCopyService.cs",
+      "source": "v27/ArchitectureTypeCopyService.cs",
+      "bytes": 23013,
+      "sha256": "94be22cfed85fd9f5534564063f82f92228cf396273c8f6aa4ebf1741b028804"
+    },
+    {
+      "path": "v27/CollisionBooleanDiagnostics.cs",
+      "source": "v27/CollisionBooleanDiagnostics.cs",
+      "bytes": 1245,
+      "sha256": "d36f57ace533ec7aa9b86b7c376a6d98e19e09b3ebc07c7f537d637e67901561"
+    },
+    {
+      "path": "v27/CollisionCheckRules.cs",
+      "source": "v27/CollisionCheckRules.cs",
+      "bytes": 7140,
+      "sha256": "a29e72693b0a3d6fe66402d6d255c0fe0e1badd4b1bf3f6c262e970a5cd505cc"
+    },
+    {
+      "path": "v27/CollisionCheckService.cs",
+      "source": "v27/CollisionCheckService.cs",
+      "bytes": 22183,
+      "sha256": "d89cae838501fa72c98c07d5a97bd2c051ea3442e9cf9404384ef458d213aa3d"
+    },
+    {
+      "path": "v27/ConnectionPortReservationRules.cs",
+      "source": "v27/ConnectionPortReservationRules.cs",
+      "bytes": 3098,
+      "sha256": "098672e3773d9a161a6fa903b2a4c578c7a7d6bd391236f844f643eb7c9c944a"
+    },
+    {
+      "path": "v27/ConnectionStatus.cs",
+      "source": "v27/ConnectionStatus.cs",
+      "bytes": 661,
+      "sha256": "45cc1827f70d75ce243388e9163158d6c8339a0cd80e7303d9d81fc272b52bbe"
+    },
+    {
+      "path": "v27/ConnectorReadPolicy.cs",
+      "source": "v27/ConnectorReadPolicy.cs",
+      "bytes": 995,
+      "sha256": "3df2c09edc3f6f752d0cfba940bf18567803bae3baea12ff2efe526ecdfceb8c"
+    },
+    {
+      "path": "v27/ConnectorResolutionService.cs",
+      "source": "v27/ConnectorResolutionService.cs",
+      "bytes": 7655,
+      "sha256": "f770195e6c071eaa6fa63a5fb7c660c4f4e364286bfb6208b270c80267dfe52d"
+    },
+    {
+      "path": "v27/ConnectorSelectionRules.cs",
+      "source": "v27/ConnectorSelectionRules.cs",
+      "bytes": 3717,
+      "sha256": "f41f47c671b8fe3d29325eb5228e5c42424fcd70e82e9b3b9d61330dd78494eb"
+    },
+    {
+      "path": "v27/deployment.ps1",
+      "source": "v27/deployment.ps1",
+      "bytes": 4323,
+      "sha256": "5b2efb41515669a6a55b976f300c9c13c20a52162a086db0b34f35b9ad13cacd"
+    },
+    {
+      "path": "v27/DimensionCreationReadbackRules.cs",
+      "source": "v27/DimensionCreationReadbackRules.cs",
+      "bytes": 12128,
+      "sha256": "c808a220fa8ba1bc5cca546da7a75879a2f79667bbfe61fec0f718beba155b55"
+    },
+    {
+      "path": "v27/DimensionCreationReadbackService.cs",
+      "source": "v27/DimensionCreationReadbackService.cs",
+      "bytes": 8291,
+      "sha256": "7835ba9f9671f55eeaaf096b74e8714b549b840da230bdd25b187238b0763c11"
+    },
+    {
+      "path": "v27/DocumentationCreationReadbackRules.cs",
+      "source": "v27/DocumentationCreationReadbackRules.cs",
+      "bytes": 8604,
+      "sha256": "da17c2a4b24cfac2bae3dc46e687f998693a4872e9988c800b305d9f48109717"
+    },
+    {
+      "path": "v27/DocumentationCreationReadbackService.cs",
+      "source": "v27/DocumentationCreationReadbackService.cs",
+      "bytes": 14620,
+      "sha256": "e55079606ea902a27649b843d6f148428fe2bda08073a5fe79a58b9ace072b51"
+    },
+    {
+      "path": "v27/DocumentationMetadataReadbackRules.cs",
+      "source": "v27/DocumentationMetadataReadbackRules.cs",
+      "bytes": 1326,
+      "sha256": "d46e3edd9d7f9961ce22820cf1a912bfb2b47eed23a2003b3a76c0f028783717"
+    },
+    {
+      "path": "v27/DocumentationReadbackRules.cs",
+      "source": "v27/DocumentationReadbackRules.cs",
+      "bytes": 2022,
+      "sha256": "fb4c0cf13c901b01d4705d2838a2f7593fffa3ab22a7343b7a41557344ab3445"
+    },
+    {
+      "path": "v27/DocumentChangeJournal.cs",
+      "source": "v27/DocumentChangeJournal.cs",
+      "bytes": 2508,
+      "sha256": "cc42330de2d55e2caf05f826653b5238e13afaddc42b9cec91635139fc2d97b3"
+    },
+    {
+      "path": "v27/DocumentLifecycleEvents.cs",
+      "source": "v27/DocumentLifecycleEvents.cs",
+      "bytes": 5386,
+      "sha256": "4ca2115b120186b57b00a915ec5984cddcad63c7c88c4538ed6b84757aeb9c59"
+    },
+    {
+      "path": "v27/DocumentLifecycleRules.cs",
+      "source": "v27/DocumentLifecycleRules.cs",
+      "bytes": 11783,
+      "sha256": "3b3d96252327354cb0adce47809a083602e090da7f6e2515159ae0efbe0ffab2"
+    },
+    {
+      "path": "v27/DocumentLifecycleService.cs",
+      "source": "v27/DocumentLifecycleService.cs",
+      "bytes": 43698,
+      "sha256": "682986e2e58f2f55b26f3a99570bf3d9698e5437cd7a0e7fddf34fdb58be4ee4"
+    },
+    {
+      "path": "v27/DocumentLifecycleStore.cs",
+      "source": "v27/DocumentLifecycleStore.cs",
+      "bytes": 8624,
+      "sha256": "36591b766c6dae25704166af7fb53f6ca1b81850f69c057c855771c31d9641be"
+    },
+    {
+      "path": "v27/DocumentReadPinRules.cs",
+      "source": "v27/DocumentReadPinRules.cs",
+      "bytes": 1722,
+      "sha256": "eb39fc8e83899da73383a61b5f571494cfe81c093a5a5824e10a08092c63abde"
+    },
+    {
+      "path": "v27/DocumentSessionRegistry.cs",
+      "source": "v27/DocumentSessionRegistry.cs",
+      "bytes": 1713,
+      "sha256": "99dc419b7e9accb2675e6db3b32b4b7746dde52088b497aa4fd198af53d8c2c3"
+    },
+    {
+      "path": "v27/DocumentVersionDiffRules.cs",
+      "source": "v27/DocumentVersionDiffRules.cs",
+      "bytes": 3461,
+      "sha256": "1c9ff907cfb62797bcb05d6106654a1cfa3d3aa241de207fbaa4117b2d244657"
+    },
+    {
+      "path": "v27/DocumentVersionDiffService.cs",
+      "source": "v27/DocumentVersionDiffService.cs",
+      "bytes": 5314,
+      "sha256": "fb60ea7585362e50095b1d0cacfc275f81136f5756ee5921156c60fda88ded73"
+    },
+    {
+      "path": "v27/DrawingPlacementRules.cs",
+      "source": "v27/DrawingPlacementRules.cs",
+      "bytes": 3538,
+      "sha256": "607d6138bd0879d8fb71035426b17d9c4166e133436a2d384648cf885c20cb1d"
+    },
+    {
+      "path": "v27/DrawingPlacementService.cs",
+      "source": "v27/DrawingPlacementService.cs",
+      "bytes": 10846,
+      "sha256": "7d6b40c489728719999d9813b2bb4edf36c8ab87abf9638fb989a0d24f440a9d"
+    },
+    {
+      "path": "v27/ElectricalAuditRules.cs",
+      "source": "v27/ElectricalAuditRules.cs",
+      "bytes": 3790,
+      "sha256": "400e1ae63d339bd98054e03d58e58eae70228e6536ea58edc3d591bc98da74c8"
+    },
+    {
+      "path": "v27/ElectricalAuditService.cs",
+      "source": "v27/ElectricalAuditService.cs",
+      "bytes": 9630,
+      "sha256": "3465f666992ad037d3596976b07ab8e2708416fc10da6dac530c8961eac2bec2"
+    },
+    {
+      "path": "v27/ElementBoundsRules.cs",
+      "source": "v27/ElementBoundsRules.cs",
+      "bytes": 5206,
+      "sha256": "d3e2bd014b6b6c99c292ec360bc7f9fcd3a3ed93ca7f656c105252db3aa66983"
+    },
+    {
+      "path": "v27/ElementBoundsService.cs",
+      "source": "v27/ElementBoundsService.cs",
+      "bytes": 4531,
+      "sha256": "aba34a94fe18fc49a27d98d2f8a56b96f5e80915b7d8d3aa668dfc33f63da234"
+    },
+    {
+      "path": "v27/ElementDependencyRules.cs",
+      "source": "v27/ElementDependencyRules.cs",
+      "bytes": 7395,
+      "sha256": "d4191e47df026c456718dd4ac801547414ba281ad52dbfcd2ed65dd45420ff23"
+    },
+    {
+      "path": "v27/ElementDependencyService.cs",
+      "source": "v27/ElementDependencyService.cs",
+      "bytes": 5676,
+      "sha256": "7999ae8897777dfc840cddc7547b7d5e38cd58ae197140a5e3af0f9db427ac85"
+    },
+    {
+      "path": "v27/ElementStorageSchemaRules.cs",
+      "source": "v27/ElementStorageSchemaRules.cs",
+      "bytes": 6894,
+      "sha256": "36cd2142f350d460248d921b9571a3bc26965ffa7fed67a671c66bc66fdb0514"
+    },
+    {
+      "path": "v27/ElementStorageSchemaService.cs",
+      "source": "v27/ElementStorageSchemaService.cs",
+      "bytes": 7995,
+      "sha256": "be32874b1fcce64e3795d8063b3676c51d24a26fa11c898c2776f0140abdfac4"
+    },
+    {
+      "path": "v27/ExecutionProgress.cs",
+      "source": "v27/ExecutionProgress.cs",
+      "bytes": 646,
+      "sha256": "f0d83a5b668210ed58bd1267b4a6a687b1789244af027d7ddab2009fb4fb2833"
+    },
+    {
+      "path": "v27/ExternalFamilyMetadataRules.cs",
+      "source": "v27/ExternalFamilyMetadataRules.cs",
+      "bytes": 9662,
+      "sha256": "c035b1cce2e31d9e98139dd0a610f125199972d695383c0350e444d4b1d81225"
+    },
+    {
+      "path": "v27/ExternalFamilyMetadataService.cs",
+      "source": "v27/ExternalFamilyMetadataService.cs",
+      "bytes": 30799,
+      "sha256": "b259a7295924739260fea57065ccdba8c6de8fb9b3c36c7b5d446aeba6416848"
+    },
+    {
+      "path": "v27/FamilyCatalogSnapshot.cs",
+      "source": "v27/FamilyCatalogSnapshot.cs",
+      "bytes": 2197,
+      "sha256": "6210b26a3831f92957de1d731e420ba420c30a1820910c357d741b042d172e45"
+    },
+    {
+      "path": "v27/FamilyHostGeometryRules.cs",
+      "source": "v27/FamilyHostGeometryRules.cs",
+      "bytes": 841,
+      "sha256": "45b8fea805e9fa4089e1503ef27cb2d49ce88a13946e4176f07c81dce5573e16"
+    },
+    {
+      "path": "v27/FamilyLibraryRules.cs",
+      "source": "v27/FamilyLibraryRules.cs",
+      "bytes": 10439,
+      "sha256": "d7104c6b60979412a76583dc9b4b7366cbb795bc066fdbbe58f21bf7824ea0bf"
+    },
+    {
+      "path": "v27/FamilyLibraryService.cs",
+      "source": "v27/FamilyLibraryService.cs",
+      "bytes": 11490,
+      "sha256": "756a38d660919221aa0e044ea4ffc2973c70b840462cf03c8a7199dc26c1fee4"
+    },
+    {
+      "path": "v27/FamilyTextRules.cs",
+      "source": "v27/FamilyTextRules.cs",
+      "bytes": 7563,
+      "sha256": "5c4d6efe43738877b2b3fbfe9d0e2c2646501822dbdf4167d4df7a742a16c690"
+    },
+    {
+      "path": "v27/FamilyTextService.cs",
+      "source": "v27/FamilyTextService.cs",
+      "bytes": 9738,
+      "sha256": "989082deb6f13078a72b562aa0ef1494464dfe13f2ed7db5f371c98a15ce418e"
+    },
+    {
+      "path": "v27/FittingConnectionReadbackRules.cs",
+      "source": "v27/FittingConnectionReadbackRules.cs",
+      "bytes": 4715,
+      "sha256": "9abf806cace7aa946fdecb77707d083dad284478e635861cab260fe727705506"
+    },
+    {
+      "path": "v27/FittingConnectionReadbackService.cs",
+      "source": "v27/FittingConnectionReadbackService.cs",
+      "bytes": 6730,
+      "sha256": "90e131af388dc33ac9d4ff81bfed43d0360f5ff6e9981dcb91397e5d9f1c801d"
+    },
+    {
+      "path": "v27/FlowDirectionDiagnostic.cs",
+      "source": "v27/FlowDirectionDiagnostic.cs",
+      "bytes": 7204,
+      "sha256": "355547c3d59005d0d43ef43059419a8a6fbe5836a332ef634b8760236e59fb97"
+    },
+    {
+      "path": "v27/GridCreationReadbackRules.cs",
+      "source": "v27/GridCreationReadbackRules.cs",
+      "bytes": 1992,
+      "sha256": "76180be52c72886a21a0f3f573e7b2980e433bbabd4334e1a46a33deb88b313c"
+    },
+    {
+      "path": "v27/GridDimensionReferenceRules.cs",
+      "source": "v27/GridDimensionReferenceRules.cs",
+      "bytes": 1461,
+      "sha256": "b480f019b891b73269ae2fa2a8b2a976e1955352cb8447d133215c7a6d5e0ab2"
+    },
+    {
+      "path": "v27/GridDimensionReferenceService.cs",
+      "source": "v27/GridDimensionReferenceService.cs",
+      "bytes": 5409,
+      "sha256": "752bf0e383d85f3ce0c5a8aef97dac6cb883188c162d4971f155c54cfbb221bb"
+    },
+    {
+      "path": "v27/HouseGenerationService.cs",
+      "source": "v27/HouseGenerationService.cs",
+      "bytes": 4464,
+      "sha256": "ce9fdff84e6006ab08c1434b682acef5dd4c2cc8230e83b76459627cc228c2c9"
+    },
+    {
+      "path": "v27/Infrastructure.cs",
+      "source": "v27/Infrastructure.cs",
+      "bytes": 11064,
+      "sha256": "8bd3571002fb17e314894167fc9d9498689e2d6c9545c4ee461a35b39e4cb66f"
+    },
+    {
+      "path": "v27/LifecycleQueuePolicy.cs",
+      "source": "v27/LifecycleQueuePolicy.cs",
+      "bytes": 1236,
+      "sha256": "d3851244d7e0f308be1802a6066363a3ccaf813df390547dae714001123dd0e3"
+    },
+    {
+      "path": "v27/LightingMoveRules.cs",
+      "source": "v27/LightingMoveRules.cs",
+      "bytes": 7301,
+      "sha256": "9b9d81c6eec83017a578f2038b1bea7962b118a95dfdb433e7e4622ebc982f10"
+    },
+    {
+      "path": "v27/LightingMoveService.cs",
+      "source": "v27/LightingMoveService.cs",
+      "bytes": 7996,
+      "sha256": "eae8066a6b94e23a75cd4887093d71c7a2524e5000b9bed361e92bad7961acb2"
+    },
+    {
+      "path": "v27/MechanicalPortAudit.cs",
+      "source": "v27/MechanicalPortAudit.cs",
+      "bytes": 497,
+      "sha256": "2a5815c004e3ee0c9cdcece7e7f68343a8ee1a6e7d99172b47f9363e817171d5"
+    },
+    {
+      "path": "v27/MepConnectionInputRules.cs",
+      "source": "v27/MepConnectionInputRules.cs",
+      "bytes": 2582,
+      "sha256": "a2605a154697dbb8071a515759c2d168c0a4292180e1886cfddd15cb1c67ea36"
+    },
+    {
+      "path": "v27/ModelExecutor.cs",
+      "source": "v27/ModelExecutor.cs",
+      "bytes": 77564,
+      "sha256": "819932b4ea3d777bd2cdef771eeb29f65601606189b4094c0c18c9b6da95b17e"
+    },
+    {
+      "path": "v27/MultiportFittingReadbackRules.cs",
+      "source": "v27/MultiportFittingReadbackRules.cs",
+      "bytes": 5516,
+      "sha256": "a668de07690ba6f1e9e4568bcd75a1d03ec09eabc4dbcf233110be01807ba8a8"
+    },
+    {
+      "path": "v27/MultiportFittingReadbackService.cs",
+      "source": "v27/MultiportFittingReadbackService.cs",
+      "bytes": 10125,
+      "sha256": "81f7ea55b71ebb074cbfc721c514ad31ef7342e587775ee8deb6b1f243a1baee"
+    },
+    {
+      "path": "v27/NativeChangeReceipt.cs",
+      "source": "v27/NativeChangeReceipt.cs",
+      "bytes": 5967,
+      "sha256": "5e57831f5ba3f4d6f6d481fb2291d857681b67dedb9cb7b1379b412c12f52eba"
+    },
+    {
+      "path": "v27/NativeReadSnapshot.cs",
+      "source": "v27/NativeReadSnapshot.cs",
+      "bytes": 382,
+      "sha256": "b6a5087b99b495139aad765a6991027106cdede176195faa91ccfb5aa05433bf"
+    },
+    {
+      "path": "v27/OpeningHostSurfaceReadbackService.cs",
+      "source": "v27/OpeningHostSurfaceReadbackService.cs",
+      "bytes": 6907,
+      "sha256": "70fe37a7a8189bb1e2a50893edc9691838ba72d57249c1a22a9c074ccc095187"
+    },
+    {
+      "path": "v27/OpeningHostSurfaceRules.cs",
+      "source": "v27/OpeningHostSurfaceRules.cs",
+      "bytes": 6941,
+      "sha256": "e6ff6cc0cf57cabc88501534f746166277575f123d8db0494609184d86e05556"
+    },
+    {
+      "path": "v27/OpeningProfileFailureDiagnostics.cs",
+      "source": "v27/OpeningProfileFailureDiagnostics.cs",
+      "bytes": 2742,
+      "sha256": "52d0c2af0815d840b197c7a5bdf3d5f57a27aa986165bb11da8e4804760d3287"
+    },
+    {
+      "path": "v27/OpeningRules.cs",
+      "source": "v27/OpeningRules.cs",
+      "bytes": 7655,
+      "sha256": "f83e122f3cf60f5fd177fae3490b79746959382aed145137f2aaf90b94cd4abc"
+    },
+    {
+      "path": "v27/OpeningService.cs",
+      "source": "v27/OpeningService.cs",
+      "bytes": 17758,
+      "sha256": "3a7d2ebefcd21bcb89d49c614393398dd40692612d424721f2783b47fccef4c9"
+    },
+    {
+      "path": "v27/OperationReceipt.cs",
+      "source": "v27/OperationReceipt.cs",
+      "bytes": 1380,
+      "sha256": "e9206a727a568c8180acf74a1a740f944089ac9476940a5af15cafa6408e7a4b"
+    },
+    {
+      "path": "v27/ParameterReadPolicy.cs",
+      "source": "v27/ParameterReadPolicy.cs",
+      "bytes": 491,
+      "sha256": "e1d9c79264e1c3e82d0397c3563a5746ae91be9fbfb230bd194054573b213ad7"
+    },
+    {
+      "path": "v27/PipingCompatibilityRules.cs",
+      "source": "v27/PipingCompatibilityRules.cs",
+      "bytes": 1940,
+      "sha256": "2f700cc41739c0123b59a9ec50e4dcbdbcdb65a8b4c38b60b48707f857fd361c"
+    },
+    {
+      "path": "v27/PipingCompatibilityService.cs",
+      "source": "v27/PipingCompatibilityService.cs",
+      "bytes": 2974,
+      "sha256": "6e696fe6c5f4e18e669ab9c8155a3657d1c1b094b436e846a9c6d42526f0e895"
+    },
+    {
+      "path": "v27/PlanLifecycle.cs",
+      "source": "v27/PlanLifecycle.cs",
+      "bytes": 1275,
+      "sha256": "ff48337fbccb0d560f9f8748e2ad820080055109dfbed7da078b6d2405096bf7"
+    },
+    {
+      "path": "v27/ProtocolTypes.cs",
+      "source": "v27/ProtocolTypes.cs",
+      "bytes": 21563,
+      "sha256": "9037bb86555ed41add19ead2faabc08fc8cdd6ec8112441f3f71b4d89666f2fb"
+    },
+    {
+      "path": "v27/registration-switch.ps1",
+      "source": "v27/registration-switch.ps1",
+      "bytes": 20321,
+      "sha256": "ca598cdf57cf2eb14f909f446421d09af8cc6ef905df846044f9e6ea75897020"
+    },
+    {
+      "path": "v27/RevitAutoV27.addin.example",
+      "source": "v27/RevitAutoV27.addin.example",
+      "bytes": 405,
+      "sha256": "566446f12f6412e2435db3d0508a9006d21167bb45704b26a3f0df7fcb39ce44"
+    },
+    {
+      "path": "v27/RevitAutoV27.csproj",
+      "source": "v27/RevitAutoV27.csproj",
+      "bytes": 4297,
+      "sha256": "c5eea97a3bd198a4dba32e8bd600316874a6bc617803268ffece26c8aa968b6f"
+    },
+    {
+      "path": "v27/RevitCommandRouter.cs",
+      "source": "v27/RevitCommandRouter.cs",
+      "bytes": 35994,
+      "sha256": "70f8292f7ca965f59c7616f8fb75435d49fe1c80ecb1d0683b9aa973859c4e67"
+    },
+    {
+      "path": "v27/RevitQueryService.cs",
+      "source": "v27/RevitQueryService.cs",
+      "bytes": 24554,
+      "sha256": "ac4a9ac74576459e24922fd97e36b6fbd08e2eece11dd9117df995f1d9c503bc"
+    },
+    {
+      "path": "v27/RoomCreationReadbackRules.cs",
+      "source": "v27/RoomCreationReadbackRules.cs",
+      "bytes": 4791,
+      "sha256": "d18257e1154d11093954453716b0909c05a4564eed20648f1ac16aa092218618"
+    },
+    {
+      "path": "v27/RoomService.cs",
+      "source": "v27/RoomService.cs",
+      "bytes": 3011,
+      "sha256": "b8ded13bba9934e5b039f94d39f8e5343abb23e234bad36fc6728c3d9fea958d"
+    },
+    {
+      "path": "v27/RoomTagLeaderGeometryRules.cs",
+      "source": "v27/RoomTagLeaderGeometryRules.cs",
+      "bytes": 2724,
+      "sha256": "3f6771f6b82617160cb45b100f056f295664ba5ccd6df7b3dad849df8ae95171"
+    },
+    {
+      "path": "v27/RoomTagLeaderGeometryService.cs",
+      "source": "v27/RoomTagLeaderGeometryService.cs",
+      "bytes": 1541,
+      "sha256": "0c7d274ad19aa5826019917a2083db8a41325dcd521997966fc2786c8045e119"
+    },
+    {
+      "path": "v27/SheetLayoutRules.cs",
+      "source": "v27/SheetLayoutRules.cs",
+      "bytes": 1928,
+      "sha256": "4584caf77b600f26bbe9d9d0b380373ecd083c2184623f1668114571b0b5b38d"
+    },
+    {
+      "path": "v27/SheetLayoutService.cs",
+      "source": "v27/SheetLayoutService.cs",
+      "bytes": 10774,
+      "sha256": "3d72abb32b530aaf771e8b372d359a5166be9e001a692a9ff7011001d3b339ed"
+    },
+    {
+      "path": "v27/StairConnectionRules.cs",
+      "source": "v27/StairConnectionRules.cs",
+      "bytes": 9990,
+      "sha256": "7a3a422d3156fd7a9de67aeef7f225f9d612e7365d7854d19b58e8c6df8afe6c"
+    },
+    {
+      "path": "v27/StairConnectionService.cs",
+      "source": "v27/StairConnectionService.cs",
+      "bytes": 7008,
+      "sha256": "fd1143845bc6c79fb473322aa1dff31090219018457cc2cb19bc1d7d21d2db1a"
+    },
+    {
+      "path": "v27/StairExecutionCleanup.cs",
+      "source": "v27/StairExecutionCleanup.cs",
+      "bytes": 2809,
+      "sha256": "e06d78c9dcecf2f88111b5d1b3fc6775f1db2f35938020e4dff18ebfdaa26460"
+    },
+    {
+      "path": "v27/StairGeometryService.cs",
+      "source": "v27/StairGeometryService.cs",
+      "bytes": 11613,
+      "sha256": "f08a1b2b2c0f31c86eea79c42ca856962f3dbacd76be01a2b41a8052dee4fbe7"
+    },
+    {
+      "path": "v27/StairRules.cs",
+      "source": "v27/StairRules.cs",
+      "bytes": 5581,
+      "sha256": "2bc9423d7ea3aadab908d99097d8c5a76bbce7877850b20b95399fff79532a0e"
+    },
+    {
+      "path": "v27/TagHeadPositionSnapshotService.cs",
+      "source": "v27/TagHeadPositionSnapshotService.cs",
+      "bytes": 2173,
+      "sha256": "91c8f0dd953c30c6c82786df1f1bc26b27f379293d6752f1b52e825a152682d5"
+    },
+    {
+      "path": "v27/TitleBlockChangeReadbackRules.cs",
+      "source": "v27/TitleBlockChangeReadbackRules.cs",
+      "bytes": 4355,
+      "sha256": "25a44cddcd77b3e93b1ef335f4ba4eb0d03fba5c83c6d24354561c462198dc79"
+    },
+    {
+      "path": "v27/TitleBlockChangeRules.cs",
+      "source": "v27/TitleBlockChangeRules.cs",
+      "bytes": 3403,
+      "sha256": "0447dbf4d46078b9d1fe9aca7815d55946e7eef5d8697fa9effd4c8ad3a9863e"
+    },
+    {
+      "path": "v27/TitleBlockChangeService.cs",
+      "source": "v27/TitleBlockChangeService.cs",
+      "bytes": 13321,
+      "sha256": "1631533f12d24a4e3a08bc3ee80138ca58e3c45004640afcd4ba35e7ddc8a6a7"
+    },
+    {
+      "path": "v27/TypeService.cs",
+      "source": "v27/TypeService.cs",
+      "bytes": 2251,
+      "sha256": "260998ebf88f4b350257bd999ec404792695b6414fdb844306d6945fad09b627"
+    },
+    {
+      "path": "v27/UnassignedEquipmentConnectionRules.cs",
+      "source": "v27/UnassignedEquipmentConnectionRules.cs",
+      "bytes": 8311,
+      "sha256": "d001c8fc9dce904f955b6c18e6f22c96847fe69b2407c1c88f054250c626652a"
+    },
+    {
+      "path": "v27/UnassignedEquipmentConnectionService.cs",
+      "source": "v27/UnassignedEquipmentConnectionService.cs",
+      "bytes": 5521,
+      "sha256": "cb3556de0c0b47ff5ddfccc33bc97e70183914a62864a267ab755d8a30979d21"
+    },
+    {
+      "path": "v27/ViewConfigurationService.cs",
+      "source": "v27/ViewConfigurationService.cs",
+      "bytes": 12924,
+      "sha256": "8ce66a558e0e7897765198dfc77c2c0ef246432de52e1f9f9f374a63901367c6"
+    },
+    {
+      "path": "v27/ViewEvidenceService.cs",
+      "source": "v27/ViewEvidenceService.cs",
+      "bytes": 7849,
+      "sha256": "ff88c45e5fa8d17b4ae679b50f02e7d585e86ea31cae1aeff7ae488dd03fba5a"
+    },
+    {
+      "path": "v27/ViewExportRules.cs",
+      "source": "v27/ViewExportRules.cs",
+      "bytes": 3673,
+      "sha256": "be406253d23d108ad6a8c86e87f85fb04ebfc2872a4b08b3b618d1fcfc52ff8d"
+    },
+    {
+      "path": "v27/ViewportLabelRules.cs",
+      "source": "v27/ViewportLabelRules.cs",
+      "bytes": 4261,
+      "sha256": "0802f416300b8d59a3e104ebe826c9018a70fac2b58d5bbd427661782e2879d0"
+    },
+    {
+      "path": "v27/ViewportLabelService.cs",
+      "source": "v27/ViewportLabelService.cs",
+      "bytes": 14717,
+      "sha256": "425ce0a14602181e9b9e691ffe08a75e2e065de8515e6889a13e2e22d2a30a30"
+    },
+    {
+      "path": "v27/ViewportReadPolicy.cs",
+      "source": "v27/ViewportReadPolicy.cs",
+      "bytes": 1314,
+      "sha256": "01ea9f2043fe6d30808d99a12e776e0abce0db3198c2e15cab3828fa82540899"
+    }
+  ]
+}

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "revit-custom": {
-      "command": "node",
-      "args": ["mcp/revit-custom.mjs"]
-    }
-  }
-}

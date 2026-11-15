@@ -11,6 +11,8 @@ internal readonly record struct DimensionPoint(
 internal readonly record struct DimensionVector(double X, double Y, double Z);
 internal readonly record struct DimensionAxis(DimensionPoint Origin, DimensionVector Direction);
 internal readonly record struct DimensionReferenceReadback(string StableReference, long ElementId, long LinkedElementId, string ReferenceType);
+internal sealed record DimensionReferenceBinding(DimensionReferenceReadback Requested, DimensionReferenceReadback ExpectedReadback,
+    string Kind, DimensionReferenceReadback? NativeGridElement = null, DimensionReferenceReadback? ParsedReadback = null);
 internal sealed record DimensionCreationReadback(long DimensionId, string UniqueId, string ClassName, long ViewId, long TypeId,
     bool AreReferencesAvailable, DimensionAxis Axis, IReadOnlyList<DimensionReferenceReadback> References, bool IsBound);
 
@@ -74,9 +76,23 @@ internal static class DimensionCreationReadbackRules
         RequireReferences(value.References);
     }
 
-    public static void Require(DimensionCreationReadback expected, DimensionCreationReadback actual)
+    public static DimensionReferenceBinding BindGridReadbackReference(long gridId, DimensionReferenceReadback requested,
+        DimensionReferenceReadback nativeElement, DimensionReferenceReadback nativeCurve, DimensionReferenceReadback parsedCurve)
     {
-        RequireStructure(expected); RequireStructure(actual);
+        // Grid inputs use an element reference, while Dimension.References may expose the native curve surface.
+        // Bind the two observations of this exact local grid; never rewrite or trim a stable reference string.
+        if (!Id(gridId) || requested != nativeElement || requested.ElementId != gridId || requested.LinkedElementId != -1 ||
+            requested.ReferenceType != "REFERENCE_TYPE_NONE" || string.IsNullOrWhiteSpace(requested.StableReference) ||
+            requested.StableReference.Length > MaxStableReferenceLength || nativeCurve != parsedCurve ||
+            nativeCurve.ElementId != gridId || nativeCurve.LinkedElementId != -1 || nativeCurve.ReferenceType != "REFERENCE_TYPE_SURFACE" ||
+            string.IsNullOrWhiteSpace(nativeCurve.StableReference) || nativeCurve.StableReference.Length > MaxStableReferenceLength ||
+            nativeCurve.StableReference == requested.StableReference)
+            throw Invalid("Grid dimension input/readback mapping requires the exact local native element and round-tripped curve references.");
+        return new(requested, nativeCurve, "native-grid-element-to-curve-readback", nativeElement, parsedCurve);
+    }
+
+    private static string[] MismatchFields(DimensionCreationReadback expected, DimensionCreationReadback actual)
+    {
         var expectedReferences = expected.References.OrderBy(reference => reference.StableReference, StringComparer.Ordinal).ToArray();
         var actualReferences = actual.References.OrderBy(reference => reference.StableReference, StringComparer.Ordinal).ToArray();
         var mismatches = new List<string>();
@@ -87,15 +103,46 @@ internal static class DimensionCreationReadbackRules
         if (actual.TypeId != expected.TypeId) mismatches.Add("typeId");
         if (!expected.AreReferencesAvailable || !actual.AreReferencesAvailable) mismatches.Add("areReferencesAvailable");
         if (!expectedReferences.SequenceEqual(actualReferences)) mismatches.Add("referenceMembership");
-        if (mismatches.Count > 0)
-            throw new BridgeException("invalid_dimension_readback",
-                $"Created dimension readback differs in {string.Join(", ", mismatches)}; roll back.",
-                new
-                {
-                    mismatchFields = mismatches,
-                    expected = IdentityDiagnostic(expected),
-                    actual = IdentityDiagnostic(actual)
-                });
+        return mismatches.ToArray();
+    }
+
+    private static BridgeException Mismatch(DimensionCreationReadback expected, DimensionCreationReadback actual, string[] mismatches)
+    {
+        return new BridgeException("invalid_dimension_readback",
+            $"Created dimension readback differs in {string.Join(", ", mismatches)}; roll back.",
+            new
+            {
+                mismatchFields = mismatches,
+                expected = IdentityDiagnostic(expected),
+                actual = IdentityDiagnostic(actual)
+            });
+    }
+
+    public static bool CanDeferReferenceResolution(DimensionCreationReadback expected, DimensionCreationReadback actual)
+    {
+        RequireStructure(expected); RequireStructure(actual);
+        var mismatches = MismatchFields(expected, actual);
+        if (mismatches.Length == 0) { RequireSupportingLine(expected, actual); return false; }
+        if (expected.AreReferencesAvailable && !actual.AreReferencesAvailable &&
+            mismatches.SequenceEqual(["areReferencesAvailable"], StringComparer.Ordinal))
+        {
+            RequireSupportingLine(expected, actual);
+            return true;
+        }
+        throw Mismatch(expected, actual, mismatches);
+    }
+
+    public static void Require(DimensionCreationReadback expected, DimensionCreationReadback actual)
+    {
+        RequireStructure(expected); RequireStructure(actual);
+        var mismatches = MismatchFields(expected, actual);
+        if (mismatches.Length > 0)
+            throw Mismatch(expected, actual, mismatches);
+        RequireSupportingLine(expected, actual);
+    }
+
+    private static void RequireSupportingLine(DimensionCreationReadback expected, DimensionCreationReadback actual)
+    {
         var requestedDirection = Unit(expected.Axis.Direction);
         var directionError = Length(Cross(requestedDirection, Unit(actual.Axis.Direction)));
         var displacement = new DimensionVector(actual.Axis.Origin.Xmm - expected.Axis.Origin.Xmm,
@@ -110,10 +157,44 @@ internal static class DimensionCreationReadbackRules
         Require(expected, actual);
         return new { phase, dimensionId = actual.DimensionId, actual.UniqueId, className = actual.ClassName,
             viewId = actual.ViewId, typeId = actual.TypeId, actual.AreReferencesAvailable,
-            actualReferences = actual.References, referenceCount = actual.References.Count,
+            actualReferences = actual.References, referenceCount = actual.References.Count, referenceResolutionPending = false,
             referenceMembershipVerified = true, referenceOrderMatches = expected.References.SequenceEqual(actual.References), referenceOrderRequired = false,
             requestedAxis = expected.Axis, actualAxis = actual.Axis, actual.IsBound,
             axisToleranceMm = AxisToleranceMm, supportingLineVerified = true, lineExtentsVerified = false,
             measurementVerified = false, nativeReadbackVerified = true, sideEffectsVerified = false, persistenceVerified = false, visualVerified = false };
+    }
+
+    public static object PendingReceipt(DimensionCreationReadback expected, DimensionCreationReadback actual, string phase)
+    {
+        if (phase is not ("immediate-after-creation" or "before-transaction-commit"))
+            return Receipt(expected, actual, phase);
+        if (!CanDeferReferenceResolution(expected, actual)) return Receipt(expected, actual, phase);
+        return new
+        {
+            phase,
+            dimensionId = actual.DimensionId,
+            actual.UniqueId,
+            className = actual.ClassName,
+            viewId = actual.ViewId,
+            typeId = actual.TypeId,
+            actual.AreReferencesAvailable,
+            actualReferences = actual.References,
+            referenceCount = actual.References.Count,
+            referenceMembershipVerified = true,
+            referenceOrderMatches = expected.References.SequenceEqual(actual.References),
+            referenceOrderRequired = false,
+            requestedAxis = expected.Axis,
+            actualAxis = actual.Axis,
+            actual.IsBound,
+            referenceResolutionPending = true,
+            axisToleranceMm = AxisToleranceMm,
+            supportingLineVerified = true,
+            lineExtentsVerified = false,
+            measurementVerified = false,
+            nativeReadbackVerified = false,
+            sideEffectsVerified = false,
+            persistenceVerified = false,
+            visualVerified = false
+        };
     }
 }

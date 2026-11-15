@@ -1,9 +1,12 @@
-param(
+﻿param(
   [switch]$RegisterCodex,
   [switch]$RegisterClaudeDesktop,
   [switch]$DisableLegacyClaudeRevit,
   [switch]$CheckOnly,
-  [string]$AssemblyPath
+  [string]$AssemblyPath,
+  [ValidateSet('Ask','ExactPlanChat','AgentReview')][string]$ModelApprovalMode='Ask',
+  [string[]]$AuthorizedDocumentPath=@(),
+  [string]$AuthorizationStatement
 )
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot
@@ -31,6 +34,42 @@ if($CheckOnly){
   Write-Output 'No runtime credentials, Revit manifest or assistant configuration were changed.'
   return
 }
+$authorizationFile=Join-Path $root 'runtime\execution-authorization.json'
+$selectedApprovalMode=$ModelApprovalMode
+$installationStatement=$AuthorizationStatement
+if($selectedApprovalMode -eq 'Ask'){
+  if(Test-Path -LiteralPath $authorizationFile){
+    Write-Output 'Existing model authorization retained. No new authorization or per-plan approval setting was created.'
+    $selectedApprovalMode='RetainExisting'
+  }elseif([Environment]::UserInteractive -and -not [Console]::IsInputRedirected){
+    Write-Host 'Model execution approval: 1 = approve each exact plan; 2 = authorize agent review once for specified local test models.'
+    Write-Host 'Both modes retain preview review, fresh document checks and single execution. Neither enables automatic saving or restarting.'
+    $choice=Read-Host 'Choose 1 or 2 (Enter = 1)'
+    if($choice -eq '2'){
+      $selectedApprovalMode='AgentReview'
+      if($AuthorizedDocumentPath.Count -eq 0){
+        $modelScope=Read-Host 'Enter exact existing local .rvt test model paths, separated by |'
+        $AuthorizedDocumentPath=@($modelScope.Split('|') | ForEach-Object {$_.Trim()} | Where-Object {$_})
+      }
+      if([string]::IsNullOrWhiteSpace($installationStatement)){
+        $installationStatement='User selected one-time agent review during installation for these exact test models: '+($AuthorizedDocumentPath -join ' | ')+'. No automatic saving or restarting.'
+      }
+    }elseif([string]::IsNullOrWhiteSpace($choice) -or $choice -eq '1'){$selectedApprovalMode='ExactPlanChat'}
+    else{throw 'Unknown approval choice; no installation or model authorization was changed.'}
+  }else{
+    $selectedApprovalMode='ExactPlanChat'
+    Write-Output 'Non-interactive install defaults to exact-plan chat approval. To use an existing user grant, select -ModelApprovalMode AgentReview with exact -AuthorizedDocumentPath and -AuthorizationStatement.'
+  }
+}
+if($selectedApprovalMode -eq 'AgentReview'){
+  if($AuthorizedDocumentPath.Count -eq 0 -or [string]::IsNullOrWhiteSpace($installationStatement)){
+    throw 'AgentReview requires exact existing local test model path(s) and the user authorization statement. The explicit statement is the initial grant; no additional per-plan approval is requested.'
+  }
+  if(Test-Path -LiteralPath $authorizationFile){throw 'A model authorization already exists. Reuse it or explicitly revoke/rotate it; the installer will not overwrite it.'}
+  if(Test-Path -LiteralPath ($authorizationFile+'.revoked')){throw 'Prior authorization was revoked; explicit review/rotation is required before creating another grant.'}
+}elseif($selectedApprovalMode -eq 'ExactPlanChat' -and (Test-Path -LiteralPath $authorizationFile)){
+  throw 'An existing authorization is present. Revoke or rotate it explicitly before selecting exact-plan mode; the installer will not silently change it.'
+}
 $runtime=Join-Path $root 'runtime'
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 # Runtime credentials may be read only by the current Windows account and SYSTEM.
@@ -42,6 +81,13 @@ $propagate=[Security.AccessControl.PropagationFlags]::None
 foreach($identity in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($identity,'FullControl',$inherit,$propagate,'Allow'))}
 # Persist DACL only: no SACL/audit privileges are needed or requested.
 [IO.FileSystemAclExtensions]::SetAccessControl([IO.DirectoryInfo]::new($runtime),$acl)
+if($selectedApprovalMode -eq 'AgentReview'){
+  $authorizationArgs=@((Join-Path $root 'mcp\execution-authorization-setup.mjs'),'--project-root',$root,'--user-authorized','--granted-by','user-installation','--user-statement',$installationStatement)
+  foreach($modelPath in $AuthorizedDocumentPath){$authorizationArgs+=@('--document',$modelPath)}
+  & $node @authorizationArgs
+  if($LASTEXITCODE -ne 0){throw 'Model authorization setup failed; no Revit model command was requested.'}
+  Write-Output 'One-time scoped agent-review authorization created. Preview and agent review remain required; a second human approval for each plan is not required within that scope.'
+}
 $config=Join-Path $runtime 'bridge.json'
 if(-not(Test-Path -LiteralPath $config)){
   $bytes=New-Object byte[] 32
@@ -97,4 +143,4 @@ if($RegisterClaudeDesktop){
   $data|ConvertTo-Json -Depth 30|Set-Content -LiteralPath $file -Encoding UTF8
 }
 Write-Output 'RevitAutoV27 manifest and private bridge settings installed. Existing 2025 files are unchanged.'
-Write-Output 'Restart Revit 2027 manually after saving your work. Restart Claude/Codex to discover new MCP tools.'
+Write-Output 'Load the add-in on the next manual Revit start. Reload the MCP connection when its Node code or tools change; restarting the agent application is only needed if its tool list remains cached.'

@@ -1,4 +1,4 @@
-name: Validate RevitAuto
+name: Validate reusable agent source
 
 on:
   push:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  contracts:
-    name: MCP and core contract tests
+  portable-contracts:
+    name: Portable MCP and core contracts
     strategy:
       fail-fast: false
       matrix:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '24.x'
           cache: npm
           cache-dependency-path: mcp/package-lock.json
       - uses: actions/setup-dotnet@v4
@@ -29,23 +29,8 @@ jobs:
       - name: Install MCP dependencies
         working-directory: mcp
         run: npm ci --ignore-scripts
-      - name: Run MCP tests
+      - name: Run portable MCP tests
         working-directory: mcp
         run: npm test
-      - name: Run core safety tests
+      - name: Run native-independent core tests
         run: dotnet run --project tests/CoreTests/CoreTests.csproj -c Release
-
-  repository-hygiene:
-    name: Release hygiene
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'
-      - name: Check tracked release assets and path portability
-        run: node --test mcp/tests/release-hygiene.test.mjs

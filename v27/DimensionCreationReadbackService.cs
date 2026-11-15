@@ -5,7 +5,8 @@ namespace RevitAutoV27;
 
 internal static class DimensionNativeEvidence
 {
-    internal sealed record ResolvedReferences(Reference[] Native, DimensionReferenceReadback[] Evidence);
+    internal sealed record ResolvedReferences(Reference[] Native, DimensionReferenceReadback[] Evidence,
+        DimensionReferenceReadback[] ReadbackEvidence, DimensionReferenceBinding[] Bindings);
     private static DimensionReferenceReadback ReferenceEvidence(Document doc, Reference reference) =>
         new(reference.ConvertToStableRepresentation(doc), reference.ElementId.Value, reference.LinkedElementId.Value, reference.ElementReferenceType.ToString());
     internal static DimensionAxis Axis(Line line) => new(
@@ -21,7 +22,36 @@ internal static class DimensionNativeEvidence
         var evidence = native.Select(reference => ReferenceEvidence(doc, reference)).ToArray();
         try { DimensionCreationReadbackRules.RequireReferences(evidence); }
         catch (BridgeException error) { throw new BridgeException("invalid_dimension_reference", error.Message); }
-        return new(native, evidence);
+        var bindings = new DimensionReferenceBinding[native.Length];
+        for (var index = 0; index < native.Length; index++)
+        {
+            var requested = evidence[index];
+            if (doc.GetElement(native[index].ElementId) is not Grid grid)
+            {
+                bindings[index] = new(requested, requested, "exact");
+                continue;
+            }
+            // Same element-level construction as rvt-mcp CreateDimensionsHandler (e49c796), Apache-2.0.
+            // Input and output representations are deliberately separate; the input is never changed to a curve surface.
+            var elementReference = new Reference(grid);
+            var elementEvidence = ReferenceEvidence(doc, elementReference);
+            if (requested != elementEvidence)
+                throw new BridgeException("invalid_dimension_reference", "A Grid requires its native element-level reference (REFERENCE_TYPE_NONE), not Grid.Curve.Reference.");
+            using var curve = grid.Curve;
+            var curveReference = curve?.Reference ?? throw new BridgeException("invalid_dimension_reference", "Grid native curve reference is unavailable for exact readback binding.");
+            try
+            {
+                var curveEvidence = ReferenceEvidence(doc, curveReference);
+                var parsedCurve = Reference.ParseFromStableRepresentation(doc, curveEvidence.StableReference);
+                bindings[index] = DimensionCreationReadbackRules.BindGridReadbackReference(grid.Id.Value, requested,
+                    elementEvidence, curveEvidence, ReferenceEvidence(doc, parsedCurve));
+            }
+            catch (BridgeException error) { throw new BridgeException("invalid_dimension_reference", error.Message); }
+            native[index] = elementReference;
+        }
+        var readbackEvidence = bindings.Select(binding => binding.ExpectedReadback).ToArray();
+        DimensionCreationReadbackRules.RequireReferences(readbackEvidence);
+        return new(native, evidence, readbackEvidence, bindings);
     }
 
     internal static DimensionCreationReadback Read(Document doc, Dimension dimension)
@@ -54,31 +84,42 @@ internal static class DimensionNativeEvidence
 
 internal sealed class DimensionCreationReadbackService
 {
-    private readonly List<DimensionCreationReadback> bindings = new();
+    private readonly List<(DimensionCreationReadback Expected, DimensionReferenceBinding[] References)> bindings = new();
     private Document? document;
     private void RequireDocument(Document doc)
     {
         if (document is null || !document.IsValidObject || !document.Equals(doc))
             throw new BridgeException("invalid_dimension_readback", "Dimension evidence belongs to another native document.");
     }
-    internal OperationReceipt Remember(Document doc, Dimension dimension, DimensionCreationReadback expected)
+    private static object WithReferenceBindings(object receipt, DimensionReferenceBinding[] references)
+    {
+        var evidence = JsonSerializer.SerializeToNode(receipt, JsonDefaults.Options)!.AsObject();
+        evidence["referenceBindings"] = JsonSerializer.SerializeToNode(references, JsonDefaults.Options);
+        return evidence;
+    }
+    internal OperationReceipt Remember(Document doc, Dimension dimension, DimensionCreationReadback expected, DimensionReferenceBinding[] references)
     {
         document ??= doc; RequireDocument(doc);
         if (!dimension.Document.Equals(doc)) throw new BridgeException("invalid_dimension_readback", "Created dimension belongs to another document.");
         doc.Regenerate();
-        var receipt = DimensionCreationReadbackRules.Receipt(expected, DimensionNativeEvidence.Read(doc, dimension), "immediate-after-creation");
-        bindings.Add(expected with { References = expected.References.ToArray() });
-        return OperationReceipt.New(dimension.Id.Value) with { Evidence = receipt };
+        var receipt = DimensionCreationReadbackRules.PendingReceipt(expected, DimensionNativeEvidence.Read(doc, dimension), "immediate-after-creation");
+        bindings.Add((expected with { References = expected.References.ToArray() }, references.ToArray()));
+        return OperationReceipt.New(dimension.Id.Value) with { Evidence = WithReferenceBindings(receipt, references) };
     }
     internal object[] VerifyCompleted(Document doc, string phase)
     {
         if (bindings.Count == 0) return [];
         RequireDocument(doc);
-        return bindings.Select(expected =>
+        return bindings.Select(binding =>
         {
+            var expected = binding.Expected;
             var dimension = doc.GetElement(new ElementId(expected.DimensionId)) as Dimension ??
                 throw new BridgeException("invalid_dimension_readback", "Created dimension disappeared before verification.");
-            return DimensionCreationReadbackRules.Receipt(expected, DimensionNativeEvidence.Read(doc, dimension), phase);
+            var actual = DimensionNativeEvidence.Read(doc, dimension);
+            var receipt = phase == "before-transaction-commit"
+                ? DimensionCreationReadbackRules.PendingReceipt(expected, actual, phase)
+                : DimensionCreationReadbackRules.Receipt(expected, actual, phase);
+            return WithReferenceBindings(receipt, binding.References);
         }).ToArray();
     }
 }

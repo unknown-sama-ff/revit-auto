@@ -27,6 +27,14 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private readonly List<(JsonElement Operation, bool WritePerformed)> documentationMetadata = new();
     private readonly List<(TitleBlockChangeService.ReadbackBinding Binding, bool WritePerformed)> documentationTitleBlocks = new();
     private readonly DocumentationCreationReadbackService documentationCreations = new();
+    private readonly FittingConnectionReadbackService fittingCreations = new();
+    private readonly MultiportFittingReadbackService multiportFittingCreations = new();
+    private readonly UnassignedEquipmentConnectionService unassignedConnections = new();
+    private readonly LightingMoveService lightingMoves = new();
+    internal object VerifyLightingMoves(string phase) => lightingMoves.VerifyCompleted(Doc, phase);
+    internal object VerifyFittingCreations(string phase) => fittingCreations.VerifyCompleted(Doc, phase);
+    internal object VerifyMultiportFittingCreations(string phase) => multiportFittingCreations.VerifyCompleted(Doc, phase);
+    internal object VerifyUnassignedConnections(string phase) => unassignedConnections.VerifyCompleted(Doc, phase);
     private static BridgeException Invalid(string message) => new("invalid_operation", message);
     private static bool Deferred(JsonElement value) => value.ValueKind == JsonValueKind.String && value.GetString()!.StartsWith('@');
     private ElementId Id(JsonElement value)
@@ -297,6 +305,57 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             new(JsonDefaults.InternalToMm(actual.X), JsonDefaults.InternalToMm(actual.Y), JsonDefaults.InternalToMm(actual.Z), location.Rotation));
     }
     private static double Mm(double value) => UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters);
+    private static object HostFacePointEvidence(XYZ point) => new
+    {
+        xMm = JsonDefaults.InternalToMm(point.X), yMm = JsonDefaults.InternalToMm(point.Y),
+        zMm = JsonDefaults.InternalToMm(point.Z)
+    };
+    private static (Reference Reference, XYZ Point) ResolveWallFacePlacement(Wall host, JsonElement operation, XYZ point, string phase)
+    {
+        var requestedSide = JsonDefaults.StringOr(operation, "hostSide", "interior");
+        var side = requestedSide == "exterior" ? ShellLayerType.Exterior : ShellLayerType.Interior;
+        var toleranceMm = JsonDefaults.Double(operation, "hostToleranceMm") ?? 500;
+        var candidates = HostObjectUtils.GetSideFaces(host, side)
+            .Select(reference => (Reference: reference, Face: host.GetGeometryObjectFromReference(reference) as Face))
+            .Where(candidate => candidate.Face is not null)
+            .Select(candidate => (candidate.Reference, Projection: candidate.Face!.Project(point)))
+            .Where(candidate => candidate.Projection is not null)
+            .OrderBy(candidate => candidate.Projection!.Distance).ToList();
+        var nearest = candidates.FirstOrDefault();
+        double? distanceMm = nearest.Projection is not null && double.IsFinite(nearest.Projection.Distance)
+            ? JsonDefaults.InternalToMm(nearest.Projection.Distance) : null;
+        if (distanceMm is null || nearest.Projection!.Distance > Mm(toleranceMm))
+            throw new BridgeException("invalid_operation", "The placement point is not within tolerance of the requested wall face.", new
+            {
+                validationPhase = phase, hostElementId = host.Id.Value, hostSide = requestedSide,
+                requestedPoint = HostFacePointEvidence(point), hostToleranceMm = toleranceMm,
+                nearestFaceProjectionAvailable = nearest.Projection is not null,
+                nearestFaceDistanceMm = distanceMm,
+                nearestFaceProjectedPoint = distanceMm is null ? null : HostFacePointEvidence(nearest.Projection!.XYZPoint),
+                coordinateFrame = "Revit internal/project origin, millimeters",
+                geometryQueryOnly = true
+            });
+        return (nearest.Reference, nearest.Projection!.XYZPoint);
+    }
+    internal void ValidateFamilyHostGeometryPlan(IReadOnlyList<JsonElement> operations)
+    {
+        var currentHostGeometryUnchanged = true;
+        foreach (var operation in operations)
+        {
+            if (currentHostGeometryUnchanged &&
+                JsonDefaults.String(operation, "operationType") == "create_family_instance" &&
+                JsonDefaults.String(operation, "placementMode") != "legacyPoint" &&
+                JsonDefaults.Has(operation, "hostElementId") &&
+                !Deferred(JsonDefaults.Get(operation, "hostElementId")))
+            {
+                var symbol = Symbol(operation);
+                if (symbol?.Family.FamilyPlacementType == FamilyPlacementType.WorkPlaneBased &&
+                    Check<Element>(operation, "hostElementId") is Wall wall)
+                    ResolveWallFacePlacement(wall, operation, Point(operation), "preflight-current-host-geometry");
+            }
+            currentHostGeometryUnchanged &= FamilyHostGeometryRules.PreservesCurrentHostGeometry(operation);
+        }
+    }
     private static XYZ Point(JsonElement payload)
     {
         var p = JsonDefaults.Has(payload, "point") ? JsonDefaults.Get(payload, "point") : payload;
@@ -315,6 +374,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         var kind = JsonDefaults.String(op, "operationType")!;
         switch (kind)
         {
+            case "move_lighting_fixtures": LightingMoveService.Validate(Doc, op); break;
             case "load_family": FamilyLibraryService.Validate(Doc, op); break;
             case "create_family_instance":
                 var symbol = Symbol(op); Level(op); var host = Check<Element>(op, "hostElementId", false);
@@ -400,9 +460,33 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "create_duct": Check<DuctType>(op, "ductTypeId"); Check<MechanicalSystemType>(op, "systemTypeId"); Level(op); Line(op);
                 if (!JsonDefaults.Has(op, "diameterMm") && (!JsonDefaults.Has(op, "widthMm") || !JsonDefaults.Has(op, "heightMm"))) throw Invalid("Duct requires diameterMm or widthMm + heightMm."); break;
             case "connect_elements": case "create_fitting":
-                ConnectorSelectionRules.ValidateSelection(op,"first"); ConnectorSelectionRules.ValidateSelection(op,"second");
-                var firstClass=ValidateConnectorSelection(op,"first"); var secondClass=ValidateConnectorSelection(op,"second");
-                if(firstClass is not null && secondClass is not null)PipingCompatibilityRules.RequireCompatible(firstClass,secondClass);
+                var connectionSides=MepConnectionInputRules.Validate(op);
+                if(kind=="connect_elements"&&JsonDefaults.Bool(op,"allowUnassignedEquipmentPort"))
+                {
+                    var firstPort=SelectConnector(Required<Element>(op,"firstElementId"),op,"first");
+                    var secondPort=SelectConnector(Required<Element>(op,"secondElementId"),op,"second");
+                    if(firstPort.Domain!=Domain.DomainPiping||secondPort.Domain!=Domain.DomainPiping)throw Invalid("Known-unassigned permission applies to physical piping ports only.");
+                    UnassignedEquipmentConnectionService.Review(firstPort,secondPort);
+                }
+                else
+                {
+                    var classes=connectionSides.Select(side=>ValidateConnectorSelection(op,side)).Where(item=>item is not null).ToArray();
+                    for(var index=1;index<classes.Length;index++)PipingCompatibilityRules.RequireCompatible(classes[0]!,classes[index]!);
+                }
+                if (kind == "create_fitting")
+                {
+                    var fittingKind=JsonDefaults.StringOr(op,"fittingType","elbow");
+                    if(connectionSides.Length>2)
+                    {
+                        var owners=connectionSides.Select(side=>Check<Element>(op,side+"ElementId")).ToArray();
+                        if(owners.All(owner=>owner is not null))MultiportFittingReadbackService.ValidateInput(fittingKind,owners);
+                        else foreach(var owner in owners.Where(owner=>owner is not null))
+                            if(owner is not (Pipe or FlexPipe or Duct or FlexDuct))throw Invalid("Multiport fittings require explicit pipe or duct curve owners.");
+                        // ValidateConnectorSelection above already proved every deferred owner is an explicit
+                        // create_pipe/create_duct endpoint. Full native owner/domain proof occurs in CaptureInput.
+                    }
+                    else FittingConnectionReadbackService.ValidateInput(fittingKind, Check<Element>(op,"firstElementId"));
+                }
                 break;
         }
         if (JsonDefaults.Has(op, "parameters"))
@@ -530,8 +614,12 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         ArchitectureHostedReadback? hostedExpected = null;
         TagTargetReadback? tagExpected = null;
         DimensionCreationReadback? dimensionExpected = null;
+        DimensionReferenceBinding[]? dimensionReferenceBindings = null;
+        FittingCreationBinding? fittingExpected = null;
+        MultiportFittingCreationBinding? multiportFittingExpected = null;
         switch (kind)
         {
+            case "move_lighting_fixtures": return lightingMoves.Apply(Doc, op);
             case "load_family": return FamilyLibraryService.Load(Doc, op);
             case "change_titleblock_type":
                 var titleBlockReceipt=TitleBlockChangeService.Apply(Doc,op);
@@ -556,11 +644,8 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 else if (placement == FamilyPlacementType.WorkPlaneBased)
                 {
                     var host = Required<Wall>(op, "hostElementId");
-                    var side = JsonDefaults.StringOr(op, "hostSide", "interior") == "exterior" ? ShellLayerType.Exterior : ShellLayerType.Interior;
-                    var candidates = HostObjectUtils.GetSideFaces(host, side).Select(r => (Reference: r, Face: host.GetGeometryObjectFromReference(r) as Face)).Where(x => x.Face is not null).Select(x => (x.Reference, Face: x.Face!, Projection: x.Face!.Project(point))).Where(x => x.Projection is not null).OrderBy(x => x.Projection!.Distance).ToList();
-                    var face = candidates.FirstOrDefault();
-                    if (face.Projection is null || face.Projection.Distance > Mm(JsonDefaults.Double(op, "hostToleranceMm") ?? 500)) throw Invalid("The placement point is not within tolerance of the requested wall face.");
-                    created = Doc.Create.NewFamilyInstance(face.Reference, face.Projection.XYZPoint, XYZ.BasisZ, symbol);
+                    var face = ResolveWallFacePlacement(host, op, point, "execution-current-host-geometry");
+                    created = Doc.Create.NewFamilyInstance(face.Reference, face.Point, XYZ.BasisZ, symbol);
                 }
                 else if (placement == FamilyPlacementType.OneLevelBasedHosted)
                     created = Doc.Create.NewFamilyInstance(point, symbol, Required<Element>(op, "hostElementId"), level, StructuralType.NonStructural);
@@ -678,6 +763,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 var dimensionLine = Line(op);
                 var requestedDimensionAxis = DimensionNativeEvidence.Axis(dimensionLine);
                 var resolvedDimensionReferences = DimensionNativeEvidence.Resolve(Doc, op);
+                dimensionReferenceBindings = resolvedDimensionReferences.Bindings;
                 using var dimensionReferences = new ReferenceArray();
                 foreach (var reference in resolvedDimensionReferences.Native) dimensionReferences.Append(reference);
                 var dimensionType = JsonDefaults.Has(op, "dimensionTypeId") ? Required<DimensionType>(op, "dimensionTypeId") : null;
@@ -685,9 +771,9 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                     : Doc.Create.NewDimension(dimensionView, dimensionLine, dimensionReferences);
                 if (dimension is null) throw Invalid("Revit did not return a created dimension.");
                 created = dimension;
-                // Freeze requested axis/references and chosen type before generic parameters or later operations.
+                // Freeze requested axis/type and separately proven native readback references before later operations.
                 dimensionExpected = new(dimension.Id.Value, dimension.UniqueId, dimension.GetType().Name, dimensionView.Id.Value,
-                    dimensionType?.Id.Value ?? dimension.GetTypeId().Value, true, requestedDimensionAxis, resolvedDimensionReferences.Evidence, true);
+                    dimensionType?.Id.Value ?? dimension.GetTypeId().Value, true, requestedDimensionAxis, resolvedDimensionReferences.ReadbackEvidence, true);
                 break;
             }
             case "place_viewport":
@@ -707,26 +793,52 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 else { SetBuiltIn(duct, BuiltInParameter.RBS_CURVE_WIDTH_PARAM, Mm(PlanRules.Number(op, "widthMm"))); SetBuiltIn(duct, BuiltInParameter.RBS_CURVE_HEIGHT_PARAM, Mm(PlanRules.Number(op, "heightMm"))); }
                 created = duct; break;
             case "connect_elements": case "create_fitting":
+            {
                 Doc.Regenerate(); var a = SelectConnector(Required<Element>(op, "firstElementId"), op, "first"); var b = SelectConnector(Required<Element>(op, "secondElementId"), op, "second");
                 if (a.Domain != b.Domain || a.Owner.Id == b.Owner.Id) throw Invalid("Connectors are incompatible or belong to the same element.");
                 if (kind == "connect_elements")
                 {
                     if (a.Origin.DistanceTo(b.Origin) > Mm(JsonDefaults.Double(op, "toleranceMm") ?? 1)) throw Invalid("Direct connectors must be coincident. Create a pipe or fitting explicitly.");
                     if(a.Shape!=b.Shape)throw Invalid("Direct connector shapes differ; create an explicit transition.");
-                    if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(EvidenceForSelection(a,op,"first"),EvidenceForSelection(b,op,"second"));
+                    PipingConnectionDecision? decision=null;
+                    if(JsonDefaults.Bool(op,"allowUnassignedEquipmentPort"))
+                    {
+                        if(a.Domain!=Domain.DomainPiping)throw Invalid("Known-unassigned permission is limited to piping ports.");
+                        decision=UnassignedEquipmentConnectionService.Review(a,b);
+                    }
+                    else if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(EvidenceForSelection(a,op,"first"),EvidenceForSelection(b,op,"second"));
                     if(a.Shape==ConnectorProfileType.Round && Math.Abs(a.Radius-b.Radius)>Mm(0.01))throw Invalid("Direct connector diameters differ; preview a transition fitting.");
                     if(a.CoordinateSystem.BasisZ.DotProduct(b.CoordinateSystem.BasisZ)>-0.9999)throw Invalid("Direct connector axes must oppose; preview a fitting or correctly aligned pipe.");
                     if((a.IsConnected && !a.IsConnectedTo(b)) || (b.IsConnected && !b.IsConnectedTo(a)))throw Invalid("A selected connector is already occupied.");
                     if (!a.IsConnectedTo(b)) a.ConnectTo(b);
                     Doc.Regenerate(); if(!a.IsConnectedTo(b))throw Invalid("Revit did not connect the reviewed pair; the whole plan rolls back.");
+                    if(decision?.UsesUnassignedEquipmentAllowance==true)return unassignedConnections.Remember(Doc,decision);
                     return new([], [a.Owner.Id.Value, b.Owner.Id.Value]);
+                }
+                var fittingKind=JsonDefaults.StringOr(op,"fittingType","elbow");
+                if(fittingKind is "tee" or "cross")
+                {
+                    var sides=MepConnectionInputRules.Prefixes(op);
+                    var ports=sides.Select(side=>SelectConnector(Required<Element>(op,side+"ElementId"),op,side)).ToArray();
+                    if(ports.Any(port=>port.Domain!=a.Domain||port.IsConnected))throw Invalid("All multiport fitting endpoints must be unused and share one physical domain.");
+                    if(a.Domain==Domain.DomainPiping)for(var index=1;index<ports.Length;index++)PipingCompatibilityRules.RequireCompatible(EvidenceForSelection(ports[0],op,sides[0]),EvidenceForSelection(ports[index],op,sides[index]));
+                    var multiInput=MultiportFittingReadbackService.CaptureInput(Doc,fittingKind,ports);
+                    created=fittingKind=="tee"?Doc.Create.NewTeeFitting(ports[0],ports[1],ports[2]):Doc.Create.NewCrossFitting(ports[0],ports[1],ports[2],ports[3]);
+                    if(created is not FamilyInstance multiFitting)throw Invalid("Revit did not return the requested native multiport fitting.");
+                    multiportFittingExpected=MultiportFittingReadbackService.Bind(Doc,multiFitting,multiInput);
+                    break;
                 }
                 if(a.Domain==Domain.DomainPiping)PipingCompatibilityRules.RequireCompatible(EvidenceForSelection(a,op,"first"),EvidenceForSelection(b,op,"second"));
                 if(a.IsConnected || b.IsConnected)throw Invalid("A fitting endpoint is already occupied.");
+                var fittingInput = FittingConnectionReadbackService.CaptureInput(Doc, JsonDefaults.StringOr(op, "fittingType", "elbow"), a, b);
                 created = JsonDefaults.StringOr(op, "fittingType", "elbow") switch
                 {
                     "elbow" => Doc.Create.NewElbowFitting(a, b), "union" => Doc.Create.NewUnionFitting(a, b), "transition" => Doc.Create.NewTransitionFitting(a, b), _ => throw Invalid("Supported fittings: elbow, union, transition.")
-                }; break;
+                };
+                if (created is not FamilyInstance nativeFitting) throw Invalid("Revit did not return a native fitting instance.");
+                fittingExpected = FittingConnectionReadbackService.Bind(Doc, nativeFitting, fittingInput);
+                break;
+            }
             default: throw Invalid($"Unsupported operation '{kind}'.");
         }
         if (created is null) throw Invalid("Revit did not return a created element.");
@@ -768,7 +880,10 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         if (tagExpected is { } expectedTag)
             return documentationCreations.RememberTagCreation(Doc, created, expectedTag, op);
         if (dimensionExpected is { } expectedDimension)
-            return documentationCreations.RememberDimensionCreation(Doc, (Dimension)created, expectedDimension);
+            return documentationCreations.RememberDimensionCreation(Doc, (Dimension)created, expectedDimension,
+                dimensionReferenceBindings ?? throw Invalid("Dimension reference bindings are missing."));
+        if (fittingExpected is { } expectedFitting) return fittingCreations.Remember(Doc, expectedFitting);
+        if (multiportFittingExpected is { } expectedMultiport) return multiportFittingCreations.Remember(Doc, expectedMultiport);
         return OperationReceipt.New(created.Id.Value);
     }
     private void ValidateOpening(JsonElement op)=>OpeningService.Validate(Doc,op);

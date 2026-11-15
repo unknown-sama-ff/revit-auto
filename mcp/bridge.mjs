@@ -4,6 +4,9 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
 const runtime = path.resolve(import.meta.dirname,'..','runtime','bridge.json');
+// Adapted from rvt-mcp ToolGateway.TransportGrace (e49c796, Apache-2.0).
+// The native deadline stays authoritative; let its structured receipt arrive before the transport gives up.
+const TRANSPORT_GRACE_MS = 5000;
 const READONLY_NATIVE_METHODS = new Set([
   'revit.audit.run', 'revit.changes.get', 'revit.collision.check', 'revit.connector.resolve',
   'revit.context.get', 'revit.electrical.audit', 'revit.element.dependencies', 'revit.element.storage_schemas', 'revit.document.version_diff',
@@ -23,6 +26,8 @@ function requireFeatures(info,required){
 export async function callRevit(method,params = {},signal,{requiredFeatures=[]}={}) {
   if(!Array.isArray(requiredFeatures)||requiredFeatures.length>64||requiredFeatures.some(f=>typeof f!=='string'||!f.trim()||f.length>200))
     throw Object.assign(new Error('Invalid internal requiredFeatures.'),{code:'invalid_required_features'});
+  if(method==='revit.inspect'&&params.includeBounds===true)
+    requiredFeatures=[...new Set([...requiredFeatures,'element-bounds-snapshot'])];
   if (method === 'revit.bridge.info') {const info=await exchange(method,params,signal);requireFeatures(info,requiredFeatures);return info;}
   // Explicit safety requirements use fresh host evidence, including when a caller enabled the optional cache.
   const cacheMs = READONLY_NATIVE_METHODS.has(method)&&requiredFeatures.length===0
@@ -41,7 +46,7 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
   }
   if (info.protocol !== 'revit-auto-2027-v2') throw new Error('An old or incompatible Revit add-in is still running. Save your project and restart Revit. Writes are blocked before sending any model operation.');
   requireFeatures(info,requiredFeatures);
-  const requiredFeature = {'revit.changes.get':'document-change-history','revit.room.get':'room-boundaries','revit.type.resolve':'native-type-resolver','revit.view.export_image':'view-image-export','revit.view.export_images':'batch-view-image-export','revit.view.get':'view-settings','revit.connector.resolve':'connector-resolution','revit.audit.run':'mechanical-port-audit-tristate','revit.electrical.audit':'electrical-circuit-audit','revit.collision.check':'collision-check','revit.flow.diagnose':'flow-direction-diagnostic','revit.family.library.get':'controlled-family-loading','revit.family.text_notes':'family-text-notes','revit.element.dependencies':'bounded-element-dependencies','revit.stairs.connections':'native-stair-connections','revit.element.storage_schemas':'element-storage-schema-audit','revit.document.version_diff':'document-version-diff','revit.sheet.layout':'sheet-layout-diagnostics',...Object.fromEntries(['prepare','get','verify_scope','save_once','post_exit_once','open_saved_copy_once','stop'].map(action=>['revit.lifecycle.'+action,'local-test-copy-lifecycle']))}[method];
+  const requiredFeature = {'revit.changes.get':'document-change-history','revit.room.get':'room-boundaries','revit.type.resolve':'native-type-resolver','revit.view.export_image':'view-image-export','revit.view.export_images':'batch-view-image-export','revit.view.get':'view-settings','revit.connector.resolve':'connector-resolution','revit.audit.run':'mechanical-port-audit-tristate','revit.electrical.audit':'electrical-circuit-audit','revit.collision.check':'collision-check','revit.flow.diagnose':'flow-direction-diagnostic','revit.external_asset.metadata':'external-family-metadata-audit','revit.family.library.get':'controlled-family-loading','revit.family.text_notes':'family-text-notes','revit.element.dependencies':'bounded-element-dependencies','revit.stairs.connections':'native-stair-connections','revit.element.storage_schemas':'element-storage-schema-audit','revit.document.version_diff':'document-version-diff','revit.sheet.layout':'sheet-layout-diagnostics',...Object.fromEntries(['prepare','get','verify_scope','save_once','post_exit_once','open_saved_copy_once','stop'].map(action=>['revit.lifecycle.'+action,'local-test-copy-lifecycle']))}[method];
   if (requiredFeature && !info.features?.includes(requiredFeature)) {
     const error=new Error(method==='revit.stairs.connections' ? 'The loaded Revit plugin lacks native-stair-connections. Load the separately approved stair-query build before using this read-only tool. No model write was requested.' : 'The running Revit plugin does not yet expose '+method+'. Save your work and restart Revit to load v0.4.0. No model write was requested.');
     error.code='feature_not_loaded';error.details={requiredFeatures:[requiredFeature],loadedVersion:info.version};throw error;
@@ -66,9 +71,13 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
     if(params.operations?.some(op=>op.operationType==='change_titleblock_type'))required.push('controlled-titleblock-change');
     if(params.operations?.some(op=>op.operationType==='load_family'))required.push('controlled-family-loading','family-catalog-snapshot');
     if(params.operations?.some(op=>op.operationType==='create_stair'))required.push('controlled-stairs-edit-scope','explicit-stair-geometry');
-    if(params.operations?.some(op=>['connect_elements','create_fitting'].includes(op.operationType)&&(Object.hasOwn(op,'firstConnector')||Object.hasOwn(op,'secondConnector'))))required.push('connector-criteria-connections');
+    if(params.operations?.some(op=>['connect_elements','create_fitting'].includes(op.operationType)&&['first','second','third','fourth'].some(side=>Object.hasOwn(op,side+'Connector'))))required.push('connector-criteria-connections');
+    if(params.operations?.some(op=>op.operationType==='create_fitting'&&!['tee','cross'].includes(op.fittingType)))required.push('fitting-connection-readback');
+    if(params.operations?.some(op=>op.operationType==='create_fitting'&&['tee','cross'].includes(op.fittingType)))required.push('multiport-fitting-readback');
+    if(params.operations?.some(op=>op.operationType==='connect_elements'&&op.allowUnassignedEquipmentPort===true))required.push('known-unassigned-equipment-connection');
     if(params.operations?.some(op=>op.operationType==='configure_view'))required.push('view-configuration');
     if(params.operations?.some(op=>op.operationType==='move_drawing_placement'))required.push('drawing-placement-move');
+    if(params.operations?.some(op=>op.operationType==='move_lighting_fixtures'))required.push('controlled-lighting-move');
     if(params.operations?.some(op=>op.operationType==='move_viewport_label'))required.push('viewport-label-offset');
     if(params.operations?.some(op=>op.operationType==='configure_view'&&Object.hasOwn(op,'cropBounds')))required.push('explicit-crop-bounds');
     if(params.operations?.some(op=>op.placementMode==='legacyPoint'))required.push('legacy-point-placement');
@@ -92,26 +101,43 @@ async function exchange(method,params = {},signal) {
   if (!Number.isFinite(requestedTimeout)) throw new Error('REVIT_AI_TIMEOUT_MS must be a finite number.');
   const timeout = Math.max(1000,Math.min(180000,requestedTimeout));
   return new Promise((resolve,reject) => {
-    if (signal?.aborted) {reject(new Error('MCP request was cancelled.')); return;}
+    const requestId = randomUUID();
+    let requestMayHaveBeenSent = false;
+    const transportError = (code,message) => {
+      const planId = typeof params.planId === 'string' && params.planId.trim() && params.planId.length <= 200 ? params.planId : undefined;
+      return Object.assign(new Error(message),{code,details:{
+        method,requestId,requestMayHaveBeenSent,
+        executionOutcome:requestMayHaveBeenSent?'unknown':'not_sent',
+        automaticRetryAllowed:false,
+        ...(planId?{planId}:{}),
+        recovery:requestMayHaveBeenSent&&planId
+          ? {method:'revit.plan.get',params:{planId}}
+          : {action:'check_existing_bridge_connection_without_model_retry'}
+      }});
+    };
+    if (signal?.aborted) {reject(transportError('bridge_cancelled','MCP request was cancelled before sending.')); return;}
     const socket = net.createConnection({host:'127.0.0.1',port});
     const decoder = new StringDecoder('utf8'); let buffer = ''; let settled = false;
-    const cancelled = () => finish(reject,new Error('MCP request cancelled. Revit will skip queued work or roll back uncommitted operations.'));
-    const timer = setTimeout(() => finish(reject,new Error(`Revit bridge timed out. Check whether Revit is busy. Do not recreate/retry a write automatically; query revit.plan.get for its status.`)),timeout);
+    const cancelled = () => finish(reject,transportError('bridge_cancelled','MCP request cancelled. Query the existing plan to establish its outcome; cancellation is not proof of rollback.'));
+    const timer = setTimeout(() => finish(reject,transportError('bridge_timeout',`Revit bridge timed out. Check whether Revit is busy. Do not recreate/retry a write automatically; query revit.plan.get for its status.`)),timeout+TRANSPORT_GRACE_MS);
     const finish = (callback,value) => {if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort',cancelled); socket.destroy(); callback(value);};
     signal?.addEventListener('abort',cancelled,{once:true});
-    socket.on('connect',() => socket.write(JSON.stringify({requestId:randomUUID(),method,params,token,deadlineUnixMs:Date.now()+timeout})+'\n'));
+    socket.on('connect',() => {
+      requestMayHaveBeenSent = true;
+      socket.write(JSON.stringify({requestId,method,params,token,deadlineUnixMs:Date.now()+timeout})+'\n');
+    });
     socket.on('data',chunk => {
       buffer += decoder.write(chunk);
-      if (buffer.length > 16*1024*1024) return finish(reject,new Error('Bridge response exceeds 16 MB. Narrow the search.'));
+      if (buffer.length > 16*1024*1024) return finish(reject,transportError('bridge_response_too_large','Bridge response exceeds 16 MB. Narrow the search; a lost response does not authorize repeating a write.'));
       const i = buffer.indexOf('\n'); if (i < 0) return;
       try {
         const payload = JSON.parse(buffer.slice(0,i));
-        if (payload.protocol !== 'revit-auto-2027-v2') return finish(reject,new Error('An old/incompatible Revit add-in answered. Restart Revit to load the installed safety engine before modeling.'));
+        if (payload.protocol !== 'revit-auto-2027-v2') return finish(reject,transportError('bridge_protocol_mismatch','An old/incompatible Revit add-in answered. Verify the original plan status before changing the connection or retrying a write.'));
         if (payload.ok) finish(resolve,payload.result || {});
         else {const error = new Error(payload.error?.message || 'Revit rejected the operation.'); error.code=payload.error?.code; error.details=payload.error?.details; finish(reject,error);}
-      } catch(error) {finish(reject,error);}
+      } catch(error) {finish(reject,transportError('invalid_bridge_response','Revit returned an unreadable bridge response. Preserve the original plan and query its status.'));}
     });
-    socket.on('error',error => finish(reject,new Error(`Revit connection unavailable (${error.code || error.message}). Start/restart Revit 2027 with the installed add-in and open a project.`)));
-    socket.on('end',() => {if (!settled) finish(reject,new Error('Revit closed the connection before returning a result. Query the existing plan status; never duplicate a possibly committed write.'));});
+    socket.on('error',error => finish(reject,transportError('bridge_connection_unavailable',`Revit connection unavailable (${error.code || error.message}). Check the existing Revit bridge connection and preserve the original plan.`)));
+    socket.on('end',() => {if (!settled) finish(reject,transportError('bridge_connection_closed','Revit closed the connection before returning a result. Query the existing plan status; never duplicate a possibly committed write.'));});
   });
 }

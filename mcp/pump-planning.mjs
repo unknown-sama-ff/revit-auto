@@ -3,6 +3,7 @@ import {isDeepStrictEqual} from 'node:util';
 import {resolvePlanningMode} from './planning-mode.mjs';
 import {buildRegisteredWorkflow} from './workflow-adapter.mjs';
 import {collisionInputSchema} from './collision-request.mjs';
+import {connectionPrefixes} from './mep-connection-contracts.mjs';
 
 export const pumpWorkflowIds=['pump_room.build','pump_room.route','pump_room.connect'];
 const item=z.record(z.string(),z.unknown());
@@ -42,9 +43,9 @@ function gapsFor(name,input){
  const level=(row,prefix)=>{if(!present(row.levelId)&&!present(row.level))need(prefix+'.levelId','请明确 '+prefix+' 的标高 ID 或精确标高名称，不从样板默认取一层。');};
  const point=(value,field)=>{for(const axis of ['xMm','yMm','zMm'])if(!present(value?.[axis]))need(field+'.'+axis,'请明确 '+field+' 的绝对毫米 '+axis+' 坐标，不把未知 Z 填为0。');};
  const flowField=(row,prefix)=>{if(!present(row.flowIntent))need(prefix+'.flowIntent','请明确 '+prefix+' 的 supply/return/neutral 意图；测试文件警告不作为工程设计。');else if(!flow(row.flowIntent))fail('invalid_flow_intent','flowIntent must be supply, return or explicitly neutral.');};
- const connection=(row,prefix)=>{
+ const connection=(row,prefix,operationType)=>{
   flowField(row,prefix);
-  for(const side of ['first','second']){
+  for(const side of connectionPrefixes({...row,operationType})){
    requireField(row,side+'ElementId',prefix+'.'+side+'ElementId','请明确连接两侧的当前元素 ID，不自动选择设备或接口。');
    const hasId=present(row[side+'ConnectorId']),hasCriteria=present(row[side+'Connector']);
    if(!hasId&&!hasCriteria)need(prefix+'.'+side+'Connector','请核对 '+side+' 端连接器 ID 或 domain/shape/XYZ/tolerance criteria；新元素不能预测 ConnectorId。');
@@ -69,7 +70,7 @@ function gapsFor(name,input){
      if(!Array.isArray(row.points)||row.points.length<2)need(prefix+'.points','请提供至少两个明确的路线点；允许AI候选时也必须披露具体点位。');
      else row.points.forEach((p,j)=>point(p,prefix+'.points['+j+']'));
     }else{point(row.start,prefix+'.start');point(row.end,prefix+'.end');}
-   }else if(key==='connections'||key==='fittings')connection(row,prefix);
+   }else if(key==='connections'||key==='fittings')connection(row,prefix,key==='fittings'?'create_fitting':'connect_elements');
   });
  }
  if(modelingRows===0)need('modelingScope','请明确要放置的设备、路线或连接列表；不把空请求当作建模计划。');

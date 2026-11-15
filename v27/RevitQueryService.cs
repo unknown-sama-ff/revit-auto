@@ -60,6 +60,8 @@ internal static class RevitQueryService
     public static object Inspect(UIApplication app, JsonElement p)
     {
         var doc = app.ActiveUIDocument?.Document ?? throw new BridgeException("no_active_document", "Open a project first.");
+        var boundsInput = ElementBoundsRules.Parse(p);
+        var boundsView = boundsInput.IncludeBounds ? ElementBoundsService.ResolveView(doc, boundsInput) : null;
         return new { items = JsonDefaults.Array(p, "elementIds").Take(100).Select(id =>
         {
             if (id.ValueKind != JsonValueKind.Number || !id.TryGetInt64(out var n)) throw new BridgeException("invalid_id", "elementIds must be integer ids.");
@@ -80,7 +82,8 @@ internal static class RevitQueryService
                 dimensionReadback = DimensionNativeEvidence.Snapshot(e),
                 gridDimensionReference = GridDimensionReferenceService.Snapshot(e),
                 titleBlock = TitleBlockChangeService.Inspect(doc, e),
-                drawing = DrawingRelations(e)
+                drawing = DrawingRelations(e),
+                bounds = boundsInput.IncludeBounds ? ElementBoundsService.Snapshot(e, boundsView) : null
             };
         }).ToList() };
     }

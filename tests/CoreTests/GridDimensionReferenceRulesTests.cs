@@ -32,5 +32,42 @@ internal static class GridDimensionReferenceRulesTests
                 throw new Exception("Invalid native datum source evidence was accepted.");
             }
         });
+        test("model-curve observations preserve native reference types without certifying dimension suitability", () =>
+        {
+            var curve = new DimensionReferenceReadback("curve-stable", 123, -1, "REFERENCE_TYPE_LINEAR");
+            foreach (var type in new[] { "REFERENCE_TYPE_LINEAR", "REFERENCE_TYPE_SURFACE", "REFERENCE_TYPE_NONE" })
+            {
+                var observed = curve with { ReferenceType = type };
+                GridDimensionReferenceRules.RequireCurveReference(123, observed, observed);
+            }
+            foreach (var invalid in new[]
+            {
+                curve with { ElementId = 124 },
+                curve with { LinkedElementId = 5 },
+                curve with { ReferenceType = "REFERENCE_TYPE_NONE" },
+                curve with { StableReference = "changed" }
+            })
+            {
+                try { GridDimensionReferenceRules.RequireCurveReference(123, curve, invalid); }
+                catch (BridgeException error) when (error.Code == "invalid_grid_curve_reference") { continue; }
+                throw new Exception("A changed model-curve reference was accepted.");
+            }
+        });
+        test("model-curve observation rejects malformed source and cross-grid identity", () =>
+        {
+            var curve = new DimensionReferenceReadback("curve-stable", 123, -1, "REFERENCE_TYPE_SURFACE");
+            foreach (var invalid in new[] {
+                curve with { ElementId = 0 }, curve with { ElementId = 124 },
+                curve with { LinkedElementId = 0 }, curve with { LinkedElementId = 9 },
+                curve with { ReferenceType = " " }, curve with { StableReference = "" },
+                curve with { StableReference = new string('x',4097) } })
+            {
+                try { GridDimensionReferenceRules.RequireCurveReference(123, invalid, invalid); }
+                catch (BridgeException error) when (error.Code == "invalid_grid_curve_reference") { continue; }
+                throw new Exception("Invalid model-curve source was accepted.");
+            }
+            var bounded = curve with { StableReference = new string('x',4096) };
+            GridDimensionReferenceRules.RequireCurveReference(123, bounded, bounded);
+        });
     }
 }
