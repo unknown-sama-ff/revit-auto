@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-23T20:43:14.556Z",
+  "generatedAtUtc": "2026-11-23T21:04:23.977Z",
   "publicationPerformed": false,
   "counts": {
     "files": 323,
@@ -141,8 +141,8 @@
     {
       "path": "install-v27.ps1",
       "source": "install-v27.ps1",
-      "bytes": 11446,
-      "sha256": "de8c65d361ff784ee569609df6b35d54545311c7776be4ba8221715d07f2c7e5"
+      "bytes": 11566,
+      "sha256": "1e091c7456d4b44e702b88a1c5b3694241aea27fb3d50de983e75193a2421891"
     },
     {
       "path": "LICENSE",
@@ -778,8 +778,8 @@
     {
       "path": "README.md",
       "source": "public-docs/README.md",
-      "bytes": 9256,
-      "sha256": "ec428bf1db7a85163ced492874fcf783864c88afd3aeff8e4e096af9048d34ec"
+      "bytes": 12641,
+      "sha256": "4679c012c76cbef1ec6f6cf3ffb470135764f800a6c206d4fba80178bf9c26f7"
     },
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",

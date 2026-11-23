@@ -158,7 +158,8 @@ if($RegisterCodex){
   $codexConfig=if($env:CODEX_HOME){Join-Path $env:CODEX_HOME 'config.toml'}else{Join-Path $env:USERPROFILE '.codex\config.toml'}
   if(Test-Path -LiteralPath $codexConfig){Copy-Item -LiteralPath $codexConfig -Destination ($codexConfig+'.backup-'+(Get-Date -Format 'yyyyMMddHHmmss'))}
   $existing=$null
-  try{$existing=& $codex mcp get revit-custom --json 2>$null}catch{}
+  $prevErrorPref=$ErrorActionPreference;$ErrorActionPreference='Continue'
+  try{$existing=& $codex mcp get revit-custom --json 2>$null}catch{}finally{$ErrorActionPreference=$prevErrorPref}
   $matches=$false
   if($LASTEXITCODE -eq 0){$entry=$existing|ConvertFrom-Json;$matches=($entry.transport.command -eq $node -and $entry.transport.args[0] -eq $script)}
   if(-not $matches){
