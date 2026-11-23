@@ -29,12 +29,31 @@ try{
   if($LASTEXITCODE -ne 0){throw 'MCP dependencies are missing or invalid. Run npm ci in the mcp directory.'}
 }finally{Pop-Location}
 if($RegisterCodex){$codex=(Get-Command codex -ErrorAction Stop).Source}
+$runtime=Join-Path $root 'runtime'
+$config=Join-Path $runtime 'bridge.json'
+$authorizationFile=Join-Path $runtime 'execution-authorization.json'
+$settings=$null
+if(Test-Path -LiteralPath $runtime){
+  $runtimeItem=Get-Item -LiteralPath $runtime -Force
+  if(-not $runtimeItem.PSIsContainer -or ($runtimeItem.Attributes -band [IO.FileAttributes]::ReparsePoint)){
+    throw 'runtime must be a local directory without a reparse point.'
+  }
+}
+$privateFiles=@($config,$authorizationFile)
+foreach($file in $privateFiles){
+  if(Test-Path -LiteralPath $file){
+    $item=Get-Item -LiteralPath $file -Force
+    if($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){
+      throw "Expected a regular local file: $file"
+    }
+  }
+}
+if(Test-Path -LiteralPath $config -PathType Leaf){$settings=Read-V27BridgeSettings $config}
 if($CheckOnly){
   Write-Output "Installation checks passed. Selected DLL: $dll"
   Write-Output 'No runtime credentials, Revit manifest or assistant configuration were changed.'
   return
 }
-$authorizationFile=Join-Path $root 'runtime\execution-authorization.json'
 $selectedApprovalMode=$ModelApprovalMode
 $installationStatement=$AuthorizationStatement
 if($selectedApprovalMode -eq 'Ask'){
@@ -70,17 +89,36 @@ if($selectedApprovalMode -eq 'AgentReview'){
 }elseif($selectedApprovalMode -eq 'ExactPlanChat' -and (Test-Path -LiteralPath $authorizationFile)){
   throw 'An existing authorization is present. Revoke or rotate it explicitly before selecting exact-plan mode; the installer will not silently change it.'
 }
-$runtime=Join-Path $root 'runtime'
-New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 # Runtime credentials may be read only by the current Windows account and SYSTEM.
 $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
-$acl=[IO.FileSystemAclExtensions]::GetAccessControl([IO.DirectoryInfo]::new($runtime),[Security.AccessControl.AccessControlSections]::Access)
+$systemSid=[Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+$allowedSids=@($sid.Value,$systemSid.Value)
+if(Test-Path -LiteralPath $runtime){
+  Assert-V27PrivateAccessRule (Get-Acl -LiteralPath $runtime) $allowedSids 'runtime'
+}
+foreach($file in $privateFiles){
+  if(Test-Path -LiteralPath $file -PathType Leaf){
+    Assert-V27PrivateAccessRule (Get-Acl -LiteralPath $file) $allowedSids ([IO.Path]::GetFileName($file))
+  }
+}
+New-Item -ItemType Directory -Path $runtime -Force | Out-Null
+$acl=[Security.AccessControl.DirectorySecurity]::new()
 $acl.SetAccessRuleProtection($true,$false)
 $inherit=[Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit'
 $propagate=[Security.AccessControl.PropagationFlags]::None
-foreach($identity in @($sid,[Security.Principal.SecurityIdentifier]::new('S-1-5-18'))){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($identity,'FullControl',$inherit,$propagate,'Allow'))}
-# Persist DACL only: no SACL/audit privileges are needed or requested.
-[IO.FileSystemAclExtensions]::SetAccessControl([IO.DirectoryInfo]::new($runtime),$acl)
+foreach($identity in @($sid,$systemSid)){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($identity,'FullControl',$inherit,$propagate,'Allow'))}
+$dirInfo=[IO.DirectoryInfo]::new($runtime)
+if([Type]::GetType('System.IO.FileSystemAclExtensions, System.IO.FileSystem.AccessControl')){
+  [System.IO.FileSystemAclExtensions]::SetAccessControl($dirInfo,$acl)
+}else{
+  $dirInfo.SetAccessControl($acl)
+}
+Assert-V27PrivateAccessRule (Get-Acl -LiteralPath $runtime) $allowedSids 'runtime' -IncludeInherited
+foreach($file in $privateFiles){
+  if(Test-Path -LiteralPath $file -PathType Leaf){
+    Assert-V27PrivateAccessRule (Get-Acl -LiteralPath $file) $allowedSids ([IO.Path]::GetFileName($file)) -IncludeInherited
+  }
+}
 if($selectedApprovalMode -eq 'AgentReview'){
   $authorizationArgs=@((Join-Path $root 'mcp\execution-authorization-setup.mjs'),'--project-root',$root,'--user-authorized','--granted-by','user-installation','--user-statement',$installationStatement)
   foreach($modelPath in $AuthorizedDocumentPath){$authorizationArgs+=@('--document',$modelPath)}
@@ -88,21 +126,24 @@ if($selectedApprovalMode -eq 'AgentReview'){
   if($LASTEXITCODE -ne 0){throw 'Model authorization setup failed; no Revit model command was requested.'}
   Write-Output 'One-time scoped agent-review authorization created. Preview and agent review remain required; a second human approval for each plan is not required within that scope.'
 }
-$config=Join-Path $runtime 'bridge.json'
-if(-not(Test-Path -LiteralPath $config)){
+if($null -eq $settings){
   $bytes=New-Object byte[] 32
-  [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $rng=[Security.Cryptography.RandomNumberGenerator]::Create()
+  try{$rng.GetBytes($bytes)}finally{$rng.Dispose()}
   $token=([Convert]::ToBase64String($bytes)).TrimEnd('=').Replace('+','-').Replace('/','_')
-  @{port=8091;token=$token;planLifetimeMinutes=120} | ConvertTo-Json | Set-Content -LiteralPath $config -Encoding UTF8
+  $settings=[pscustomobject]@{port=8091;token=$token;planLifetimeMinutes=120}
+  $handle=[IO.File]::Open($config,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+  $utf8=[Text.UTF8Encoding]::new($false)
+  try{
+    $content=$utf8.GetBytes(($settings | ConvertTo-Json))
+    $handle.Write($content,0,$content.Length)
+  }finally{$handle.Dispose()}
 }
-$settings=Get-Content -LiteralPath $config -Raw | ConvertFrom-Json
-if($settings.token.Length -lt 40){throw 'Invalid bridge token; repair runtime/bridge.json.'}
-if(-not $settings.PSObject.Properties['planLifetimeMinutes']){
-  $settings|Add-Member -NotePropertyName planLifetimeMinutes -NotePropertyValue 120
-  $settings|ConvertTo-Json|Set-Content -LiteralPath $config -Encoding UTF8
+foreach($file in $privateFiles){
+  if(Test-Path -LiteralPath $file -PathType Leaf){
+    Assert-V27PrivateAccessRule (Get-Acl -LiteralPath $file) $allowedSids ([IO.Path]::GetFileName($file)) -IncludeInherited
+  }
 }
-if($settings.planLifetimeMinutes -isnot [long] -and $settings.planLifetimeMinutes -isnot [int]){throw 'planLifetimeMinutes must be an integer.'}
-if($settings.planLifetimeMinutes -lt 15 -or $settings.planLifetimeMinutes -gt 480){throw 'planLifetimeMinutes must be between 15 and 480.'}
 $manifest=Join-Path $root 'v27\RevitAutoV27.addin'
 $addin.Save($manifest)
 $targetDir=Join-Path $env:APPDATA 'Autodesk\Revit\Addins\2027'

@@ -24,7 +24,8 @@ const configuration=z.object({
   settings:z.array(z.enum(settings)).min(1).max(settings.length),
   discipline:z.enum(['Architectural','Structural','Mechanical','Electrical','Plumbing','Coordination']).optional(),
   viewportId:reference.optional(),paperPoint:point.optional(),
-  cropBounds:z.object({min:xy,max:xy}).strict().optional()
+  cropBounds:z.object({min:xy,max:xy}).strict().optional(),
+  annotationCropActive:z.boolean().optional()
 }).strict().superRefine((row,ctx)=>{
   if(new Set(row.settings).size!==row.settings.length)ctx.addIssue({code:'custom',path:['settings'],message:'View settings must be unique.'});
   if(row.discipline!==undefined&&!row.settings.includes('discipline'))ctx.addIssue({code:'custom',path:['discipline'],message:'Explicit discipline requires the discipline setting.'});
@@ -33,6 +34,9 @@ const configuration=z.object({
   if(row.cropBounds!==undefined){
     if(!row.settings.includes('crop'))ctx.addIssue({code:'custom',path:['cropBounds'],message:'cropBounds requires the crop setting.'});
     if(row.cropBounds.max.xMm-row.cropBounds.min.xMm<1||row.cropBounds.max.yMm-row.cropBounds.min.yMm<1)ctx.addIssue({code:'custom',path:['cropBounds'],message:'Crop bounds must be ordered and at least 1 mm wide/high.'});
+  }
+  if(row.annotationCropActive!==undefined&&!row.settings.includes('crop')){
+    ctx.addIssue({code:'custom',path:['annotationCropActive'],message:'annotationCropActive requires the crop setting.'});
   }
 });
 const schedule=z.object({...creation,category:text,fields:z.array(z.union([text,z.number().int().safe()])).min(1).max(1000),name:text.optional()}).strict();

@@ -4,7 +4,7 @@ namespace RevitAutoV27;
 // MepConnectionSystemType.cs (blob 417577a44ddf298df3c17a2a53b01a61d3a52f92). No native calls live here.
 internal enum PipingAssignmentReadSource { Unknown, SelectedConnectorMepSystem, PipeSystemTypeParameter }
 internal sealed record PipingAssignmentRead(bool Succeeded, bool? HasAssignedType, long? TypeId,
-    string? Classification, PipingAssignmentReadSource Source, string? NativeError = null);
+    string? Classification, PipingAssignmentReadSource Source, string? NativeError = null, long? SystemId = null);
 internal sealed record PipingPortNativeEvidence(PipingClassEvidence Piping, string OwnerUniqueId,
     string OwnerKind, string Category, string Domain, string ConnectorType,
     bool ConnectorClassReadSucceeded, PipingAssignmentRead Assignment, string? NativeError = null);
@@ -12,6 +12,9 @@ internal sealed record PipingConnectionDecision(PipingPortNativeEvidence First, 
     bool UsesUnassignedEquipmentAllowance, string? UnassignedEndpoint, string Classification, long? RequiredSystemTypeId);
 internal sealed record UnassignedEquipmentConnectionReadback(PipingPortNativeEvidence First,
     PipingPortNativeEvidence Second, bool FirstReferencesSecond, bool SecondReferencesFirst);
+internal sealed record UnassignedEquipmentConnectionResolution(string EquipmentSystemAssignmentState,
+    bool PhysicalConnectionVerified, bool PipeSystemTypeVerified, bool EquipmentSystemTypeVerified,
+    bool SystemMembershipVerified);
 
 internal static class UnassignedEquipmentConnectionRules
 {
@@ -38,20 +41,15 @@ internal static class UnassignedEquipmentConnectionRules
             equipment.OwnerKind != "FamilyInstance" || equipment.Category != "OST_MechanicalEquipment" ||
             pipe.OwnerKind != "Pipe" || pipe.Category != "OST_PipeCurves")
             throw Refuse("The allowance requires distinct native MechanicalEquipment family-instance and Pipe owners.", new { first, second });
-        if (equipment.Piping.ConnectorClass != "UndefinedSystemType" ||
-            equipment.Assignment.Source != PipingAssignmentReadSource.SelectedConnectorMepSystem ||
-            equipment.Assignment.HasAssignedType != false || equipment.Assignment.TypeId is not null ||
-            equipment.Assignment.Classification is not null || equipment.Piping.AssignedSystemTypeId is not null ||
-            equipment.Piping.AssignedClass is not null)
-            throw Refuse("Equipment must have a successfully read UndefinedSystemType and a successfully read absent selected-connector system; missing evidence is unknown.", equipment);
+        RequireKnownUnassigned(equipment);
         RequireAssigned(pipe);
         var classification = PipingCompatibilityRules.Resolve(pipe.Piping);
         return new(first, second, true, firstClass is null ? "first" : "second", classification, pipe.Assignment.TypeId);
     }
 
-    // Keep the reviewed pre-connection proof: after ConnectTo the equipment is expected to acquire
-    // an assigned system, so rerunning the precondition alone would discard that proof.
-    internal static void RequireReadback(PipingConnectionDecision expected, UnassignedEquipmentConnectionReadback actual)
+    // Physical connection does not require Revit to have created system membership. Preserve the
+    // reviewed prebinding proof and classify the actual successful read without inferring assignment.
+    internal static UnassignedEquipmentConnectionResolution RequireReadback(PipingConnectionDecision expected, UnassignedEquipmentConnectionReadback actual)
     {
         if (!expected.UsesUnassignedEquipmentAllowance)
             throw Refuse("This readback rule is only for a reviewed unassigned-equipment allowance.", expected);
@@ -59,14 +57,37 @@ internal static class UnassignedEquipmentConnectionRules
         if (reviewed != expected || actual is null || !SamePort(expected.First, actual.First) ||
             !SamePort(expected.Second, actual.Second) || !actual.FirstReferencesSecond || !actual.SecondReferencesFirst)
             throw Refuse("Reviewed endpoint identities and their exact reciprocal physical connection must survive native reread.", new { expected, actual });
-        foreach (var endpoint in new[] { actual.First, actual.Second })
+        var equipment = expected.UnassignedEndpoint == "first" ? actual.First : actual.Second;
+        var pipe = expected.UnassignedEndpoint == "first" ? actual.Second : actual.First;
+        RequireComplete(equipment); RequireComplete(pipe); RequireExpectedAssignment(pipe, expected);
+        if (equipment.Assignment.HasAssignedType == false)
         {
-            RequireComplete(endpoint); RequireAssigned(endpoint);
-            if (endpoint.Assignment.TypeId != expected.RequiredSystemTypeId ||
-                PipingCompatibilityRules.Resolve(endpoint.Piping) != expected.Classification)
-                throw Refuse("Both selected ports must read back the reviewed assigned system type and compatible classification.", new { expected, actual });
+            RequireKnownUnassigned(equipment);
+            return new("equipment-remains-known-unassigned", true, true, false, false);
         }
+        RequireExpectedAssignment(equipment, expected);
         PipingCompatibilityRules.RequireCompatible(actual.First.Piping, actual.Second.Piping);
+        var membership = equipment.Assignment.Source == PipingAssignmentReadSource.SelectedConnectorMepSystem &&
+            pipe.Assignment.Source == PipingAssignmentReadSource.SelectedConnectorMepSystem &&
+            equipment.Assignment.SystemId is > 0 && equipment.Assignment.SystemId == pipe.Assignment.SystemId;
+        return new("assigned-system-verified", true, true, true, membership);
+    }
+
+    private static void RequireKnownUnassigned(PipingPortNativeEvidence equipment)
+    {
+        if (equipment.Piping.ConnectorClass != "UndefinedSystemType" ||
+            equipment.Assignment.Source != PipingAssignmentReadSource.SelectedConnectorMepSystem ||
+            equipment.Assignment.HasAssignedType != false || equipment.Assignment.TypeId is not null ||
+            equipment.Assignment.Classification is not null || equipment.Assignment.SystemId is not null ||
+            equipment.Piping.AssignedSystemTypeId is not null || equipment.Piping.AssignedClass is not null)
+            throw Refuse("Equipment must have a successfully read UndefinedSystemType and a successfully read absent selected-connector system; missing evidence is unknown.", equipment);
+    }
+    private static void RequireExpectedAssignment(PipingPortNativeEvidence endpoint, PipingConnectionDecision expected)
+    {
+        RequireAssigned(endpoint);
+        if (endpoint.Assignment.TypeId != expected.RequiredSystemTypeId ||
+            PipingCompatibilityRules.Resolve(endpoint.Piping) != expected.Classification)
+            throw Refuse("An assigned selected port must retain the reviewed pipe system type and compatible classification.", new { expected, endpoint });
     }
 
     private static PipingConnectionDecision Strict(PipingPortNativeEvidence first, PipingPortNativeEvidence second)
@@ -94,6 +115,7 @@ internal static class UnassignedEquipmentConnectionRules
         if (e.Assignment.HasAssignedType != true || e.Assignment.TypeId is not > 0 ||
             e.Assignment.Classification is null || e.Piping.AssignedSystemTypeId != e.Assignment.TypeId ||
             e.Piping.AssignedClass != e.Assignment.Classification ||
+            (e.Assignment.SystemId is not null && (e.Assignment.SystemId <= 0 || e.Assignment.Source != PipingAssignmentReadSource.SelectedConnectorMepSystem)) ||
             (e.Assignment.Source != PipingAssignmentReadSource.SelectedConnectorMepSystem &&
              !(e.OwnerKind == "Pipe" && e.Assignment.Source == PipingAssignmentReadSource.PipeSystemTypeParameter)))
             throw Refuse("Assigned native type resolution must succeed and agree with the existing classification evidence.", e);

@@ -72,3 +72,43 @@ function Get-V27Node {
   if([version]$text.TrimStart('v') -lt [version]'20.11.0'){throw 'Node.js 20.11 or later is required.'}
   return $node
 }
+
+function Read-V27BridgeSettings([string]$Path) {
+  try {
+    $json=Get-Content -LiteralPath $Path -Raw
+    if(-not $json.TrimStart().StartsWith('{')){throw 'Expected one object.'}
+    $settings=ConvertFrom-Json -InputObject $json
+  } catch {
+    throw 'Cannot read runtime/bridge.json as a valid JSON settings file.'
+  }
+  if ($settings -isnot [pscustomobject]) {
+    throw 'runtime/bridge.json must contain a JSON object.'
+  }
+  $names=@($settings.PSObject.Properties.Name)
+  if ($names -cnotcontains 'port' -or ($settings.port -isnot [int] -and $settings.port -isnot [long]) -or $settings.port -lt 1024 -or $settings.port -gt 65535) {
+    throw 'runtime/bridge.json port must be an integer between 1024 and 65535.'
+  }
+  if ($names -cnotcontains 'token' -or $settings.token -isnot [string] -or $settings.token.Length -lt 40) {
+    throw 'runtime/bridge.json token must be a string of at least 40 characters.'
+  }
+  if ($settings.PSObject.Properties['planLifetimeMinutes']) {
+    if (($settings.planLifetimeMinutes -isnot [int] -and $settings.planLifetimeMinutes -isnot [long]) -or
+        $settings.planLifetimeMinutes -lt 15 -or $settings.planLifetimeMinutes -gt 480) {
+      throw 'runtime/bridge.json planLifetimeMinutes must be an integer between 15 and 480.'
+    }
+  }
+  return $settings
+}
+
+function Assert-V27PrivateAccessRule($AccessControl,[string[]]$AllowedSids,[string]$Label,[switch]$IncludeInherited) {
+  $descriptor=[Security.AccessControl.RawSecurityDescriptor]::new($AccessControl.GetSecurityDescriptorBinaryForm(),0)
+  if($null -eq $descriptor.DiscretionaryAcl){
+    throw "Missing private access rules on $Label. Review its Windows permissions before installing."
+  }
+  $rules=$AccessControl.GetAccessRules($true,$IncludeInherited.IsPresent,[Security.Principal.SecurityIdentifier])
+  foreach ($rule in $rules) {
+    if ($rule.IdentityReference.Value -notin $AllowedSids -or $rule.AccessControlType -ne 'Allow') {
+      throw "Unexpected access rule on $Label. Review its Windows permissions before installing."
+    }
+  }
+}

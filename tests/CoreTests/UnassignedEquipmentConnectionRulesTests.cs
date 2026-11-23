@@ -108,12 +108,70 @@ internal static class UnassignedEquipmentConnectionRulesTests
         test("allowance readback retains prebinding proof while equipment gains system assignment", () =>
         {
             var expected = Allow(); var actual = Connected();
-            UnassignedEquipmentConnectionRules.RequireReadback(expected, actual);
+            var resolution = UnassignedEquipmentConnectionRules.RequireReadback(expected, actual);
+            if (resolution.EquipmentSystemAssignmentState != "assigned-system-verified" ||
+                !resolution.PhysicalConnectionVerified || !resolution.PipeSystemTypeVerified ||
+                !resolution.EquipmentSystemTypeVerified || resolution.SystemMembershipVerified)
+                throw new Exception("Type verification must not imply same-system membership without native instance IDs.");
             UnassignedEquipmentConnectionRules.RequireReadback(Allow(Pipe(), Equipment()),
                 new(actual.Second, actual.First, true, true));
             // Instantaneous connector class may remain undefined when verified assigned type provides the class.
             UnassignedEquipmentConnectionRules.RequireReadback(expected,
                 actual with { First = actual.First with { Piping = actual.First.Piping with { ConnectorClass = "UndefinedSystemType" } } });
+        });
+        test("physically linked equipment may remain positively unassigned without claiming system membership", () =>
+        {
+            var actual = new UnassignedEquipmentConnectionReadback(Equipment(), Pipe(), true, true);
+            var resolution = UnassignedEquipmentConnectionRules.RequireReadback(Allow(), actual);
+            if (resolution.EquipmentSystemAssignmentState != "equipment-remains-known-unassigned" ||
+                !resolution.PhysicalConnectionVerified || !resolution.PipeSystemTypeVerified ||
+                resolution.EquipmentSystemTypeVerified || resolution.SystemMembershipVerified)
+                throw new Exception("Known-unassigned physical connection receipt overstated assignment.");
+            var reversed = UnassignedEquipmentConnectionRules.RequireReadback(Allow(Pipe(), Equipment()),
+                new(actual.Second, actual.First, true, true));
+            if (reversed != resolution) throw new Exception("Endpoint order changed assignment resolution.");
+        });
+        test("system membership requires positive matching selected native system instance ids", () =>
+        {
+            var actual = Connected();
+            var equipment = actual.First with { Assignment = actual.First.Assignment with { SystemId = 900 } };
+            var pipe = actual.Second with { Assignment = actual.Second.Assignment with { SystemId = 900 } };
+            var matching = UnassignedEquipmentConnectionRules.RequireReadback(Allow(), new(equipment, pipe, true, true));
+            if (!matching.SystemMembershipVerified) throw new Exception("Matching native membership evidence was lost.");
+            foreach (var second in new[] { pipe with { Assignment = pipe.Assignment with { SystemId = null } },
+                pipe with { Assignment = pipe.Assignment with { SystemId = 901 } }, Pipe() })
+            {
+                var result = UnassignedEquipmentConnectionRules.RequireReadback(Allow(), new(equipment, second, true, true));
+                if (result.SystemMembershipVerified || !result.EquipmentSystemTypeVerified)
+                    throw new Exception("Matching type IDs were mistaken for shared system membership.");
+            }
+        });
+        test("known-unassigned postconnect state still refuses unknown errors contradictions and other owners", () =>
+        {
+            var e = Equipment(); var p = Pipe(); var expected = Allow();
+            foreach (var invalid in new[] { e with { ConnectorClassReadSucceeded = false },
+                e with { NativeError = "failed" }, e with { Piping = e.Piping with { NativeError = "failed" } },
+                e with { Piping = e.Piping with { ConnectorClass = "SupplyHydronic" } },
+                e with { Piping = e.Piping with { ConnectorClass = "ReturnHydronic" } },
+                e with { Piping = e.Piping with { AssignedSystemTypeId = 500 } },
+                e with { Piping = e.Piping with { AssignedClass = "SupplyHydronic" } },
+                e with { Assignment = e.Assignment with { Succeeded = false } },
+                e with { Assignment = e.Assignment with { HasAssignedType = null } },
+                e with { Assignment = e.Assignment with { NativeError = "failed" } },
+                e with { Assignment = e.Assignment with { Source = PipingAssignmentReadSource.Unknown } },
+                e with { Assignment = e.Assignment with { TypeId = 500 } },
+                e with { Assignment = e.Assignment with { Classification = "SupplyHydronic" } },
+                e with { Assignment = e.Assignment with { SystemId = 900 } },
+                e with { Category = "OST_PipeFitting" }, e with { OwnerKind = "MEPCurve" } })
+                Reject(() => UnassignedEquipmentConnectionRules.RequireReadback(expected, new(invalid, p, true, true)));
+            foreach (var invalid in new[] { p with { Assignment = p.Assignment with { Succeeded = false } },
+                p with { Assignment = p.Assignment with { HasAssignedType = null } },
+                p with { Assignment = p.Assignment with { HasAssignedType = false, TypeId = null, Classification = null } },
+                p with { Piping = new(20, 0, "UndefinedSystemType", null, null), Assignment = new(true, false, null, null, PipingAssignmentReadSource.SelectedConnectorMepSystem) },
+                Assigned(p, 501), Assigned(p, 500, "ReturnHydronic") })
+                Reject(() => UnassignedEquipmentConnectionRules.RequireReadback(expected, new(e, invalid, true, true)));
+            Reject(() => UnassignedEquipmentConnectionRules.RequireReadback(expected, new(e, p, false, true)));
+            Reject(() => UnassignedEquipmentConnectionRules.RequireReadback(expected, new(e, p, true, false)));
         });
         test("allowance readback rejects unilateral absent or substituted endpoint connections", () =>
         {
@@ -128,7 +186,7 @@ internal static class UnassignedEquipmentConnectionRulesTests
         test("allowance readback rejects missing unknown mismatched or contradictory assignment", () =>
         {
             var expected = Allow(); var actual = Connected();
-            foreach (var endpoint in new[] { Equipment(), Assigned(Equipment(), 501), Assigned(Equipment(), 500, "ReturnHydronic"),
+            foreach (var endpoint in new[] { Assigned(Equipment(), 501), Assigned(Equipment(), 500, "ReturnHydronic"),
                 actual.First with { ConnectorClassReadSucceeded = false },
                 actual.First with { Assignment = actual.First.Assignment with { Succeeded = false } },
                 actual.First with { Piping = actual.First.Piping with { NativeError = "failure" } },

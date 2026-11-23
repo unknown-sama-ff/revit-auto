@@ -31,6 +31,25 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private readonly MultiportFittingReadbackService multiportFittingCreations = new();
     private readonly UnassignedEquipmentConnectionService unassignedConnections = new();
     private readonly LightingMoveService lightingMoves = new();
+    private readonly StructuralElementService structuralElements = new();
+    internal object VerifyStructuralElements(string phase) => structuralElements.VerifyCompleted(Doc, phase);
+    private readonly WallFoundationService wallFoundations = new();
+    private readonly RebarCreationService rebarCreations = new();
+    private readonly CeilingCreationService ceilingCreations = new();
+    private readonly MaterialCreationService materialCreations = new();
+    private readonly RoofCreationService roofCreations = new();
+    private readonly AnnotationCreationService annotationCreations = new();
+    private readonly ElectricalRunService electricalRuns = new();
+    internal object VerifyWallFoundations(string phase) => wallFoundations.VerifyCompleted(Doc, phase);
+    internal object VerifyRebarCreations(string phase) => rebarCreations.VerifyCompleted(Doc, phase);
+    internal object VerifyCeilingCreations(string phase) => ceilingCreations.VerifyCompleted(Doc, phase);
+    internal object? VerifyMaterialCreations(string phase) => materialCreations.VerifyCompleted(Doc, phase);
+    internal object? VerifyRoofCreations(string phase) => roofCreations.VerifyCompleted(Doc, phase);
+    internal object? VerifyAnnotationCreations(string phase) => annotationCreations.VerifyCompleted(Doc, phase);
+    internal object? VerifyElectricalRuns(string phase) => electricalRuns.VerifyCompleted(Doc, phase);
+    internal object PreviewMaterialAssignment(JsonElement operation) =>
+        MaterialCreationService.PreviewAssignment(Required<Element>(operation, "elementId"),
+            JsonDefaults.String(operation, "parameter")!, Check<Material>(operation, "materialId"), JsonDefaults.String(operation, "materialId"));
     internal object VerifyLightingMoves(string phase) => lightingMoves.VerifyCompleted(Doc, phase);
     internal object VerifyFittingCreations(string phase) => fittingCreations.VerifyCompleted(Doc, phase);
     internal object VerifyMultiportFittingCreations(string phase) => multiportFittingCreations.VerifyCompleted(Doc, phase);
@@ -337,24 +356,29 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             });
         return (nearest.Reference, nearest.Projection!.XYZPoint);
     }
-    internal void ValidateFamilyHostGeometryPlan(IReadOnlyList<JsonElement> operations)
+    internal FamilyHostGeometryPreflight ValidateFamilyHostGeometryPlan(IReadOnlyList<JsonElement> operations)
     {
-        var currentHostGeometryUnchanged = true;
-        foreach (var operation in operations)
+        return FamilyHostGeometryRules.Preflight(operations, operation =>
         {
-            if (currentHostGeometryUnchanged &&
-                JsonDefaults.String(operation, "operationType") == "create_family_instance" &&
-                JsonDefaults.String(operation, "placementMode") != "legacyPoint" &&
-                JsonDefaults.Has(operation, "hostElementId") &&
-                !Deferred(JsonDefaults.Get(operation, "hostElementId")))
+            var symbol = Symbol(operation);
+            if (symbol is null) return new("deferred", "family-type-not-materialized");
+            if (symbol.Family.FamilyPlacementType != FamilyPlacementType.WorkPlaneBased)
+                return new("unavailable", "family-placement-not-work-plane-based");
+            if (Check<Element>(operation, "hostElementId") is not Wall wall)
+                return new("unavailable", "host-is-not-wall");
+            var placement = ResolveWallFacePlacement(wall, operation, Point(operation), "preflight-current-host-geometry");
+            string? stableReference = null, stableReferenceReason = null;
+            try { stableReference = placement.Reference.ConvertToStableRepresentation(Doc); }
+            catch (Exception error) when (error is not (OperationCanceledException or Autodesk.Revit.Exceptions.OperationCanceledException or OutOfMemoryException))
             {
-                var symbol = Symbol(operation);
-                if (symbol?.Family.FamilyPlacementType == FamilyPlacementType.WorkPlaneBased &&
-                    Check<Element>(operation, "hostElementId") is Wall wall)
-                    ResolveWallFacePlacement(wall, operation, Point(operation), "preflight-current-host-geometry");
+                stableReferenceReason = "stable-reference-unavailable:" + error.GetType().Name;
             }
-            currentHostGeometryUnchanged &= FamilyHostGeometryRules.PreservesCurrentHostGeometry(operation);
-        }
+            if (string.IsNullOrEmpty(stableReference)) { stableReference = null; stableReferenceReason ??= "stable-reference-unavailable"; }
+            var requested = Point(operation);
+            FamilyHostGeometryPoint Evidence(XYZ p) => new(JsonDefaults.InternalToMm(p.X), JsonDefaults.InternalToMm(p.Y), JsonDefaults.InternalToMm(p.Z));
+            return new("available", null, new(Evidence(requested), Evidence(placement.Point),
+                JsonDefaults.InternalToMm(requested.DistanceTo(placement.Point)), stableReference, stableReferenceReason));
+        });
     }
     private static XYZ Point(JsonElement payload)
     {
@@ -375,6 +399,15 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         switch (kind)
         {
             case "move_lighting_fixtures": LightingMoveService.Validate(Doc, op); break;
+            case "create_structural_beam": case "create_isolated_foundation": StructuralElementService.Validate(Doc, op); break;
+            case "create_wall_foundation": WallFoundationService.Validate(Doc, op); break;
+            case "create_rebar_set": case "create_rebar_stirrup": RebarCreationService.Validate(Doc, op); break;
+            case "create_ceiling": CeilingCreationService.Validate(Doc, op); break;
+            case "create_material": case "duplicate_material": MaterialCreationService.Validate(Doc, op); break;
+            case "assign_material": _ = PreviewMaterialAssignment(op); break;
+            case "create_footprint_roof": RoofCreationService.Validate(Doc, op); break;
+            case "create_text_note": case "create_detail_line": AnnotationCreationService.Validate(Doc, op); break;
+            case "create_cable_tray": case "create_conduit": ElectricalRunService.Validate(Doc, op); break;
             case "load_family": FamilyLibraryService.Validate(Doc, op); break;
             case "create_family_instance":
                 var symbol = Symbol(op); Level(op); var host = Check<Element>(op, "hostElementId", false);
@@ -499,7 +532,16 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             var resultType = kind switch
             {
                 "load_family" => typeof(Family),
-                "create_family_instance" or "create_fitting" or "create_structural_column" => typeof(FamilyInstance),
+                "create_family_instance" or "create_fitting" or "create_structural_column" or "create_structural_beam" or "create_isolated_foundation" => typeof(FamilyInstance),
+                "create_wall_foundation" => typeof(WallFoundation),
+                "create_rebar_set" or "create_rebar_stirrup" => typeof(Autodesk.Revit.DB.Structure.Rebar),
+                "create_ceiling" => typeof(Ceiling),
+                "create_material" or "duplicate_material" => typeof(Material),
+                "create_footprint_roof" => typeof(FootPrintRoof),
+                "create_text_note" => typeof(TextNote),
+                "create_detail_line" => typeof(DetailCurve),
+                "create_cable_tray" => typeof(CableTray),
+                "create_conduit" => typeof(Conduit),
                 "duplicate_type" => Check<ElementType>(op, "sourceTypeId")?.GetType() ?? typeof(ElementType),
                 "duplicate_architecture_type" => typeof(FamilySymbol),
                 "create_level" => typeof(Level), "create_grid" => typeof(Grid), "create_wall" => typeof(Wall), "create_floor" => typeof(Floor),
@@ -620,6 +662,17 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         switch (kind)
         {
             case "move_lighting_fixtures": return lightingMoves.Apply(Doc, op);
+            case "create_structural_beam": case "create_isolated_foundation": return structuralElements.Create(Doc, op);
+            case "create_wall_foundation": return wallFoundations.Create(Doc, op);
+            case "create_rebar_set": case "create_rebar_stirrup": return rebarCreations.Create(Doc, op);
+            case "create_ceiling": return ceilingCreations.Create(Doc, op);
+            case "create_material": case "duplicate_material": return materialCreations.Create(Doc, op);
+            case "assign_material":
+                return materialCreations.Assign(Doc, Required<Element>(op, "elementId"),
+                    JsonDefaults.String(op, "parameter")!, Required<Material>(op, "materialId"));
+            case "create_footprint_roof": return roofCreations.Create(Doc, op);
+            case "create_text_note": case "create_detail_line": return annotationCreations.Create(Doc, op);
+            case "create_cable_tray": case "create_conduit": return electricalRuns.Create(Doc, op);
             case "load_family": return FamilyLibraryService.Load(Doc, op);
             case "change_titleblock_type":
                 var titleBlockReceipt=TitleBlockChangeService.Apply(Doc,op);

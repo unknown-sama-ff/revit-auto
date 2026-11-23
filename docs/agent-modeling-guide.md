@@ -19,6 +19,18 @@ Read `revit-custom://safety` and `revit-custom://operation-guide`. Then use:
 
 Tool schemas are authoritative. Do not invent parameters from this table. The logical native API names use dots, while the MCP server advertises underscores.
 
+## Pre-modeling CAD review gate
+
+Current priority focuses on Agent-driven MCP automated modeling rather than built-in AI API integration. Before driving Revit MCP modeling from CAD reference drawings:
+
+1. **Confirm required skills first**: Check what CAD inspection/parsing skills or local tools are needed. If any skill needs to be installed or enabled, confirm with the user before installing.
+2. **Inspect the CAD drawing before modeling**: Read the CAD drawing first (layers, text notes, dimensions, grids, levels, blocks, geometry, and parser warnings/unknown entities). Do not jump straight into generating Revit operations.
+3. **Evaluate drawing completeness**: Explicitly assess whether the drawing contains sufficient engineering information to model, listing what is verified and what is missing or ambiguous.
+4. **Pause for two-branch user confirmation**:
+   - **Complete**: Present the completeness judgment and ask the user to confirm **Yes, start modeling** before creating Revit modeling plans.
+   - **Incomplete**: Clearly report that the drawing is incomplete along with concrete missing items, and ask the user to choose whether to **proceed with modeling anyway** (with explicit assumptions or reduced scope) or **supplement the drawings** first.
+   - Scoped `AgentReview` installation grants apply only after the user confirms starting modeling; they never bypass the skills-install confirmation or the CAD completeness gate.
+
 ## Plan from measured context
 
 Confirm the active project is the user's intended target. Record its identity and revision. Read the relevant elements, existing type catalog, geometry and constraints before constructing operations. `@id` references can refer only to earlier operations in the same plan where supported; they are not predicted native element or connector IDs.
@@ -31,11 +43,13 @@ Use a registered workflow when its exact inputs fit. For ambiguous pump workflow
 
 For `create_fitting`, `fittingType: "tee"` requires the ordered `first`, `second` and `third` endpoint fields; `"cross"` also requires `fourth`. Each prefix has an explicit `ElementId` and exactly one `ConnectorId` or `Connector` criteria selector. Native factory calls retain that declared order. Inspect and choose it deliberately; the bridge does not infer a branch order. Endpoint owners must be distinct, and unused extra endpoint fields are rejected.
 
-`allowUnassignedEquipmentPort: true` is an explicit `connect_elements` exception for an existing, inspected MechanicalEquipment port and an existing Pipe. The equipment port must be successfully read as unassigned, and the pipe must provide a known compatible system type/classification. An unknown or failed read is not an unassigned port. Deferred `@id` creations cannot use the exception, and tee/cross fitting operations cannot inherit it. Post-connection native readback must still prove both original port identities, reciprocal connection and actual assigned system. Keep the flag absent/false for ordinary strict connections. These new branches remain compiled/in development, with native acceptance pending.
+`allowUnassignedEquipmentPort: true` is an explicit `connect_elements` exception for an existing, inspected MechanicalEquipment port and an existing Pipe. The equipment port must be successfully read as unassigned, and the pipe must provide a known compatible system type/classification. An unknown or failed read is not an unassigned port. Deferred `@id` creations cannot use the exception, and tee/cross fitting operations cannot inherit it. The corrected readback preserves both original port identities and requires reciprocal physical connection plus the pipe's concrete type/class; equipment can remain explicitly known-unassigned. System membership is reported separately and needs matching positive native system-instance IDs from both selected ports. Keep the flag absent/false for ordinary strict connections. This correction is offline only; check the loaded version rather than assuming it is active.
 
 ## Review and authorize the preview
 
 Review the summary and each operation's targets, types, hosts, route/geometry, dependencies, expected side effects and warnings. Check plan ID, identity/revision, expiry and fresh context. If scope or input changes, create a new preview and apply the user's authorization policy to the new plan.
+
+For wall-face placement, inspect `familyHostGeometryPreflight` when the loaded add-in supplies it. An available entry distinguishes the requested point from the projected wall-face point and reports side, tolerance and projection distance. Deferred/unavailable entries do not predict future host geometry; a truncated list is incomplete. This is preview evidence only: it does not prove the final instance position, native level association or visible symbol bounds. Preserve the complete preview hash, then inspect the created instance after execution. Older loaded builds can omit this additive field.
 
 The default policy is exact-plan chat approval. After explicit approval, confirm that unchanged plan once; the native add-in does not add a second confirmation dialog. During installation, the interactive default `-ModelApprovalMode Ask` can offer scoped agent self-review. A deliberate selection plus exact document scope is the one-time grant, recorded as installation authorization. Declining preserves exact-plan chat approval on a fresh installation. For noninteractive agent self-review, explicitly use `-ModelApprovalMode AgentReview` with the user's exact `-AuthorizedDocumentPath` scope and actual `-AuthorizationStatement`. That statement is the grant and does not trigger a second approval prompt. The setup handles local grant creation; do not hand-write JSON or invent consent.
 
@@ -57,6 +71,6 @@ Report what was created/changed, what native checks passed, remaining warnings/u
 
 The workflow registry is a discovery and limitation contract, not a per-release acceptance database. Recheck the loaded host features and exact operation notes. Selected prior native checks cover architecture/annotation readback, room geometry, electrical, pipe/connector and failure rollback paths, with scope-specific limits. Portable tests cover data validation, planners, mock transport/protocol and native-independent safety rules; they do not run Revit.
 
-Treat new tee/cross multiport fitting adaptation and the opt-in unassigned-equipment piping connection policy as **in development**, even when compiled. Treat external RTE metadata extension as **compiled, native real-file acceptance pending**. RFA metadata and family load modes are separate branches: success reading one asset does not certify another asset, `replace`, or new family loading. Unknown connectors, unavailable native geometry, absent features and truncated responses remain explicit limitations.
+Selected tee/cross fixtures passed native reciprocal topology and focused-image checks; disk persistence and unrestricted effects remain unaccepted. The opt-in unassigned-equipment connection correction is **offline only**, even when compiled. RTE metadata remains **unaccepted**: attempted files were refused before opening because of stored references. RFA reads and family load modes are separate branches with asset-specific results. Unknown connectors, unavailable native geometry, absent features and truncated responses remain explicit limitations. See the [capability status](capability-status.md).
 
 The package includes no project-specific model, catalog, credentials, standing grant or private acceptance evidence. Set up and verify your own environment and disposable test assets before production use. Preserve [LICENSE](../LICENSE), [NOTICE](../NOTICE) and [third-party notices](../THIRD_PARTY_NOTICES.md) when adapting source.

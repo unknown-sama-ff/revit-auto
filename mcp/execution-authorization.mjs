@@ -16,6 +16,12 @@ const grantSchema = z.object({
 const sha = value => createHash('sha256').update(value).digest('hex');
 const normalize = value => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const workflowReviewNotes = new Map([
+  ['这是基于用户明确约束生成的预览，仍需聊天确认。', '这是基于用户明确约束生成的预览，仍需代理审阅；当前项目授权替代逐计划聊天确认。'],
+  ['这是基于已披露假设生成的候选方案，仍需聊天确认。', '这是基于已披露假设生成的候选方案，仍需代理审阅；当前项目授权替代逐计划聊天确认。'],
+  ['需求来自用户明确约束；仍需审阅预览。', '需求来自用户明确约束；仍需代理审阅预览，当前项目授权替代逐计划聊天确认。'],
+  ['这是基于当前模型和列出的假设生成的候选方案，不是自动确认的工程设计。', '这是基于当前模型和列出的假设生成的候选方案，不是自动确认的工程设计。仍需代理审阅，当前项目授权替代逐计划聊天确认。']
+]);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 async function exists(io, file) {
   try { await io.access(file); return true; } catch (e) { if (e.code === 'ENOENT') return false; throw e; }
@@ -105,8 +111,12 @@ export async function createExecutionAuthorization({ repoRoot, call, policyPath,
     }
     if (plan.documentIdentity !== context?.document?.identity || plan.documentRevision !== context?.document?.revision || !await inScope(policy, context)) return data;
     const decorated = decorate(plan, policy);
+    const workflowPreview = data.planCreated === true && data.requiresClarification === false &&
+      typeof data.workflowId === 'string' && ['explicit', 'assisted'].includes(data.planningMode) &&
+      plan.source === `workflow:${data.workflowId}:${data.planningMode}`;
     return plan === data ? decorated : { ...data, plan: decorated, executionAuthorization: summary(policy),
-      ...(typeof data.reviewNote === 'string' ? { reviewNote: describe(data.reviewNote) } : {}),
+      ...(workflowPreview ? { requiresSpecificPlanChatApproval: false, requiresPreviewAndAgentReview: true,
+        ...(workflowReviewNotes.has(data.reviewNote) ? { reviewNote: workflowReviewNotes.get(data.reviewNote) } : {}) } : {}),
       ...(typeof data.note === 'string' ? { note: describe(data.note) } : {}) };
   }
   async function commit(method, args, signal) {

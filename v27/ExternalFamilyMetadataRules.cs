@@ -7,12 +7,18 @@ namespace RevitAutoV27;
 internal sealed record ExternalFamilyAsset(string AssetKey, string RelativePath, string Sha256, string Kind);
 internal sealed record ExternalFamilyMetadataInput(string Mode, string RequestId, string[] AssetKeys,
     string? DocumentIdentity, long? ExpectedRevision, string? ExpectedCatalogSha256);
+internal sealed record TemplateFileReferenceSummary(int StoredCount, int InspectedCount, int UnknownKindCount, string[] Kinds);
 
 // Pure, bounded contract; deliberately independent of Revit and the loading catalog.
 internal static class ExternalFamilyMetadataRules
 {
     internal const int MaxAssets = 4, MaxTypesPerFile = 2000, MaxTotalTypes = 5000, MaxStringLength = 300;
     internal const int MaxCatalogBytes = 2 * 1024 * 1024, MaxResultBytes = 1024 * 1024;
+    internal const int MaxTemplateReferenceInspections = 256;
+    // Exact ExternalFileReferenceType names in the installed 27.3 SDK; None is uninitialized.
+    private static readonly string[] TemplateReferenceKinds = ["AssemblyCodeTable", "CADLink", "DWFMarkup", "Decal", "KeynoteTable", "Material", "RevitLink", "SystemsAnalysisReport"];
+    // Built-in Revit lookup table references explicitly authorized for read-only RTE metadata inspection.
+    internal static readonly string[] BuiltInTemplateTableKinds = ["AssemblyCodeTable", "KeynoteTable"];
     internal const long MaxFileBytes = 100L * 1024 * 1024, MaxTotalFileBytes = 200L * 1024 * 1024;
     internal const string TemplateSymbolScope = "legacy-category-name-contains-v1";
     private static readonly string[] TemplateCategoryWords = ["门", "窗", "照明", "灯具", "电气", "图框", "结构柱"];
@@ -112,13 +118,60 @@ internal static class ExternalFamilyMetadataRules
         if (value >= 0 || value < -SafeInteger) throw new BridgeException("external_family_category_unknown", "Native category id is not a safe built-in category id.");
         return value;
     }
+    internal static bool IsOnlyAllowedBuiltInTables(TemplateFileReferenceSummary? summary, int storedReferenceCount) =>
+        summary is not null &&
+        storedReferenceCount > 0 &&
+        summary.StoredCount == storedReferenceCount &&
+        summary.InspectedCount == storedReferenceCount &&
+        summary.UnknownKindCount == 0 &&
+        summary.Kinds is not null &&
+        summary.Kinds.Length > 0 &&
+        summary.Kinds.All(kind => BuiltInTemplateTableKinds.Contains(kind, StringComparer.Ordinal));
+
     // A null transmission record is absence of stored file-reference data, not proof of isolation.
-    internal static void RequireTemplateFileReferencePreflight(bool readSucceeded, int? storedReferenceCount)
+    // Only fully inspected built-in lookup tables (AssemblyCodeTable, KeynoteTable) are permitted;
+    // any external link, unknown kind, or omitted reference still fails closed.
+    internal static void RequireTemplateFileReferencePreflight(bool readSucceeded, int? storedReferenceCount,
+        TemplateFileReferenceSummary? summary = null)
     {
         if (!readSucceeded || storedReferenceCount is < 0)
             throw new BridgeException("external_template_reference_preflight_failed", "Stored external file references could not be read; template left closed.");
-        if (storedReferenceCount is > 0)
-            throw new BridgeException("external_template_references_present", "Template has stored external file references; template left closed.");
+        if (storedReferenceCount is > 0 && !IsOnlyAllowedBuiltInTables(summary, storedReferenceCount.Value))
+            throw new BridgeException("external_template_references_present", "Template has stored external file references; template left closed.",
+                summary?.StoredCount == storedReferenceCount ? summary : null);
+    }
+    internal static TemplateFileReferenceSummary InspectTemplateReferences<T>(ICollection<T> ids, Func<T, string?> readKind, Action check)
+    {
+        int count = ids.Count, inspected = 0, unknown = 0;
+        if (count < 0) throw new InvalidOperationException("Stored reference count is invalid.");
+        var kinds = new HashSet<string>(StringComparer.Ordinal);
+        using var iterator = ids.GetEnumerator();
+        while (inspected < Math.Min(count, MaxTemplateReferenceInspections))
+        {
+            check();
+            if (!iterator.MoveNext()) throw new InvalidOperationException("Stored reference enumeration ended before its reported count.");
+            var kind = readKind(iterator.Current);
+            inspected++;
+            if (kind is not null && TemplateReferenceKinds.Contains(kind, StringComparer.Ordinal)) kinds.Add(kind);
+            else unknown++;
+        }
+        check();
+        return new(count, inspected, unknown, kinds.Order(StringComparer.Ordinal).ToArray());
+    }
+    internal static string AuditErrorMessage(BridgeException error)
+    {
+        // Never expose arbitrary exception messages/Details. Only this typed, revalidated
+        // count/enum summary is allowed through the existing error.message field.
+        if (error.Code == "external_template_references_present" && error.Details is TemplateFileReferenceSummary s &&
+            s.StoredCount > 0 && s.InspectedCount >= 0 && s.InspectedCount <= Math.Min(s.StoredCount, MaxTemplateReferenceInspections) &&
+            s.UnknownKindCount >= 0 && s.UnknownKindCount <= s.InspectedCount && s.Kinds is not null &&
+            s.Kinds.Length <= Math.Min(TemplateReferenceKinds.Length, s.InspectedCount - s.UnknownKindCount) &&
+            s.Kinds.Distinct(StringComparer.Ordinal).Count() == s.Kinds.Length &&
+            s.Kinds.All(kind => TemplateReferenceKinds.Contains(kind, StringComparer.Ordinal)))
+        {
+            return FormattableString.Invariant($"Template closed; refs={s.StoredCount}; checked={s.InspectedCount}; omitted={s.StoredCount - s.InspectedCount}; unknown={s.UnknownKindCount}; kinds={string.Join(',', s.Kinds.Order(StringComparer.Ordinal))}");
+        }
+        return "External asset audit stopped: " + error.Code;
     }
     internal static void NativeString(string? value)
     {

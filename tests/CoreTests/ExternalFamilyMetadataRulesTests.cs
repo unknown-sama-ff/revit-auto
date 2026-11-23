@@ -82,6 +82,80 @@ internal static class ExternalFamilyMetadataRulesTests
             Reject(() => ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(false, 0), "external_template_reference_preflight_failed");
             Reject(() => ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, -1), "external_template_reference_preflight_failed");
         });
+        test("external template preflight permits only fully inspected built-in KeynoteTable and AssemblyCodeTable references", () => {
+            var keynoteOnly = ExternalFamilyMetadataRules.InspectTemplateReferences(["KeynoteTable"], k => k, () => { });
+            ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, keynoteOnly.StoredCount, keynoteOnly);
+            var bothTables = ExternalFamilyMetadataRules.InspectTemplateReferences(["AssemblyCodeTable", "KeynoteTable"], k => k, () => { });
+            ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, bothTables.StoredCount, bothTables);
+            foreach (var blocked in new[] { "RevitLink", "CADLink", "DWFMarkup", "Decal", "Material", "SystemsAnalysisReport" })
+            {
+                var mixed = ExternalFamilyMetadataRules.InspectTemplateReferences(["KeynoteTable", blocked], k => k, () => { });
+                Reject(() => ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, mixed.StoredCount, mixed), "external_template_references_present");
+            }
+            var withUnknown = ExternalFamilyMetadataRules.InspectTemplateReferences(new string?[] { "KeynoteTable", null }, k => k, () => { });
+            Reject(() => ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, withUnknown.StoredCount, withUnknown), "external_template_references_present");
+            var omittedTables = ExternalFamilyMetadataRules.InspectTemplateReferences(Enumerable.Range(0, 257).ToArray(), _ => "KeynoteTable", () => { });
+            Reject(() => ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, omittedTables.StoredCount, omittedTables), "external_template_references_present");
+        });
+        test("external template reference inspection reads at most 256 kinds and reports omitted count", () => {
+            int reads = 0, checks = 0;
+            var summary = ExternalFamilyMetadataRules.InspectTemplateReferences(Enumerable.Range(0, 1000).ToArray(), _ => { reads++; return "RevitLink"; }, () => checks++);
+            if (summary.StoredCount != 1000 || summary.InspectedCount != 256 || summary.UnknownKindCount != 0 || reads != 256 || checks != 257)
+                throw new Exception("Reference diagnostic enumeration escaped its finite budget.");
+            try { ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, summary.StoredCount, summary); }
+            catch (BridgeException error) when (error.Code == "external_template_references_present")
+            {
+                var message = ExternalFamilyMetadataRules.AuditErrorMessage(error);
+                if (message.Contains("refs=1000; checked=256; omitted=744; unknown=0; kinds=RevitLink", StringComparison.Ordinal)) return;
+            }
+            throw new Exception("Known references ceased blocking opening or lost bounded diagnostic counts.");
+        });
+        test("external template reference kinds use only exact installed SDK enum names", () => {
+            string[] kinds = ["SystemsAnalysisReport", "AssemblyCodeTable", "Material", "Decal", "KeynoteTable", "DWFMarkup", "CADLink", "RevitLink"];
+            var summary = ExternalFamilyMetadataRules.InspectTemplateReferences(kinds.Concat(kinds).ToArray(), kind => kind, () => { });
+            if (!summary.Kinds.SequenceEqual(kinds.Order(StringComparer.Ordinal)) || summary.UnknownKindCount != 0 || summary.InspectedCount != 16)
+                throw new Exception("Known enum kinds were guessed, duplicated or changed.");
+            string?[] unknown = [null, "None", "revitlink", "999", "FutureKind", "C:/private/secret.rvt", "https://private.invalid/model", "RevitLink\nprivate", "外部文件"];
+            var unknownSummary = ExternalFamilyMetadataRules.InspectTemplateReferences(unknown, kind => kind, () => { });
+            if (unknownSummary.Kinds.Length != 0 || unknownSummary.UnknownKindCount != unknown.Length)
+                throw new Exception("An unreadable, uninitialized or non-whitelisted kind was presented as known.");
+        });
+        test("external template reference messages are bounded and exclude arbitrary messages details and paths", () => {
+            var summary = new TemplateFileReferenceSummary(int.MaxValue, 256, 248,
+                ["SystemsAnalysisReport", "AssemblyCodeTable", "Material", "Decal", "KeynoteTable", "DWFMarkup", "CADLink", "RevitLink"]);
+            var message = ExternalFamilyMetadataRules.AuditErrorMessage(new("external_template_references_present", "C:/private/source.rte", summary));
+            if (message.Length > 200 || message.Any(c => c > 127) || !message.Contains("omitted=2147483391", StringComparison.Ordinal))
+                throw new Exception("Largest count/type summary exceeded its bounded ASCII message budget.");
+            foreach (var details in new object?[] { null, "C:/private/source.rte", new { sourcePath = "C:/private/source.rte" },
+                summary with { Kinds = ["C:/private/source.rte"] }, summary with { UnknownKindCount = -1 }, summary with { InspectedCount = 257 },
+                summary with { Kinds = ["RevitLink", "RevitLink"] } })
+            {
+                var sanitized = ExternalFamilyMetadataRules.AuditErrorMessage(new("external_template_references_present", "C:/private/source.rte", details));
+                if (sanitized != "External asset audit stopped: external_template_references_present" || sanitized.Length > 200)
+                    throw new Exception("Untrusted diagnostic details escaped the sanitizer.");
+            }
+            if (ExternalFamilyMetadataRules.AuditErrorMessage(new("external_family_read_failed", "C:/private/source.rte", summary)) !=
+                "External asset audit stopped: external_family_read_failed") throw new Exception("Summary escaped its whitelisted error code.");
+            var unknown = ExternalFamilyMetadataRules.InspectTemplateReferences(new string?[256], kind => kind, () => { });
+            var unknownMessage = ExternalFamilyMetadataRules.AuditErrorMessage(new("external_template_references_present", "private", unknown));
+            if (unknownMessage.Length > 200 || !unknownMessage.Contains("unknown=256; kinds=", StringComparison.Ordinal))
+                throw new Exception("Unknown reference kinds were lost or unbounded.");
+        });
+        test("external template reference diagnostics propagate cancellation and preservation deadlines", () => {
+            foreach (var failure in new Exception[] { new OperationCanceledException(), new BridgeException("external_family_active_state_changed", "stop"),
+                new BridgeException("external_family_time_budget", "stop") })
+            {
+                int reads = 0;
+                Exception? observed = null;
+                try { ExternalFamilyMetadataRules.InspectTemplateReferences(new[] { 1, 2, 3 }, _ => { reads++; return "RevitLink"; }, () => { if (reads == 1) throw failure; }); }
+                catch (Exception error) { observed = error; }
+                if (!ReferenceEquals(observed, failure) || reads != 1) throw new Exception("Reference diagnostics swallowed cancellation or continued enumeration.");
+                observed = null;
+                try { ExternalFamilyMetadataRules.InspectTemplateReferences(new[] { 1 }, _ => throw failure, () => { }); }
+                catch (Exception error) { observed = error; }
+                if (!ReferenceEquals(observed, failure)) throw new Exception("Reference kind read swallowed a classified stop condition.");
+            }
+        });
         test("external template ids preserve full positive Int64 as decimal strings", () => {
             foreach (var id in new[] { 1L, 9007199254740992L, long.MaxValue })
                 if (ExternalFamilyMetadataRules.SourceElementId(id) != id.ToString(System.Globalization.CultureInfo.InvariantCulture))

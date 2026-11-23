@@ -14,6 +14,18 @@ DocumentVersionDiffRulesTests.Run(Test);
 DocumentReadPinRulesTests.Run(Test);
 ViewExportRulesTests.Run(Test);
 ArchitectureRulesTests.Run(Test);
+StructuralElementRulesTests.Run(Test);
+WallFoundationRulesTests.Run(Test);
+RebarCreationRulesTests.Run(Test);
+CeilingCreationRulesTests.Run(Test);
+MaterialCreationRulesTests.Run(Test);
+RoofCreationRulesTests.Run(Test);
+LinksReadRulesTests.Run(Test);
+ScheduleDataRulesTests.Run(Test);
+AnnotationCreationRulesTests.Run(Test);
+ElectricalRunRulesTests.Run(Test);
+MepDisconnectsRulesTests.Run(Test);
+CreationSourceProtectionTests.Run(Test);
 ArchitectureTypeCopyRulesTests.Run(Test);
 ArchitecturePlacementReadbackRulesTests.Run(Test);
 ArchitecturePrimaryReadbackRulesTests.Run(Test);
@@ -239,6 +251,11 @@ Test("explicit crop rejects malformed shapes",()=>{foreach(var bounds in new[]{"
 Test("explicit crop rejects Z and unknown fields",()=>{foreach(var bounds in new[]{"{\"min\":{\"xMm\":0,\"yMm\":0,\"zMm\":0},\"max\":{\"xMm\":100,\"yMm\":100}}","{\"min\":{\"xMm\":0,\"yMm\":0},\"max\":{\"xMm\":100,\"yMm\":100},\"active\":false}"})Throws("invalid_crop_bounds",()=>ViewConfigurationRules.Settings(Json("{\"settings\":[\"crop\"],\"cropBounds\":"+bounds+"}")));});
 Test("explicit crop rejects empty inverted and tiny rectangles",()=>{foreach(var maxX in new[]{-1,0,0.5})Throws("invalid_crop_bounds",()=>ViewConfigurationRules.Settings(Json("{\"settings\":[\"crop\"],\"cropBounds\":{\"min\":{\"xMm\":0,\"yMm\":0},\"max\":{\"xMm\":"+maxX.ToString(System.Globalization.CultureInfo.InvariantCulture)+",\"yMm\":100}}}")));});
 Test("explicit crop rejects string and oversized coordinates",()=>{foreach(var x in new[]{"\"0\"","100000001"})Throws("invalid_number",()=>ViewConfigurationRules.Settings(Json("{\"settings\":[\"crop\"],\"cropBounds\":{\"min\":{\"xMm\":"+x+",\"yMm\":0},\"max\":{\"xMm\":100,\"yMm\":100}}}")));});
+Test("annotationCropActive requires explicit crop setting and strict boolean",()=>{
+    PlanRules.Validate(Json("""[{"operationType":"configure_view","viewId":2,"referenceViewId":1,"settings":["crop"],"annotationCropActive":true}]"""));
+    Throws("invalid_view_settings",()=>ViewConfigurationRules.Settings(Json("""{"settings":["viewRange"],"annotationCropActive":true}""")));
+    foreach(var bad in new[]{"1","\"true\"","null"})Throws("invalid_view_settings",()=>ViewConfigurationRules.Settings(Json("{\"settings\":[\"crop\"],\"annotationCropActive\":"+bad+"}")));
+});
 
 
 Test("nonfinite wire response returns a usable error envelope", () => {
@@ -392,6 +409,27 @@ Test("native receipt preserves eight actual additions and three unreported modif
  c.Record("doc",1,"TransactionCommitted",["approved test"],[10,11,12,13,14,15,16,17],[100,101,102],[]);
  var e=c.Snapshot(1,"committed",[10,11,12],[]);
  if(e.ObservedAddedElementIds.Length!=8||e.AdditionalAddedElementIds.Length!=5||e.UnreportedModifiedElementIds.Length!=3||!e.CaptureComplete||e.SideEffectsVerified||e.NetModelDiffVerified)throw new Exception("Primary-only receipt concealed native side effects");
+});
+Test("native receipt covers a primary created then configured element reported only as added",()=>{
+ var c=new NativeChangeReceipt("doc",13);
+ c.Record("doc",14,"TransactionCommitted",["create view then configure same view"],[10,11,12,13,14,15,16,17,18,19],[100],[]);
+ var e=c.Snapshot(14,"committed",[10],[10]);
+ if(!e.RevisionCoverageComplete||!e.ElementEvidenceComplete||!e.CaptureComplete||e.ObservedModifiedElementIds.Contains(10)||e.AdditionalAddedElementIds.Length!=9||!e.UnreportedModifiedElementIds.SequenceEqual(new long[]{100})||e.SideEffectsVerified||e.NetModelDiffVerified)throw new Exception("Native added evidence did not cover the same primary-created changed element honestly");
+});
+Test("native receipt added evidence cannot cover a changed element absent from primary created",()=>{
+ foreach(var created in new long[][]{[],[10]}){
+  var c=new NativeChangeReceipt("doc",0);c.Record("doc",1,"TransactionCommitted",["unreported existing change"],[10,20],[],[]);
+  var e=c.Snapshot(1,"committed",created,[20]);
+  if(!e.RevisionCoverageComplete||e.ElementEvidenceComplete||e.CaptureComplete||e.SideEffectsVerified||e.NetModelDiffVerified)throw new Exception("Added evidence was mistaken for modification of an existing primary element");
+ }
+});
+Test("native receipt created then changed claims still require native added events",()=>{
+ var empty=new NativeChangeReceipt("doc",0);
+ var e=empty.Snapshot(0,"committed",[10],[10]);
+ if(!e.RevisionCoverageComplete||e.ElementEvidenceComplete||e.CaptureComplete)throw new Exception("Primary overlap bypassed absent native change evidence");
+ var modifiedOnly=new NativeChangeReceipt("doc",0);modifiedOnly.Record("doc",1,"TransactionCommitted",["missing creation"],[],[10],[]);
+ var missingAdded=modifiedOnly.Snapshot(1,"committed",[10],[10]);
+ if(missingAdded.ElementEvidenceComplete||missingAdded.CaptureComplete)throw new Exception("Primary creation was certified without native added evidence");
 });
 Test("native receipt ignores another document events and deduplicates same-session ids",()=>{
  var c=new NativeChangeReceipt("doc",0);c.Record("other",10,"TransactionCommitted",["unrelated"],[999],[998],[997]);c.Record("doc",1,"TransactionCommitted",["one"],[10,10],[10,20,20],[]);c.Record("doc",2,"TransactionCommitted",["two"],[11],[20],[]);

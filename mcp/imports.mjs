@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
 import { validateOperations } from './workflows.mjs';
 import {drawingCandidates,validateCalibration,validateLayerMapping} from './drawing-candidates.mjs';
+import {dwgExporterMode,nativeDwgExport} from './native-dwg-export.mjs';
 export {drawingCandidates} from './drawing-candidates.mjs';
 
 const exec = promisify(execFile);
@@ -261,17 +262,22 @@ export function mapRows(rows, mapping = {}, defaults = {}) {
   }
   return {operations,issues};
 }
-export async function importInput(args) {
+export async function importInput(args, dependencies = {}) {
   let rows = args.rows; let data = args.data ?? (Array.isArray(args.entities)?{entities:args.entities}:undefined); let isImage = args.format === 'image';
   if (args.filePath) {
     const file = await permittedPath(args.filePath); const extension = path.extname(file).toLowerCase();
     if (extension === '.dwg') {
       validateCalibration(args.calibration);validateLayerMapping(args.layerMapping||{});
+      if (dwgExporterMode(dependencies.env ?? process.env) === 'native-console') {
+        data = await (dependencies.nativeDwgExport ?? nativeDwgExport)({source:file,repoRoot:ROOT,signal:args.signal,env:dependencies.env ?? process.env});
+        const candidates = drawingCandidates(data,args.calibration,args.layerMapping);
+        return {...candidates,extraction:data.extraction,sourceDocument:data.document};
+      }
       const directory=path.resolve(import.meta.dirname,'..','imports');await fs.mkdir(directory,{recursive:true});
       const realDirectory=await fs.realpath(directory);if(!within(await fs.realpath(ROOT),realDirectory))throw new Error('Generated DWG data directory escaped the package root.');
       const out=path.join(realDirectory,randomUUID()+'.json');
       try{
-        await exec('powershell.exe',['-NoProfile','-NonInteractive','-File',path.join(import.meta.dirname,'export-dwg.ps1'),'-InputPath',file,'-OutputPath',out],{windowsHide:true,timeout:60000,maxBuffer:1024*1024,signal:args.signal});
+        await (dependencies.exec ?? exec)('powershell.exe',['-NoProfile','-NonInteractive','-File',path.join(import.meta.dirname,'export-dwg.ps1'),'-InputPath',file,'-OutputPath',out],{windowsHide:true,timeout:60000,maxBuffer:1024*1024,signal:args.signal});
         const stat=await fs.stat(out);if(stat.size>MAX_BYTES)throw new Error('Extracted DWG data exceeds the 20 MB import limit.');
         data=JSON.parse((await fs.readFile(out,'utf8')).replace(/^\uFEFF/,''));
       }finally{await fs.rm(out,{force:true});}

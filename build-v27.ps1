@@ -29,7 +29,7 @@ if(-not(Test-Path -LiteralPath $dll -PathType Leaf)){throw 'Build output is miss
 if(-not $SkipTests){
   & dotnet run --project (Join-Path $PSScriptRoot 'tests\CoreTests\CoreTests.csproj') -c Release
   if($LASTEXITCODE -ne 0){throw 'Core safety tests failed.'}
-  & node --test (Join-Path $PSScriptRoot 'mcp\tests\*.test.mjs')
+  & node --test --test-concurrency=4 (Join-Path $PSScriptRoot 'mcp\tests\*.test.mjs')
   if($LASTEXITCODE -ne 0){throw 'MCP/import/workflow tests failed.'}
 }
 Write-Output "Build verified: $dll"

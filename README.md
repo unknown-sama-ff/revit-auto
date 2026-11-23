@@ -9,20 +9,20 @@ This is development source, provided under Apache-2.0. It targets **Windows, Rev
 Run these commands from this package's root in PowerShell 7. Revit must already be installed locally.
 
 ```powershell
-npm --prefix .\mcp ci
-npm --prefix .\mcp test
-dotnet run --project .\tests\CoreTests\CoreTests.csproj -c Release
+npm --prefix .\mcp ci --ignore-scripts
 .\build-v27.ps1
 .\install-v27.ps1 -CheckOnly
 ```
 
-`build-v27.ps1` compiles the add-in and runs the included Core and Node tests. For a nonstandard Revit installation, use `-RevitInstallDir` or the `REVIT_2027_INSTALL_DIR` environment variable. `-OutputDirectory` selects a different output directory inside this package when the existing DLL is in use; it does not replace a loaded add-in. `-SkipTests` is an explicit build-only option, not evidence that tests passed.
+`build-v27.ps1` compiles the add-in and runs the included Core and Node tests once; the quickstart does not repeat them before the build. For a nonstandard Revit installation, use `-RevitInstallDir` or the `REVIT_2027_INSTALL_DIR` environment variable. `-OutputDirectory` selects a different output directory inside this package when the existing DLL is in use; it does not replace a loaded add-in. `-SkipTests` is an explicit build-only option, not evidence that tests passed. To check portable contracts without a Revit SDK installation, run `npm --prefix .\mcp test` and `dotnet run --project .\tests\CoreTests\CoreTests.csproj -c Release` separately.
 
 After reviewing the check results, install the manifest and create private local bridge credentials:
 
 ```powershell
 .\install-v27.ps1
 ```
+
+If you built with `-OutputDirectory`, pass that directory's `RevitAutoV27.dll` to `install-v27.ps1 -AssemblyPath` for both `-CheckOnly` and installation. Existing bridge settings are checked before installation writes. Review any unexpected Windows access rules reported for the runtime directory or credential files before proceeding.
 
 The installer writes the current account's Revit 2027 add-in manifest and `runtime/bridge.json`. It backs up an existing manifest. In an interactive console, its default `-ModelApprovalMode Ask` offers a one-time choice: keep exact-plan chat approval or authorize agent self-review for document paths you explicitly select. That deliberate selection and scope form the initial grant; there is no second approval prompt. Declining keeps exact-plan chat approval on a fresh installation. `-CheckOnly` never prompts or creates an authorization. The installer does not launch or terminate Revit. Save work yourself and manually restart Revit when loading a newly installed DLL is necessary.
 
@@ -50,13 +50,15 @@ All model coordinates are millimeters relative to Revit's internal origin, with 
 
 The source includes controlled architectural, room, stair, family, electrical, piping, documentation and import workflows, along with bounded read-only diagnostics. The live workflow registry and loaded host features identify available inputs and restrictions. An enabled workflow is not a blanket native acceptance certificate.
 
-Earlier native verification covers selected architecture, annotation/readback, room, electrical, pipe/connector and failure/rollback branches. Each result applies only to its tested inputs and loaded version. Many branches remain pending. In particular, tee/cross multiport adaptation and the opt-in unassigned-equipment piping connection policy are in development; do not present them as native accepted. External RTE metadata support is compiled but has not completed native real-file acceptance. Controlled family `keep_existing` has native evidence; new-family and replacement branches require their own verification. Exported tests and a successful build do not prove these native results on a recipient's machine.
+Native verification covers selected architecture, annotation/readback, room, electrical, pipe/connector and failure/rollback scenarios. Tee/cross fixtures have passed reciprocal topology and focused image checks; their disk persistence and broader effects remain unaccepted. Explicit light-plus-switch membership, rectangular duct/transition, guarded sheet creation and a fresh native panel schedule also have scoped native results. The known-unassigned equipment connection correction remains offline only. Attempted RTE files were refused before opening by the stored-reference guard; template metadata is unaccepted. Selected new-family/replacement scenarios have their own native evidence. See the [capability status](docs/capability-status.md); a successful build does not prove these results on a recipient's machine.
 
 Node tests use pure data and mock transports; Core tests exercise native-independent rules. Native Revit checks still require a user-selected disposable document, the recipient's own authorization and actual readback. Ordinary plans do not automatically save files. Save, close, restart and lifecycle tools require separate explicit authorization; this quickstart does not authorize them.
 
 ## Reuse and distribution
 
 Reuse `mcp/` for the agent protocol and planners, `v27/` for the Revit add-in, and `tests/CoreTests/` plus the included `mcp/tests/` selection for portable regression checks. Preserve error handling, conservative unknown states, negative tests, attribution and safety boundaries when adapting the code.
+
+An optional [native DWG exporter](docs/native-dwg-export.md) uses an already installed Autodesk Core Console to read a task copy. It inventories selected ModelSpace objects and extracts LINE world coordinates; other geometry remains unknown. It has no Revit save, import or calibration side effect. Run its independent contracts with `node --test tools/tests/native-dwg-export.test.mjs`; CAD itself is not started by those tests.
 
 `agent-source-manifest.json` records the selected files, hashes and source mappings. It is a content inventory, not a native acceptance certificate. This tree deliberately excludes personal models, local runtime credentials, execution grants, acceptance evidence, development diaries and old experimental scripts. Those materials are not required to use the plugin.
 

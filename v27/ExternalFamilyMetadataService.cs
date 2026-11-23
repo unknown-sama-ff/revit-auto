@@ -30,7 +30,7 @@ internal static class ExternalFamilyMetadataService
             ["reason"] = reason ?? (value is null ? "native_value_unavailable" : null) };
     private static object Error(string code, string message) => new { code, message };
     private static object Error(Exception exception) => exception switch {
-        BridgeException e => Error(e.Code, "External asset audit stopped: " + e.Code),
+        BridgeException e => Error(e.Code, ExternalFamilyMetadataRules.AuditErrorMessage(e)),
         OperationCanceledException => Error("external_family_cancelled", "Read cancelled; synchronous native calls were not forcibly interrupted."),
         Autodesk.Revit.Exceptions.OperationCanceledException => Error("external_family_native_cancelled", "Native opening was cancelled; it was not retried."),
         FileNotFoundException or DirectoryNotFoundException => Error("external_family_file_missing", "Registered audit catalog or source file is missing."),
@@ -238,15 +238,25 @@ internal static class ExternalFamilyMetadataService
             if (asset.Kind == "rte")
             {
                 int? storedReferences;
+                TemplateFileReferenceSummary? referenceSummary = null;
                 try
                 {
                     // Read only. A null record does not establish external-resource isolation.
                     using var transmission = TransmissionData.ReadTransmissionData(ModelPathUtils.ConvertUserVisiblePathToModelPath(staged));
-                    storedReferences = transmission?.GetAllExternalFileReferenceIds().Count;
+                    if (transmission is null) storedReferences = null;
+                    else
+                    {
+                        var ids = transmission.GetAllExternalFileReferenceIds();
+                        storedReferences = ids.Count;
+                        referenceSummary = ExternalFamilyMetadataRules.InspectTemplateReferences(ids, id => {
+                            try { return transmission.GetLastSavedReferenceData(id)?.ExternalFileReferenceType.ToString(); }
+                            catch (Exception exception) when (MayCaptureUnknown(exception)) { return null; }
+                        }, check);
+                    }
                 }
                 catch (Exception exception) when (MayCaptureUnknown(exception))
                 { throw new BridgeException("external_template_reference_preflight_failed", "Stored external file references could not be read; template left closed."); }
-                ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, storedReferences);
+                ExternalFamilyMetadataRules.RequireTemplateFileReferencePreflight(true, storedReferences, referenceSummary);
             }
             check();
             // Snapshot immediately before native open, not only at batch start.

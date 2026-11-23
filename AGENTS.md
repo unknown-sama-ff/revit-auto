@@ -2,6 +2,19 @@
 
 These instructions describe reusable plugin operation. They do not grant access to any model or permission to modify, save, close or restart a user's applications.
 
+## Pre-modeling CAD drawing gate (mandatory before CAD-driven modeling)
+
+When modeling from reference CAD drawings, complete this gate before creating any Revit modeling plan:
+1. Check whether any CAD-reading or parsing skills need to be installed/enabled; if any skill installation is needed, confirm with the user first before installing.
+2. Read and inspect the CAD drawing first (layers, text notes, dimensions, grids, levels, blocks, geometry, and any parse errors or unknown entities) rather than jumping directly to modeling.
+3. Judge whether the CAD drawing is complete enough for modeling and report explicit findings (available information plus missing/ambiguous items).
+4. Wait for user confirmation before starting Revit MCP modeling:
+   - If complete: ask the user to confirm "Yes, start modeling" before proceeding.
+   - If incomplete: tell the user the drawing is incomplete with concrete gaps, and ask them to choose either to proceed with modeling anyway (under explicit assumptions/scope) or to supplement the drawings first.
+   - Scoped `AgentReview` authorization never bypasses this pre-modeling gate.
+
+## Standard MCP modeling sequence
+
 1. Read the live resources `revit-custom://safety` and `revit-custom://operation-guide`. Inspect `revit_context_get`, `revit_operations_list` and `revit_workflow_list` before planning. The loaded host's feature flags and returned contract take precedence over a README's examples.
 2. Confirm the intended active document and its identity/revision. Use native read tools to resolve actual IDs, type/family matches, levels, hosts and geometry. Coordinates are millimeters at the internal origin with absolute Z unless the operation declares another space. Never fabricate IDs, connector numbers, hosts or type matches.
 3. Prefer an existing controlled workflow or operation that meets the goal. Specify explicit dimensions, routes, systems and engineering constraints. Ask for consequential missing choices. Assisted candidates contain assumptions; they are not engineering design approval or permission to commit.

@@ -2,6 +2,8 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
   <ItemGroup><Compile Include="..\..\v27\DocumentVersionDiffRules.cs" Link="DocumentVersionDiffRules.cs"/><Compile Include="..\..\v27\ViewportReadPolicy.cs" Link="ViewportReadPolicy.cs"/></ItemGroup>
   <ItemGroup><Compile Include="..\..\v27\AnnotationInputRules.cs" Link="AnnotationInputRules.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="..\..\v27\StructuralElementRules.cs" Link="StructuralElementRules.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="..\..\v27\WallFoundationRules.cs" Link="WallFoundationRules.cs"/><Compile Include="..\..\v27\RebarCreationRules.cs" Link="RebarCreationRules.cs"/><Compile Include="..\..\v27\CeilingCreationRules.cs" Link="CeilingCreationRules.cs"/></ItemGroup>
   <ItemGroup><Compile Include="..\..\v27\DimensionCreationReadbackRules.cs" Link="DimensionCreationReadbackRules.cs"/></ItemGroup>
   <ItemGroup><Compile Include="..\..\v27\FittingConnectionReadbackRules.cs" Link="FittingConnectionReadbackRules.cs"/></ItemGroup>
   <ItemGroup><Compile Include="..\..\v27\GridDimensionReferenceRules.cs" Link="GridDimensionReferenceRules.cs"/></ItemGroup>
@@ -31,4 +33,7 @@
   <ItemGroup><Compile Include="..\..\v27\LightingMoveRules.cs" Link="LightingMoveRules.cs"/></ItemGroup>
   <ItemGroup><Compile Include="..\..\v27\ExternalFamilyMetadataRules.cs" Link="ExternalFamilyMetadataRules.cs"/></ItemGroup>
   <ItemGroup><Compile Include="..\..\v27\MepConnectionInputRules.cs" Link="MepConnectionInputRules.cs"/><Compile Include="..\..\v27\MultiportFittingReadbackRules.cs" Link="MultiportFittingReadbackRules.cs"/><Compile Include="..\..\v27\UnassignedEquipmentConnectionRules.cs" Link="UnassignedEquipmentConnectionRules.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="..\..\v27\MaterialCreationRules.cs" Link="MaterialCreationRules.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="..\..\v27\RoofCreationRules.cs" Link="RoofCreationRules.cs"/></ItemGroup>
+  <ItemGroup><Compile Include="..\..\v27\LinksReadRules.cs" Link="LinksReadRules.cs"/><Compile Include="..\..\v27\ScheduleDataRules.cs" Link="ScheduleDataRules.cs"/><Compile Include="..\..\v27\AnnotationCreationRules.cs" Link="AnnotationCreationRules.cs"/><Compile Include="..\..\v27\ElectricalRunRules.cs" Link="ElectricalRunRules.cs"/><Compile Include="..\..\v27\MepDisconnectsRules.cs" Link="MepDisconnectsRules.cs"/></ItemGroup>
 </Project>

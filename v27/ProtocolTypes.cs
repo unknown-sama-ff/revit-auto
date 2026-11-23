@@ -85,6 +85,7 @@ internal sealed class ModelPlan
     public required string Summary { get; init; }
     public string Source { get; init; } = "assistant";
     public required List<JsonElement> Operations { get; init; }
+    public FamilyHostGeometryPreflight? FamilyHostGeometryPreflight { get; init; }
     public List<string> Warnings { get; } = [];
     public string Status { get; set; } = "pending";
     public DateTime ExpiresAtUtc { get; init; } = PlanLifetimePolicy.Expires(DateTime.UtcNow);
@@ -95,6 +96,7 @@ internal sealed class ModelPlan
     {
         planId = PlanId, documentIdentity = DocumentIdentity, documentRevision = DocumentRevision,
         source = Source, summary = Summary, operations = Operations,
+        familyHostGeometryPreflight = FamilyHostGeometryPreflight,
         affectedCategories = Operations.Select(o => JsonDefaults.String(o, "category") ?? JsonDefaults.String(o, "operationType")).Distinct(),
         warnings = Warnings, requiresConfirmation = true, confirmation = "User approval in chat",
         confirmationMode = "chat", requiresRevitConfirmation = false,
@@ -124,7 +126,19 @@ internal static class ViewConfigurationRules
             if (!selected.Contains("crop")) throw new BridgeException("invalid_crop_bounds", "cropBounds requires the explicit crop setting.");
             CropBounds(op);
         }
+        if (op.TryGetProperty("annotationCropActive", out _))
+        {
+            if (!selected.Contains("crop")) throw new BridgeException("invalid_view_settings", "annotationCropActive requires the explicit crop setting.");
+            AnnotationCropActive(op);
+        }
         return selected;
+    }
+    public static bool? AnnotationCropActive(JsonElement op)
+    {
+        if (!op.TryGetProperty("annotationCropActive", out var value)) return null;
+        if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            throw new BridgeException("invalid_view_settings", "annotationCropActive must be an explicit boolean.");
+        return value.GetBoolean();
     }
     public static (double MinX, double MinY, double MaxX, double MaxY)? CropBounds(JsonElement op)
     {
@@ -153,9 +167,9 @@ internal static class PlanRules
     {
         "move_lighting_fixtures",
         "create_family_instance", "duplicate_type", "duplicate_architecture_type", "set_parameter", "delete_element", "load_family",
-        "create_level", "create_grid", "create_structural_column", "create_wall", "create_floor", "create_opening", "create_room", "create_stair",
-        "create_circuit", "create_wire", "create_view_plan", "create_sheet", "create_schedule",
-        "create_panel_schedule", "configure_view", "place_viewport", "move_drawing_placement", "move_viewport_label", "change_titleblock_type", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension"
+        "create_level", "create_grid", "create_structural_column", "create_structural_beam", "create_isolated_foundation", "create_wall_foundation", "create_rebar_set", "create_rebar_stirrup", "create_ceiling", "create_wall", "create_floor", "create_opening", "create_room", "create_stair", "create_material", "duplicate_material", "create_footprint_roof", "assign_material",
+        "create_circuit", "create_wire", "create_cable_tray", "create_conduit", "create_view_plan", "create_sheet", "create_schedule",
+        "create_panel_schedule", "configure_view", "place_viewport", "move_drawing_placement", "move_viewport_label", "change_titleblock_type", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension", "create_text_note", "create_detail_line"
     };
     public static List<JsonElement> Validate(JsonElement input)
     {
@@ -186,6 +200,15 @@ internal static class PlanRules
                     break;
                 case "create_level": Number(op, "elevationMm"); Require(op, "name"); break;
                 case "create_structural_column": ArchitectureRules.StructuralColumn(op); break;
+                case "create_structural_beam": case "create_isolated_foundation": StructuralElementRules.Validate(op); break;
+                case "create_wall_foundation": WallFoundationRules.Validate(op); break;
+                case "create_rebar_set": case "create_rebar_stirrup": RebarCreationRules.Validate(op); break;
+                case "create_ceiling": CeilingCreationRules.Validate(op); break;
+                case "create_material": case "duplicate_material": MaterialCreationRules.Validate(op); break;
+                case "assign_material": MaterialCreationRules.ValidateAssignment(op); break;
+                case "create_footprint_roof": RoofCreationRules.Validate(op); break;
+                case "create_text_note": case "create_detail_line": AnnotationCreationRules.Validate(op); break;
+                case "create_cable_tray": case "create_conduit": ElectricalRunRules.Validate(op); break;
                 case "create_grid": ArchitectureRules.Grid(op); break;
                 case "create_wall": case "create_pipe": case "create_duct":
                     Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end"));
@@ -221,6 +244,13 @@ internal static class PlanRules
             }
         }
         ConnectionPortReservationRules.ValidatePlan(operations);
+        WallFoundationRules.ValidatePlan(operations);
+        RebarCreationRules.ValidatePlan(operations);
+        CeilingCreationRules.ValidatePlan(operations);
+        MaterialCreationRules.ValidatePlan(operations);
+        RoofCreationRules.ValidatePlan(operations);
+        AnnotationCreationRules.ValidatePlan(operations);
+        ElectricalRunRules.ValidatePlan(operations);
         DrawingPlacementRules.ValidatePlan(operations);
         ViewportLabelRules.ValidatePlan(operations);
         LightingMoveRules.ValidatePlan(operations);

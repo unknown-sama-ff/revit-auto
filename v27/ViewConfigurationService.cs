@@ -157,6 +157,17 @@ internal static class ViewConfigurationService
                 using var box = new BoundingBoxXYZ { Min = sourceBox.Min, Max = sourceBox.Max };
                 target.CropBox = box; target.CropBoxActive = source.CropBoxActive; target.CropBoxVisible = source.CropBoxVisible;
             }
+            if (ViewConfigurationRules.AnnotationCropActive(op) is bool desiredAnnotationCrop)
+            {
+                var param = target.get_Parameter(BuiltInParameter.VIEWER_ANNOTATION_CROP_ACTIVE);
+                if (param is null || param.IsReadOnly)
+                    throw Invalid("Target view does not expose a writable Annotation Crop parameter.");
+                param.Set(desiredAnnotationCrop ? 1 : 0);
+                doc.Regenerate();
+                var actualAnnotationCrop = param.AsInteger() == 1;
+                if (actualAnnotationCrop != desiredAnnotationCrop)
+                    throw Invalid("Revit did not preserve the reviewed annotationCropActive setting; the entire plan will roll back.");
+            }
         }
         doc.Regenerate();
         var changed = new List<long> {target.Id.Value};

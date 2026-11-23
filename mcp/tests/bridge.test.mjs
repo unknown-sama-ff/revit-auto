@@ -30,6 +30,29 @@ async function fixture(handler, {oldVersion=false,confirmationMode='chat',featur
 }
 const send=(socket,result)=>socket.end(JSON.stringify({protocol:'revit-auto-2027-v2',ok:true,result})+'\n');
 
+test('quantity tool requires document pins and distinguishes unavailable quantities from zero',async t=>{
+  const requests=[];
+  const f=await fixture((request,socket)=>{
+    requests.push({method:request.method,params:request.params});
+    send(socket,{items:[{elementId:5,status:'partial',materials:[{materialId:31,name:'Fixture',areaM2:0,volumeM3:null}]}]});
+  },{features:['readonly-material-quantities']});
+  t.after(f.close);
+  const client=new Client({name:'quantity-test',version:'1'});
+  t.after(()=>client.close());
+  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(import.meta.dirname,'../revit-custom.mjs')],env:{REVIT_AI_CONFIG:f.config}}));
+  const name='revit_material_quantities';
+  const invalid=await client.callTool({name,arguments:{elementIds:[5],documentIdentity:'fixture'}});
+  assert.equal(invalid.isError,true);
+  assert.equal(requests.length,0);
+  const args={elementIds:[5],documentIdentity:'fixture',expectedRevision:0};
+  const result=await client.callTool({name,arguments:args});
+  assert.notEqual(result.isError,true);
+  const quantity=JSON.parse(result.content[0].text).items[0].materials[0];
+  assert.equal(quantity.areaM2,0);
+  assert.equal(quantity.volumeM3,null);
+  assert.deepEqual(requests,[{method:'revit.material.quantities',params:args}]);
+});
+
 test('bridge preserves a native deadline receipt that arrives during transport grace without extending the native deadline',async t=>{
   const requests=[];
   const f=await fixture((request,socket)=>{
@@ -373,6 +396,16 @@ test('matching stair capability forwards exactly one preview and no commit',asyn
 
 for(const [operationType,feature] of [
  ['create_structural_column','controlled-structural-columns'],
+ ['create_structural_beam','controlled-structural-elements'],
+ ['create_isolated_foundation','controlled-structural-elements'],
+ ['create_wall_foundation','controlled-wall-foundation'],
+ ['create_rebar_set','controlled-rebar-creation'],
+ ['create_rebar_stirrup','controlled-rebar-creation'],
+ ['create_ceiling','controlled-ceiling-creation'],
+ ['create_material','controlled-material-creation'],
+ ['duplicate_material','controlled-material-creation'],
+ ['assign_material','controlled-material-assignment'],
+ ['create_footprint_roof','controlled-roof-creation'],
  ['create_grid','explicit-grid-geometry'],
  ['create_fitting','fitting-connection-readback'],
  ['change_titleblock_type','controlled-titleblock-change']

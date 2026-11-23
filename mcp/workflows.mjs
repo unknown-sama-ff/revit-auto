@@ -10,13 +10,21 @@ import {validateStructuralColumn,validateGrid} from './architecture-rules.mjs';
 import {validateTitleBlockChange,validateTitleBlockChangePlan,titleBlockChangeOperations} from './titleblock-change.mjs';
 import {architectureTypeCopyOperations,validateArchitectureTypeCopy,validateArchitectureTypeCopyPlan} from './architecture-type-copy.mjs';
 import {validateAnnotationInput} from './annotation-input.mjs';
+import {validateStructuralElement} from './structural-elements.mjs';
+import {validateWallFoundation,validateWallFoundationPlan} from './wall-foundation.mjs';
+import {validateRebarCreation,validateRebarPlan} from './rebar-creation.mjs';
+import {validateCeilingCreation,validateCeilingPlan} from './ceiling-creation.mjs';
+import {validateMaterialCreation,validateMaterialAssignment,validateMaterialPlan} from './material-creation.mjs';
+import {validateRoofCreation,validateRoofPlan} from './roof-creation.mjs';
+import {validateAnnotationCreation,validateAnnotationCreationPlan} from './annotation-creation.mjs';
+import {validateElectricalRun,validateElectricalRunPlan} from './electrical-runs.mjs';
 import {connectionPrefixes,validateConnectionTopology} from './mep-connection-contracts.mjs';
 
 export const OPERATIONS = new Set([
   'move_lighting_fixtures','create_family_instance','duplicate_type','duplicate_architecture_type','set_parameter','delete_element','load_family',
-  'create_level','create_grid','create_structural_column','create_wall','create_floor','create_opening','create_room','create_stair',
-  'create_circuit','create_wire','create_view_plan','create_sheet','create_schedule',
-  'create_panel_schedule','configure_view','place_viewport','move_drawing_placement','move_viewport_label','change_titleblock_type','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension'
+  'create_level','create_grid','create_structural_column','create_structural_beam','create_isolated_foundation','create_wall_foundation','create_rebar_set','create_rebar_stirrup','create_ceiling','create_wall','create_floor','create_opening','create_room','create_stair','create_material','duplicate_material','create_footprint_roof','assign_material',
+  'create_circuit','create_wire','create_cable_tray','create_conduit','create_view_plan','create_sheet','create_schedule',
+  'create_panel_schedule','configure_view','place_viewport','move_drawing_placement','move_viewport_label','change_titleblock_type','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension','create_text_note','create_detail_line'
 ]);
 
 function requireField(value, field) {
@@ -122,6 +130,15 @@ export function validateOperations(operations) {
         if(gridNames.has(op.name))throw new Error('Grid names must be unique within the reviewed plan.');
         gridNames.add(op.name);break;
       case 'create_structural_column': validateStructuralColumn(op); break;
+      case 'create_structural_beam': case 'create_isolated_foundation': validateStructuralElement(op); break;
+      case 'create_wall_foundation': validateWallFoundation(op); break;
+      case 'create_rebar_set': case 'create_rebar_stirrup': validateRebarCreation(op); break;
+      case 'create_ceiling': validateCeilingCreation(op); break;
+      case 'create_material': case 'duplicate_material': validateMaterialCreation(op); break;
+      case 'assign_material': validateMaterialAssignment(op); break;
+      case 'create_footprint_roof': validateRoofCreation(op); break;
+      case 'create_text_note': case 'create_detail_line': validateAnnotationCreation(op); break;
+      case 'create_cable_tray': case 'create_conduit': validateElectricalRun(op); break;
       case 'change_titleblock_type': validateTitleBlockChange(op); break;
       case 'create_wall': case 'create_pipe': case 'create_duct':
         point(op.start); point(op.end);
@@ -187,6 +204,13 @@ export function validateOperations(operations) {
   validatePortReservations(operations);
   validateTitleBlockChangePlan(operations);
   validateArchitectureTypeCopyPlan(operations);
+  validateWallFoundationPlan(operations);
+  validateRebarPlan(operations);
+  validateCeilingPlan(operations);
+  validateMaterialPlan(operations);
+  validateRoofPlan(operations);
+  validateAnnotationCreationPlan(operations);
+  validateElectricalRunPlan(operations);
   return operations;
 }
 
@@ -243,6 +267,38 @@ export function workflowOperations(name, input = {}) {
     add(input.panelSchedules,'create_panel_schedule','panelSchedule');
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
+  } else if (name === 'structure.build') {
+    if(Object.keys(input).some(key=>!['beams','isolatedFoundations','wallFoundations','documentIdentity','expectedRevision'].includes(key)))throw new Error('structure.build accepts only beams, isolatedFoundations and wallFoundations with optional matching document pins.');
+    for(const key of ['beams','isolatedFoundations','wallFoundations'])if(input[key]!==undefined&&(!Array.isArray(input[key])||input[key].length>1000))throw new Error(key+' requires a bounded array.');
+    add(input.beams,'create_structural_beam','beam');
+    add(input.isolatedFoundations,'create_isolated_foundation','foundation');
+    add(input.wallFoundations,'create_wall_foundation','wallFoundation');
+  } else if (name === 'structure.reinforcement') {
+    if(Object.keys(input).some(key=>!['rebarSets','stirrups','documentIdentity','expectedRevision'].includes(key)))throw new Error('structure.reinforcement accepts only rebarSets and stirrups with optional matching document pins.');
+    for(const key of ['rebarSets','stirrups'])if(input[key]!==undefined&&(!Array.isArray(input[key])||input[key].length>1000))throw new Error(key+' requires a bounded array.');
+    add(input.rebarSets,'create_rebar_set','rebarSet');add(input.stirrups,'create_rebar_stirrup','stirrup');
+  } else if (name === 'architecture.ceilings') {
+    if(Object.keys(input).some(key=>!['ceilings','documentIdentity','expectedRevision'].includes(key)))throw new Error('architecture.ceilings accepts only ceilings with optional matching document pins.');
+    if(input.ceilings!==undefined&&(!Array.isArray(input.ceilings)||input.ceilings.length>1000))throw new Error('ceilings requires a bounded array.');
+    add(input.ceilings,'create_ceiling','ceiling');
+  } else if (name === 'materials.create') {
+    if (Object.keys(input).some(key => !['materials', 'copies', 'assignments', 'documentIdentity', 'expectedRevision'].includes(key))) throw new Error('materials.create accepts materials, copies and assignments with optional matching document pins.');
+    add(input.materials, 'create_material', 'material');
+    add(input.copies, 'duplicate_material', 'materialCopy');
+    add(input.assignments, 'assign_material', 'materialAssignment');
+  } else if (name === 'architecture.roofs') {
+    if (Object.keys(input).some(key => !['roofs', 'documentIdentity', 'expectedRevision'].includes(key))) throw new Error('architecture.roofs accepts roofs with optional matching document pins.');
+    add(input.roofs, 'create_footprint_roof', 'roof');
+  } else if (name === 'documentation.annotations') {
+    if (Object.keys(input).some(key => !['textNotes', 'detailLines', 'documentIdentity', 'expectedRevision'].includes(key))) throw new Error('documentation.annotations accepts only textNotes and detailLines with optional matching document pins.');
+    for (const key of ['textNotes', 'detailLines']) if (input[key] !== undefined && (!Array.isArray(input[key]) || input[key].length > 1000)) throw new Error(`${key} requires a bounded array.`);
+    add(input.textNotes, 'create_text_note', 'textNote');
+    add(input.detailLines, 'create_detail_line', 'detailLine');
+  } else if (name === 'mep.electrical_runs') {
+    if (Object.keys(input).some(key => !['cableTrays', 'conduits', 'documentIdentity', 'expectedRevision'].includes(key))) throw new Error('mep.electrical_runs accepts only cableTrays and conduits with optional matching document pins.');
+    for (const key of ['cableTrays', 'conduits']) if (input[key] !== undefined && (!Array.isArray(input[key]) || input[key].length > 1000)) throw new Error(`${key} requires a bounded array.`);
+    add(input.cableTrays, 'create_cable_tray', 'cableTray');
+    add(input.conduits, 'create_conduit', 'conduit');
   } else if (name === 'architecture.build') {
     ops.push(...architectureTypeCopyOperations({typeCopies:input.typeCopies}));
     add(input.levels,'create_level','level'); add(input.grids,'create_grid','grid');

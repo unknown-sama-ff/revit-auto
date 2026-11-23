@@ -59,7 +59,7 @@ internal static class RevitCommandRouter
         {
             if (!DocumentLifecycleService.Allows(method))
                 throw new BridgeException("lifecycle_busy", "A local test-copy lifecycle lease rejects this command.");
-            if (method is "revit.search" or "revit.inspect" or "revit.type.resolve" or "revit.view.get" or "revit.room.get" or "revit.audit.run" or "revit.element.storage_schemas" or "revit.document.version_diff")
+            if (method is "revit.search" or "revit.inspect" or "revit.type.resolve" or "revit.view.get" or "revit.room.get" or "revit.audit.run" or "revit.element.storage_schemas" or "revit.document.version_diff" or "revit.material.quantities" or "revit.links.list" or "revit.links.elements" or "revit.schedule.data" or "revit.mep.disconnects")
             {
                 var readDocument = Active(app);
                 DocumentReadPinRules.Validate(parameters, Identity(readDocument), Revision(readDocument));
@@ -68,7 +68,7 @@ internal static class RevitCommandRouter
                 return CommandResult.Success(DocumentLifecycleService.Dispatch(app, method, parameters, cancellation)).PrepareBounded();
             return method switch
             {
-                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, moduleVersionId = typeof(App).Module.ModuleVersionId.ToString(), features = new[] { "build-fingerprint", "readonly-query-pins", "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "batch-view-image-export", "controlled-structural-columns", "architecture-type-copy", "architecture-primary-readback", "room-creation-readback", "grid-creation-readback", "opening-creation-readback", "opening-profile-failure-evidence", "opening-host-surface-readback", "explicit-grid-geometry", "controlled-titleblock-change", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "drawing-placement-move", "viewport-label-offset", "tag-leader-readback", "tag-target-readback", "tag-head-position-snapshot", "room-tag-leader-geometry-snapshot", "annotation-input-contracts", "dimension-creation-readback", "grid-dimension-reference-snapshot", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "fitting-connection-readback", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "ui-thread-audit-snapshot", "bounded-element-dependencies", "element-bounds-snapshot", "controlled-lighting-move", "native-stair-connections", "family-text-notes", "family-text-known-empty-owner", "family-text-pagination-view-bounds", "element-storage-schema-audit", "document-version-diff", "sheet-layout-diagnostics", "local-test-copy-lifecycle", "native-opening", "electrical-circuit-audit", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "external-family-metadata-audit", "external-template-metadata-audit", "duct-dimension-contracts", "multiport-fitting-readback", "known-unassigned-equipment-connection", "family-catalog-snapshot", "native-change-receipts", "parameter-noop-receipts", "stair-cleanup-evidence", "explicit-stair-geometry", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
+                "revit.bridge.info" => CommandResult.Success(new { protocol = "revit-auto-2027-v2", version = "0.4.0", informationalVersion = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion, moduleVersionId = typeof(App).Module.ModuleVersionId.ToString(), features = new[] { "build-fingerprint", "readonly-query-pins", "document-change-history", "room-boundaries", "native-type-resolver", "view-image-export", "batch-view-image-export", "controlled-structural-columns", "controlled-structural-elements", "controlled-wall-foundation", "controlled-rebar-creation", "controlled-ceiling-creation", "controlled-material-creation", "controlled-material-assignment", "controlled-roof-creation", "readonly-material-quantities", "readonly-links-audit", "readonly-schedule-data", "controlled-2d-annotations", "controlled-electrical-runs", "readonly-mep-disconnects", "architecture-type-copy", "architecture-primary-readback", "room-creation-readback", "grid-creation-readback", "opening-creation-readback", "opening-profile-failure-evidence", "opening-host-surface-readback", "explicit-grid-geometry", "controlled-titleblock-change", "legacy-point-placement", "lighting-evidence", "panel-schedule-naming", "plan-lifetime-policy", "view-settings", "view-configuration", "viewport-geometry", "drawing-placement-move", "viewport-label-offset", "tag-leader-readback", "tag-target-readback", "tag-head-position-snapshot", "room-tag-leader-geometry-snapshot", "annotation-input-contracts", "dimension-creation-readback", "grid-dimension-reference-snapshot", "explicit-crop-bounds", "connector-resolution", "connector-criteria-connections", "fitting-connection-readback", "finite-parameter-values", "connector-orientation-evidence", "assigned-piping-classification", "connection-port-reservations", "assigned-system-type-evidence", "mechanical-port-audit-tristate", "ui-thread-audit-snapshot", "bounded-element-dependencies", "element-bounds-snapshot", "controlled-lighting-move", "native-stair-connections", "family-text-notes", "family-text-known-empty-owner", "family-text-pagination-view-bounds", "element-storage-schema-audit", "document-version-diff", "sheet-layout-diagnostics", "local-test-copy-lifecycle", "native-opening", "electrical-circuit-audit", "collision-check", "collision-boolean-diagnostics", "flow-direction-diagnostic", "controlled-family-loading", "external-family-metadata-audit", "external-template-metadata-audit", "duct-dimension-contracts", "multiport-fitting-readback", "known-unassigned-equipment-connection", "family-catalog-snapshot", "native-change-receipts", "parameter-noop-receipts", "stair-cleanup-evidence", "explicit-stair-geometry", "controlled-stairs-edit-scope" }, planLifetimeMinutes = RuntimeFiles.ReadSettings().PlanLifetimeMinutes, connectorInspectionPolicy = "capability-aware-v2", documentIdentityPolicy = "native-session-equality", confirmationMode = "chat", requiresRevitConfirmation = false, revitVersion = app.Application.VersionNumber, revitBuild = app.Application.VersionBuild, pid = Environment.ProcessId }),
                 "revit.context.get" => CommandResult.Success(RevitQueryService.Context(app)),
                 "revit.family.text_notes" => CommandResult.Success(FamilyTextService.Get(app, parameters, cancellation)),
                 "revit.search" => CommandResult.Success(RevitQueryService.Search(app, parameters)),
@@ -79,6 +79,11 @@ internal static class RevitCommandRouter
                 "revit.room.get" => CommandResult.Success(RoomService.Get(app, parameters)),
                 "revit.changes.get" => GetChanges(app,parameters),
                 "revit.inspect" => CommandResult.Success(RevitQueryService.Inspect(app, parameters)),
+                "revit.material.quantities" => CommandResult.Success(MaterialQuantitiesService.Read(Active(app), parameters, cancellation)).PrepareBounded(),
+                "revit.links.list" => CommandResult.Success(LinksReadService.List(Active(app), parameters, cancellation)).PrepareBounded(),
+                "revit.links.elements" => CommandResult.Success(LinksReadService.Elements(Active(app), parameters, cancellation)).PrepareBounded(),
+                "revit.schedule.data" => CommandResult.Success(ScheduleDataService.Read(Active(app), parameters, cancellation)).PrepareBounded(),
+                "revit.mep.disconnects" => CommandResult.Success(MepDisconnectsService.Read(Active(app), parameters, cancellation)).PrepareBounded(),
                 "revit.sheet.layout" => CommandResult.Success(SheetLayoutService.Get(app, parameters, cancellation)),
                 "revit.element.dependencies" => CommandResult.Success(ElementDependencyService.Get(app, parameters, cancellation)),
                 "revit.stairs.connections" => CommandResult.Success(StairConnectionService.Get(app, parameters, cancellation)),
@@ -136,7 +141,7 @@ internal static class RevitCommandRouter
         var executor = new ModelExecutor(app, new Dictionary<string, ElementId>(StringComparer.Ordinal));
         foreach (var op in operations) executor.Validate(op);
         executor.ValidateArchitectureCopyPlan(operations);
-        executor.ValidateFamilyHostGeometryPlan(operations);
+        var familyHostGeometryPreflight = executor.ValidateFamilyHostGeometryPlan(operations);
         foreach (var p in Plans.Values.Where(p => p.Status == "pending" && p.ExpiresAtUtc < DateTime.UtcNow)) p.Status = "expired";
         if (Plans.Count >= 500) throw new BridgeException("plan_store_full", "Plan store is full. Restart the bridge in a new Revit session after completing/cancelling pending plans.");
         var plan = new ModelPlan
@@ -144,6 +149,7 @@ internal static class RevitCommandRouter
             DocumentIdentity = Identity(doc), DocumentRevision = Revision(doc),
             Summary = JsonDefaults.StringOr(parameters, "summary", "AI 建模变更"),
             Source = JsonDefaults.StringOr(parameters, "source", "assistant"), Operations = operations,
+            FamilyHostGeometryPreflight = familyHostGeometryPreflight.TotalEntryCount == 0 ? null : familyHostGeometryPreflight,
             ExpiresAtUtc = PlanLifetimePolicy.Expires(DateTime.UtcNow, RuntimeFiles.ReadSettings().PlanLifetimeMinutes)
         };
         foreach(var op in operations.Where(op=>JsonDefaults.String(op,"operationType")=="create_stair"))
@@ -164,6 +170,24 @@ internal static class RevitCommandRouter
             plan.Warnings.Add("Title-block type change preview: " + JsonSerializer.Serialize(TitleBlockChangeService.Preview(doc, op), JsonDefaults.Options) + "; native relationships, sheet boundaries and PNG layout still require independent verification.");
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "create_structural_column"))
             plan.Warnings.Add("Structural column constraints and type activation preview: " + JsonSerializer.Serialize(executor.PreviewArchitectureColumn(op), JsonDefaults.Options) + "; structural design and all native side effects still require independent verification.");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") is "create_structural_beam" or "create_isolated_foundation"))
+            plan.Warnings.Add("Structural element geometry/type activation preview: " + JsonSerializer.Serialize(StructuralElementService.Preview(doc, op), JsonDefaults.Options) + "; native joins/dependencies and full model effects require inspection; no structural-analysis or engineering certification.");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "create_wall_foundation"))
+            plan.Warnings.Add("Wall foundation host/type preview: " + JsonSerializer.Serialize(WallFoundationService.Preview(doc,op),JsonDefaults.Options) + "; final foundation solids, bearing and all model side effects remain independently unverified.");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") is "create_rebar_set" or "create_rebar_stirrup"))
+            plan.Warnings.Add("Rebar host/type/layout preview: " + JsonSerializer.Serialize(RebarCreationService.Preview(doc,op),JsonDefaults.Options) + "; cover, anchorage, clashes and engineering design remain unverified.");
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "create_ceiling"))
+            plan.Warnings.Add("Ceiling profile/type/elevation preview: " + JsonSerializer.Serialize(CeilingCreationService.Preview(doc,op),JsonDefaults.Options) + "; final geometry, dependencies and full model effects require independent inspection.");
+        foreach (var op in operations.Where(o => MaterialCreationRules.IsCreation(JsonDefaults.String(o, "operationType"))))
+            plan.Warnings.Add("Material fields and source preview: " + JsonSerializer.Serialize(MaterialCreationService.Preview(doc, op), JsonDefaults.Options));
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "assign_material"))
+            plan.Warnings.Add("Material instance assignment preview: " + JsonSerializer.Serialize(executor.PreviewMaterialAssignment(op), JsonDefaults.Options));
+        foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "create_footprint_roof"))
+            plan.Warnings.Add("Roof footprint, slopes and base offset preview: " + JsonSerializer.Serialize(RoofCreationService.Preview(doc, op), JsonDefaults.Options));
+        foreach (var op in operations.Where(o => AnnotationCreationRules.IsAnnotation(JsonDefaults.String(o, "operationType"))))
+            plan.Warnings.Add("2D annotation view-plane preview: " + JsonSerializer.Serialize(AnnotationCreationService.Preview(doc, op), JsonDefaults.Options));
+        foreach (var op in operations.Where(o => ElectricalRunRules.IsElectricalRun(JsonDefaults.String(o, "operationType"))))
+            plan.Warnings.Add("Electrical run type/level/geometry preview: " + JsonSerializer.Serialize(ElectricalRunService.Preview(doc, op), JsonDefaults.Options));
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "duplicate_architecture_type"))
             plan.Warnings.Add("Architecture type-copy source and dimension preview: " + JsonSerializer.Serialize(ArchitectureTypeCopyService.Preview(doc, op), JsonDefaults.Options) + "; copied type IDs are assigned only by native execution; source types are protected and final readback is required.");
         foreach (var op in operations.Where(o => JsonDefaults.String(o, "operationType") == "delete_element"))
@@ -251,6 +275,14 @@ internal static class RevitCommandRouter
             cancellation.ThrowIfCancellationRequested();
             executor.VerifyArchitectureCopiesBeforeCommit();
             executor.VerifyArchitecturePrimary("before-transaction-commit");
+            executor.VerifyStructuralElements("before-transaction-commit");
+            executor.VerifyWallFoundations("before-transaction-commit");
+            executor.VerifyRebarCreations("before-transaction-commit");
+            executor.VerifyCeilingCreations("before-transaction-commit");
+            executor.VerifyMaterialCreations("before-transaction-commit");
+            executor.VerifyRoofCreations("before-transaction-commit");
+            executor.VerifyAnnotationCreations("before-transaction-commit");
+            executor.VerifyElectricalRuns("before-transaction-commit");
             executor.VerifyGridCreations("before-transaction-commit");
             executor.VerifyOpeningCreations("before-transaction-commit");
             executor.VerifyViewportLabels("before-transaction-commit");
@@ -267,6 +299,14 @@ internal static class RevitCommandRouter
             // while the containing group is still available for a complete rollback.
             var architectureCopyVerification = executor.VerifyArchitectureCopiesBeforeCommit();
             var architecturePrimaryVerification = executor.VerifyArchitecturePrimary("after-transaction-commit");
+            var structuralElementVerification = executor.VerifyStructuralElements("after-transaction-commit");
+            var wallFoundationVerification = executor.VerifyWallFoundations("after-transaction-commit");
+            var rebarCreationVerification = executor.VerifyRebarCreations("after-transaction-commit");
+            var ceilingCreationVerification = executor.VerifyCeilingCreations("after-transaction-commit");
+            var materialCreationVerification = executor.VerifyMaterialCreations("after-transaction-commit");
+            var roofCreationVerification = executor.VerifyRoofCreations("after-transaction-commit");
+            var annotationCreationVerification = executor.VerifyAnnotationCreations("after-transaction-commit");
+            var electricalRunVerification = executor.VerifyElectricalRuns("after-transaction-commit");
             var gridCreationVerification = executor.VerifyGridCreations("after-transaction-commit");
             var openingCreationVerification = executor.VerifyOpeningCreations("after-transaction-commit");
             var viewportLabelVerification = executor.VerifyViewportLabels("after-transaction-commit");
@@ -281,7 +321,7 @@ internal static class RevitCommandRouter
             var createdIds = created.Distinct().ToArray(); var changedIds = changed.Distinct().ToArray();
             var resolvedReferences = references.ToDictionary(x => x.Key, x => x.Value.Value);
             var warnings = plan.Warnings.Concat(failureCapture.Messages).Distinct().ToArray();
-            object Receipt(NativeChangeEvidence? nativeChanges) => new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = createdIds, changedElementIds = changedIds, references = resolvedReferences, operationEvidence, architectureCopyVerification, architecturePrimaryVerification, gridCreationVerification, openingCreationVerification, viewportLabelVerification, documentationVerification, documentationMetadataVerification, documentationTitleBlockVerification, documentationCreationVerification, fittingCreationVerification, multiportFittingCreationVerification, unassignedConnectionVerification, lightingMoveVerification, nativeChanges, warnings, confirmationMode = "chat", saved = false };
+            object Receipt(NativeChangeEvidence? nativeChanges) => new { planId = plan.PlanId, status = "committed", completedOperationCount = progress.CompletedOperationCount, createdElementIds = createdIds, changedElementIds = changedIds, references = resolvedReferences, operationEvidence, architectureCopyVerification, architecturePrimaryVerification, structuralElementVerification, wallFoundationVerification, rebarCreationVerification, ceilingCreationVerification, materialCreationVerification, roofCreationVerification, annotationCreationVerification, electricalRunVerification, gridCreationVerification, openingCreationVerification, viewportLabelVerification, documentationVerification, documentationMetadataVerification, documentationTitleBlockVerification, documentationCreationVerification, fittingCreationVerification, multiportFittingCreationVerification, unassignedConnectionVerification, lightingMoveVerification, nativeChanges, warnings, confirmationMode = "chat", saved = false };
             // The full business evidence and recoverable plan view are measured using the
             // real serializer. Reserve a proven upper bound for all native events through
             // group assimilation, rather than freezing an incomplete event capture.

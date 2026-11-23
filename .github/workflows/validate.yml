@@ -34,3 +34,5 @@ jobs:
         run: npm test
       - name: Run native-independent core tests
         run: dotnet run --project tests/CoreTests/CoreTests.csproj -c Release
+      - name: Run optional CAD exporter contracts
+        run: node --test tools/tests/native-dwg-export.test.mjs

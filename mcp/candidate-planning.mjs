@@ -11,7 +11,23 @@ function pin(context,identity,revision){
  if(context.document.identity!==identity)fail('document_changed','Active project differs from the reviewed candidate-import identity.');
  if(revision!==undefined&&context.document.revision!==revision)fail('document_revision_changed','Revit changed before/during candidate conversion.');
 }
-export async function previewCandidateImport(args,call,signal){
+function sourceExtraction(parsed){
+ const e=parsed.extraction;if(e===undefined)return undefined;
+ if(!e||typeof e!=='object'||e.exporter!=='native-console'||!/^([a-f0-9]{64})$/i.test(e.sourceSha256??'')||
+    e.readOnly!==true||e.modelUploaded!==false||e.sourceCopyMatched!==true||e.modifiedStateBefore!==0||e.modifiedStateAfter!==0||
+    e.wholeDrawingDecodeAccepted!==false||e.designScaleVerified!==false||e.exactPersistenceVerified!==false||
+    e.scope!=='selected-ModelSpace-main-graphical-entities'||
+    !Number.isSafeInteger(e.lineGeometryCount)||e.lineGeometryCount<0||!Number.isSafeInteger(e.unsupportedGeometryCount)||e.unsupportedGeometryCount<0||
+    e.lineGeometryCount+e.unsupportedGeometryCount!==parsed.sourceGeometryCount||
+    ![e.manifestPath,e.adapterStatePath].every(p=>typeof p==='string'&&p.length>0&&p.length<=32768&&path.isAbsolute(p)))
+  fail('candidate_source_evidence_invalid','Native source evidence is incomplete; no candidate result accepted.');
+ return{exporter:e.exporter,sourceSha256:e.sourceSha256,manifestPath:e.manifestPath,adapterStatePath:e.adapterStatePath,
+  scope:e.scope,lineGeometryCount:e.lineGeometryCount,unsupportedGeometryCount:e.unsupportedGeometryCount,
+  sourceCopyMatched:true,modifiedStateBefore:0,modifiedStateAfter:0,readOnly:true,modelUploaded:false,
+  wholeDrawingDecodeAccepted:false,designScaleVerified:false,exactPersistenceVerified:false,
+  reviewScope:'Review retained native logs/manifest; this source evidence is not design calibration or permission to commit.'};
+}
+export async function previewCandidateImport(args,call,signal,dependencies={}){
  const format=args.name==='imports.image_candidate'?'image':args.name==='imports.dwg_candidate'?'dwg':null;
  if(!format)fail('unknown_candidate_workflow','Use registered imports.dwg_candidate or imports.image_candidate.');
  const mode=args.planningMode??'explicit',input=args.input??{};
@@ -45,13 +61,14 @@ export async function previewCandidateImport(args,call,signal){
  if(mode==='assisted'&&!args.assumptions?.length)fail('assumptions_required','Assisted drawing/image candidates need user-authorized assumptions before conversion.');
  signal?.throwIfAborted();const before=await call('revit.context.get',{},signal);pin(before,args.documentIdentity,args.expectedRevision);
  if(!Array.isArray(before.levels)||!before.levels.some(level=>level.id===input.calibration.levelId))fail('candidate_level_not_found','Calibration levelId is not verified in the current document; no file extraction/model plan was requested.');
- const parsed=await importInput({...input,format,signal});signal?.throwIfAborted();
+ const parsed=await (dependencies.importInput??importInput)({...input,format,signal});signal?.throwIfAborted();
  if(parsed.candidateOnly!==true&&!parsed.needsVision)fail('candidate_only_required','Source parser returned table/write data instead of drawing/image candidates.');
  const after=await call('revit.context.get',{},signal);pin(after,args.documentIdentity,before.document.revision);
  if(after.document.path!==before.document.path||after.document.isModified!==before.document.isModified)fail('candidate_state_changed','Model path or saved state changed while converting candidates; discard results.');
  const source={format,sourceName:input.sourceName??null,sourceKind:input.filePath?'local-file':format==='image'?'assistant-reviewed-entities':'extracted-entities',modelUploaded:false,bridgeVisionModel:false};
  if(parsed.needsVision)return{workflowId:args.name,planningMode:'ask',status:'needs_vision',requiresClarification:true,questions:['请用助手视觉能力读取图片并提供已审阅 candidates；桥接层不内置视觉识别，不自行发送图片到第三方。'],missingInputs:['candidates'],assumptions:[],alternatives:[],candidateOnly:true,planCreated:false,source};
- return{workflowId:args.name,planningMode:mode,status:'candidate_only',documentIdentity:before.document.identity,documentRevision:before.document.revision,source,calibration:input.calibration,candidateDigestSha256:createHash('sha256').update(JSON.stringify({calibration:input.calibration,layerMapping:input.layerMapping,operations:parsed.operations,issues:parsed.issues,text:parsed.text,provenance:parsed.provenance})).digest('hex'),
+ const extraction=sourceExtraction(parsed);
+ return{workflowId:args.name,planningMode:mode,status:'candidate_only',documentIdentity:before.document.identity,documentRevision:before.document.revision,source,...(extraction?{sourceExtraction:extraction}:{}),calibration:input.calibration,candidateDigestSha256:createHash('sha256').update(JSON.stringify({calibration:input.calibration,layerMapping:input.layerMapping,operations:parsed.operations,issues:parsed.issues,text:parsed.text,provenance:parsed.provenance})).digest('hex'),
  candidateConsistency:{documentIdentityVerified:true,documentRevisionVerified:true,pathVerified:typeof before.document.path==='string'&&typeof after.document.path==='string',savedStateVerified:typeof before.document.isModified==='boolean'&&typeof after.document.isModified==='boolean'},
  operations:parsed.operations,issues:parsed.issues,text:parsed.text,provenance:parsed.provenance,coverage:{sourceGeometryCount:parsed.sourceGeometryCount,unmappedEntityCount:parsed.unmappedEntityCount,textCount:parsed.textCount,textTruncated:parsed.textTruncated,complete:parsed.complete},
  assumptions:mode==='assisted'?[...args.assumptions]:[],alternatives:[],candidateOnly:true,planCreated:false,requiresHumanReview:true,requiresClarification:false,questions:[],missingInputs:[],nativeTypesAndHostsValidated:false,engineeringComplianceVerified:false,

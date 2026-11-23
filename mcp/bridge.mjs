@@ -10,7 +10,8 @@ const TRANSPORT_GRACE_MS = 5000;
 const READONLY_NATIVE_METHODS = new Set([
   'revit.audit.run', 'revit.changes.get', 'revit.collision.check', 'revit.connector.resolve',
   'revit.context.get', 'revit.electrical.audit', 'revit.element.dependencies', 'revit.element.storage_schemas', 'revit.document.version_diff',
-  'revit.family.library.get', 'revit.family.text_notes', 'revit.flow.diagnose', 'revit.inspect', 'revit.room.get',
+  'revit.family.library.get', 'revit.family.text_notes', 'revit.flow.diagnose', 'revit.inspect', 'revit.room.get', 'revit.material.quantities',
+  'revit.links.list', 'revit.links.elements', 'revit.schedule.data', 'revit.mep.disconnects',
   'revit.saved.verify', 'revit.search', 'revit.sheet.layout', 'revit.stairs.connections', 'revit.type.resolve', 'revit.view.get'
 ]);
 let cachedReadOnlyBridgeInfo;
@@ -28,6 +29,14 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
     throw Object.assign(new Error('Invalid internal requiredFeatures.'),{code:'invalid_required_features'});
   if(method==='revit.inspect'&&params.includeBounds===true)
     requiredFeatures=[...new Set([...requiredFeatures,'element-bounds-snapshot'])];
+  if(method==='revit.material.quantities')
+    requiredFeatures=[...new Set([...requiredFeatures,'readonly-material-quantities'])];
+  if(['revit.links.list','revit.links.elements'].includes(method))
+    requiredFeatures=[...new Set([...requiredFeatures,'readonly-links-audit'])];
+  if(method==='revit.schedule.data')
+    requiredFeatures=[...new Set([...requiredFeatures,'readonly-schedule-data'])];
+  if(method==='revit.mep.disconnects')
+    requiredFeatures=[...new Set([...requiredFeatures,'readonly-mep-disconnects'])];
   if (method === 'revit.bridge.info') {const info=await exchange(method,params,signal);requireFeatures(info,requiredFeatures);return info;}
   // Explicit safety requirements use fresh host evidence, including when a caller enabled the optional cache.
   const cacheMs = READONLY_NATIVE_METHODS.has(method)&&requiredFeatures.length===0
@@ -66,6 +75,15 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
     const required=[];
     if(params.operations?.some(op=>op.operationType==='duplicate_architecture_type'))required.push('architecture-type-copy');
     if(params.operations?.some(op=>op.operationType==='create_structural_column'))required.push('controlled-structural-columns');
+    if(params.operations?.some(op=>['create_structural_beam','create_isolated_foundation'].includes(op.operationType)))required.push('controlled-structural-elements');
+    if(params.operations?.some(op=>op.operationType==='create_wall_foundation'))required.push('controlled-wall-foundation');
+    if(params.operations?.some(op=>['create_rebar_set','create_rebar_stirrup'].includes(op.operationType)))required.push('controlled-rebar-creation');
+    if(params.operations?.some(op=>op.operationType==='create_ceiling'))required.push('controlled-ceiling-creation');
+    if(params.operations?.some(op=>op.operationType==='create_material'||op.operationType==='duplicate_material'))required.push('controlled-material-creation');
+    if(params.operations?.some(op=>op.operationType==='assign_material'))required.push('controlled-material-assignment');
+    if(params.operations?.some(op=>op.operationType==='create_footprint_roof'))required.push('controlled-roof-creation');
+    if(params.operations?.some(op=>['create_text_note','create_detail_line'].includes(op.operationType)))required.push('controlled-2d-annotations');
+    if(params.operations?.some(op=>['create_cable_tray','create_conduit'].includes(op.operationType)))required.push('controlled-electrical-runs');
     if(params.operations?.some(op=>op.operationType==='create_grid'))required.push('explicit-grid-geometry');
     if(params.operations?.some(op=>op.operationType==='create_room'))required.push('room-creation-readback');
     if(params.operations?.some(op=>op.operationType==='change_titleblock_type'))required.push('controlled-titleblock-change');

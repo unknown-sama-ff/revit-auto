@@ -1,0 +1,15 @@
+# Structural beams and isolated foundations
+
+`structure.build` is a selective Apache-2.0 adaptation of bimwright/rvt-mcp at commit `b44ee0b8032f0603f8e52656bc05ab43aa599263`. It uses the existing preview, authorization and single-execution boundary. This staged module has no local native acceptance yet; check the loaded `controlled-structural-elements` feature before use.
+
+The workflow accepts `beams`, `isolatedFoundations` and `wallFoundations` arrays. Beam and isolated-foundation rows need an existing `symbolId` and `levelId`. Beam rows need `start` and `end`, each containing exactly `xMm`, `yMm`, `zMm`. Isolated-foundation rows need a `point` with the same three coordinates. All coordinates are absolute millimeters at the Revit internal origin. No level-relative elevation is inferred. Wall-foundation rows instead require an existing `hostElementId` and `foundationTypeId`; see the [separate host/type contract](wall-foundation.md).
+
+Optional `rotationDegrees` is between −360 and +360, default 0. For beams it is the native cross-section angle; for foundations it is the absolute point-instance rotation about project Z. These are different native operations. Resolve the caller's IDs from the current document, never from another project or a sample.
+
+Supported types are `OST_StructuralFraming` with `CurveDrivenStructural` placement for beams, and `OST_StructuralFoundation` with `OneLevelBased` placement for isolated foundations. Sloping straight beams are allowed, but the horizontal span must be at least 1 mm and the total length must exceed the current Revit short-curve tolerance. Vertical members, hosted foundations, braces, automatic family loading, inferred types/levels and same-plan deferred symbol/level IDs are refused.
+
+The underlying explicit operations are `create_structural_beam` and `create_isolated_foundation`. Creation activates the selected symbol if necessary and discloses that change. Complete element identity, native type/category/placement/level, XYZ and rotation are rechecked immediately, before transaction commit and after transaction commit inside the rollback-capable group. Endpoint order may reverse; XYZ cannot be projected away. Native elevation normalization that changes the requested position causes refusal instead of an undisclosed offset correction.
+
+Read results from the operation evidence, `structuralElementVerification` in the final receipt, and `structuralElement` in element inspection. Unknown or unsupported native snapshots remain explicit. A successful factory call does not establish complete model effects, exact solid shape, joints, bearing, reinforcement, structural analysis, engineering compliance or visual quality. Ordinary operations never automatically save or restart Revit.
+
+An older loaded DLL refuses this workflow before a structural plan is forwarded. Source availability and tool discoverability do not establish that the native module has been loaded or accepted. See [capability status](capability-status.md) and [the modeling guide](agent-modeling-guide.md).

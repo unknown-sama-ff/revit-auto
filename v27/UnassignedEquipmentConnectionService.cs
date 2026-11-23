@@ -22,7 +22,7 @@ internal sealed class UnassignedEquipmentConnectionService
             {
                 var nativeType = owner.Document.GetElement(system.GetTypeId()) as PipingSystemType
                     ?? throw Invalid("Selected connector system has no readable piping system type.");
-                assignment = new(true, true, nativeType.Id.Value, nativeType.SystemClassification.ToString(), PipingAssignmentReadSource.SelectedConnectorMepSystem);
+                assignment = new(true, true, nativeType.Id.Value, nativeType.SystemClassification.ToString(), PipingAssignmentReadSource.SelectedConnectorMepSystem, SystemId: system.Id.Value);
             }
             else if (owner is Pipe)
             {
@@ -54,9 +54,12 @@ internal sealed class UnassignedEquipmentConnectionService
     {
         var first = Reacquire(doc, expected.First); var second = Reacquire(doc, expected.Second);
         var actual = new UnassignedEquipmentConnectionReadback(Capture(first), Capture(second), first.IsConnectedTo(second), second.IsConnectedTo(first));
-        UnassignedEquipmentConnectionRules.RequireReadback(expected, actual);
+        var resolution = UnassignedEquipmentConnectionRules.RequireReadback(expected, actual);
         return new { phase, scope = "two-explicit-physical-ports-known-unassigned-equipment-to-assigned-pipe", reviewed = expected, actual,
-            reciprocalConnectionVerified = true, assignedSystemTypeVerified = true, sideEffectsVerified = false, hydraulicComplianceVerified = false, persistenceVerified = false };
+            physicalConnectionVerified = resolution.PhysicalConnectionVerified, reciprocalConnectionVerified = true,
+            pipeSystemTypeVerified = resolution.PipeSystemTypeVerified, equipmentSystemAssignmentState = resolution.EquipmentSystemAssignmentState,
+            equipmentSystemTypeVerified = resolution.EquipmentSystemTypeVerified, systemMembershipVerified = resolution.SystemMembershipVerified,
+            sideEffectsVerified = false, hydraulicComplianceVerified = false, routingComplianceVerified = false, persistenceVerified = false };
     }
     internal OperationReceipt Remember(Document doc, PipingConnectionDecision decision)
     {

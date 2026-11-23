@@ -6,6 +6,11 @@ import { parseElectricalSheetInput, inspectElectricalSheetScope } from './electr
 import {drawingPlacementMoveSchema,viewportLabelMoveSchema,parseDrawingPlacementInput,inspectDrawingPlacementScope} from './drawing-placement.mjs';
 import {titleBlockChangeSchema,parseTitleBlockChangeInput,inspectTitleBlockChangeScope} from './titleblock-change.mjs';
 import {architectureTypeCopySchema} from './architecture-type-copy.mjs';
+import {requireStructuralHostFeature} from './structural-elements.mjs';
+import {requireRebarHostFeature} from './rebar-creation.mjs';
+import {requireCeilingHostFeature} from './ceiling-creation.mjs';
+import {requireAnnotationCreationHostFeature} from './annotation-creation.mjs';
+import {requireElectricalRunHostFeature} from './electrical-runs.mjs';
 
 const MODES = new Set(['explicit', 'ask', 'assisted']);
 const INPUT_KEYS = {
@@ -15,6 +20,13 @@ const INPUT_KEYS = {
   'electrical.wire': ['wires','wireDeletions','switchControls','tags','dimensions'],
   'electrical.sheet': ['titleBlockChanges','placementMoves','viewportLabelMoves','sheetChanges','viewChanges','views','viewConfigurations','schedules','panelSchedules','sheets','viewports','tags','dimensions'],
   'architecture.build': ['typeCopies','columns','levels','grids','walls','floors','doors','windows','rooms','views','schedules','sheets','viewports','tags','dimensions'],
+  'structure.build': ['beams','isolatedFoundations','wallFoundations'],
+  'structure.reinforcement': ['rebarSets','stirrups'],
+  'architecture.ceilings': ['ceilings'],
+  'materials.create': ['materials', 'copies', 'assignments'],
+  'architecture.roofs': ['roofs'],
+  'documentation.annotations': ['textNotes', 'detailLines'],
+  'mep.electrical_runs': ['cableTrays', 'conduits'],
   'architecture.rooms': ['rooms','views','schedules','sheets','viewports','tags','dimensions'],
   'architecture.openings': ['typeCopies','doors','windows','schedules','sheets','viewports','tags','dimensions'],
   'architecture.documentation': ['titleBlockChanges','placementMoves','viewportLabelMoves','views','viewConfigurations','schedules','panelSchedules','sheets','viewports','tags','dimensions']
@@ -105,6 +117,11 @@ export async function previewRegisteredWriteWorkflow(args, workflow, call, signa
   if (before.document.isFamilyDocument === true) fail('project_document_required', 'This workflow requires a project, not a family document.');
   if (before.document.isReadOnly === true) fail('document_read_only', 'The active project cannot accept modeling changes.');
   const pinnedRevision = before.document.revision;
+  if(args.name==='structure.build')await requireStructuralHostFeature(call,signal,input.wallFoundations?.length?['controlled-wall-foundation']:[]);
+  if(args.name==='structure.reinforcement')await requireRebarHostFeature(call,signal);
+  if(args.name==='architecture.ceilings')await requireCeilingHostFeature(call,signal);
+  if(args.name==='documentation.annotations')await requireAnnotationCreationHostFeature(call,signal);
+  if(args.name==='mep.electrical_runs')await requireElectricalRunHostFeature(call,signal);
   let domainReview = args.name === 'electrical.wire' ? await inspectElectricalWireScope(input, call, signal) : args.name === 'electrical.circuit' ? await inspectElectricalCircuitScope(input, call, signal) : args.name === 'electrical.sheet' ? await inspectElectricalSheetScope(input, call, signal) : null;
   if(args.name==='architecture.documentation'){
     const placementReview=await inspectDrawingPlacementScope({placementMoves:input.placementMoves,viewportLabelMoves:input.viewportLabelMoves},call,signal);

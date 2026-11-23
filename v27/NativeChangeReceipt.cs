@@ -70,7 +70,9 @@ internal sealed class NativeChangeReceipt
         var created = primaryCreated.ToHashSet(); var changed = primaryChanged.ToHashSet();
         bool revisionCoverage = sequentialRevisions && lastRevision == endRevision && endRevision >= startRevision
             && eventCount == endRevision - startRevision;
-        bool primaryEvidenceCovered = created.All(added.Contains) && changed.All(id => modified.Contains(id) || deleted.Contains(id));
+        // A later operation can modify a newly created element that the native event reports only as added.
+        bool primaryEvidenceCovered = created.All(added.Contains) && changed.All(id =>
+            (created.Contains(id) && added.Contains(id)) || modified.Contains(id) || deleted.Contains(id));
         bool elementComplete = revisionCoverage && primaryEvidenceCovered && !idsTruncated && !invalidEvidence;
         bool complete = elementComplete && !metadataTruncated;
         return new(documentIdentity, startRevision, endRevision, outcome, "document-changed-event-union", eventCount, events.ToArray(),
