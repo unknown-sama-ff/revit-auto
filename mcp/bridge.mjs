@@ -3,10 +3,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
+import { buildStallReceipt, classifyRevitBridgeStall, inspectRevitHostState } from './stall-recovery.mjs';
 const runtime = path.resolve(import.meta.dirname,'..','runtime','bridge.json');
 // Adapted from rvt-mcp ToolGateway.TransportGrace (e49c796, Apache-2.0).
 // The native deadline stays authoritative; let its structured receipt arrive before the transport gives up.
 const TRANSPORT_GRACE_MS = 5000;
+const READONLY_RETRY_DELAY_MS = 150;
 const READONLY_NATIVE_METHODS = new Set([
   'revit.audit.run', 'revit.changes.get', 'revit.collision.check', 'revit.connector.resolve',
   'revit.context.get', 'revit.electrical.audit', 'revit.element.dependencies', 'revit.element.storage_schemas', 'revit.document.version_diff',
@@ -14,8 +16,11 @@ const READONLY_NATIVE_METHODS = new Set([
   'revit.links.list', 'revit.links.elements', 'revit.schedule.data', 'revit.mep.disconnects',
   'revit.saved.verify', 'revit.search', 'revit.sheet.layout', 'revit.stairs.connections', 'revit.type.resolve', 'revit.view.get'
 ]);
+const SAFE_READONLY_RETRY_METHODS = new Set([...READONLY_NATIVE_METHODS, 'revit.plan.get']);
+const WRITE_COMMIT_METHODS = new Set(['revit.plan.confirm', 'revit.import.commit']);
 let cachedReadOnlyBridgeInfo;
 let cachedReadOnlyBridgeInfoExpiresAt = 0;
+let lastKnownRevitPid = null;
 
 function requireFeatures(info,required){
   const missing=required.filter(feature=>!Array.isArray(info?.features)||!info.features.includes(feature));
@@ -24,7 +29,7 @@ function requireFeatures(info,required){
 }
 
 // Internal dispatch requirements never become native request parameters.
-export async function callRevit(method,params = {},signal,{requiredFeatures=[]}={}) {
+export async function callRevit(method,params = {},signal,{requiredFeatures=[],inspectHostState=inspectRevitHostState,probeTimeoutMs=2000}={}) {
   if(!Array.isArray(requiredFeatures)||requiredFeatures.length>64||requiredFeatures.some(f=>typeof f!=='string'||!f.trim()||f.length>200))
     throw Object.assign(new Error('Invalid internal requiredFeatures.'),{code:'invalid_required_features'});
   if(method==='revit.inspect'&&params.includeBounds===true)
@@ -37,7 +42,7 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
     requiredFeatures=[...new Set([...requiredFeatures,'readonly-schedule-data'])];
   if(method==='revit.mep.disconnects')
     requiredFeatures=[...new Set([...requiredFeatures,'readonly-mep-disconnects'])];
-  if (method === 'revit.bridge.info') {const info=await exchange(method,params,signal);requireFeatures(info,requiredFeatures);return info;}
+  if (method === 'revit.bridge.info') {const info=await exchange(method,params,signal);if(Number.isInteger(info?.pid)&&info.pid>0)lastKnownRevitPid=info.pid;requireFeatures(info,requiredFeatures);return info;}
   // Explicit safety requirements use fresh host evidence, including when a caller enabled the optional cache.
   const cacheMs = READONLY_NATIVE_METHODS.has(method)&&requiredFeatures.length===0
     ? Math.max(0, Math.min(600000, Number(process.env.REVIT_AI_READONLY_BRIDGE_INFO_CACHE_MS) || 0))
@@ -49,6 +54,7 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
   const info = cacheMs && cachedReadOnlyBridgeInfo && Date.now() < cachedReadOnlyBridgeInfoExpiresAt
     ? cachedReadOnlyBridgeInfo
     : await exchange('revit.bridge.info',{},signal);
+  if (Number.isInteger(info?.pid) && info.pid > 0) lastKnownRevitPid = info.pid;
   if (cacheMs && info !== cachedReadOnlyBridgeInfo) {
     cachedReadOnlyBridgeInfo = info;
     cachedReadOnlyBridgeInfoExpiresAt = Date.now() + cacheMs;
@@ -108,16 +114,152 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[]}=
     const missing=required.filter(feature=>!info.features?.includes(feature));
     if(missing.length){const error=new Error('The running plugin lacks '+missing.join(', ')+'. Save your work and restart Revit to load the staged plugin. No model plan was created or submitted.');error.code='feature_not_loaded';error.details={requiredFeatures:missing,loadedVersion:info.version};throw error;}
   }
-  return exchange(method,params,signal);
+  return executeWithStallRecovery(method, params, signal, { observedPid: info?.pid ?? lastKnownRevitPid, inspectHostState, probeTimeoutMs });
 }
-async function exchange(method,params = {},signal) {
+
+function waitBounded(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(Object.assign(new Error('Cancelled during backoff.'), { code: 'bridge_cancelled' })); return; }
+    const timer = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve(); }, ms);
+    const onAbort = () => { clearTimeout(timer); reject(Object.assign(new Error('Cancelled during backoff.'), { code: 'bridge_cancelled' })); };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function executeWithStallRecovery(method, params, signal, { observedPid = null, inspectHostState = inspectRevitHostState, probeTimeoutMs = 2000 } = {}) {
+  const canRetryReadOnly = SAFE_READONLY_RETRY_METHODS.has(method);
+  const planId = typeof params?.planId === 'string' && params.planId.trim() && params.planId.length <= 200 ? params.planId : undefined;
+  let readOnlyRetried = false;
+
+  try {
+    return await exchange(method, params, signal);
+  } catch (firstError) {
+    let error = firstError;
+
+    // Layer 3a: Safe single bounded reconnect retry for transient mid-flight disconnects on read-only methods ONLY.
+    // Never auto-retry write methods, timeouts, cancellations, or native rejections.
+    if (canRetryReadOnly && error?.code === 'bridge_connection_closed' && !signal?.aborted) {
+      readOnlyRetried = true;
+      try {
+        await waitBounded(READONLY_RETRY_DELAY_MS, signal);
+        return await exchange(method, params, signal);
+      } catch (retryError) {
+        error = retryError;
+      }
+    }
+
+    // Layer 3b: On bridge_timeout (actual stall), run fast read-only liveness + host modal dialog probe
+    // and, for write commits, read-only revit.plan.get state verification (never re-submitting writes).
+    if (error?.code === 'bridge_timeout' && !signal?.aborted) {
+      const recoveryActions = readOnlyRetried ? ['readonly_bridge_reconnect_retry'] : [];
+      let bridgeAlive = false;
+      let pid = Number.isInteger(observedPid) && observedPid > 0 ? observedPid : lastKnownRevitPid;
+
+      recoveryActions.push('bridge_liveness_probe');
+      try {
+        const probeInfo = await exchange('revit.bridge.info', {}, signal, { timeoutOverrideMs: Math.min(2000, probeTimeoutMs), skipGrace: true });
+        bridgeAlive = probeInfo?.protocol === 'revit-auto-2027-v2';
+        if (Number.isInteger(probeInfo?.pid) && probeInfo.pid > 0) {
+          pid = probeInfo.pid;
+          lastKnownRevitPid = pid;
+        }
+      } catch {
+        bridgeAlive = false;
+      }
+
+      let hostState = null;
+      if (typeof inspectHostState === 'function') {
+        try {
+          hostState = await inspectHostState({ pid, timeoutMs: Math.min(2000, probeTimeoutMs) });
+          if (hostState?.available) recoveryActions.push('revit_host_modal_dialog_probe');
+        } catch {
+          hostState = { available: false, reason: 'probe_threw' };
+        }
+      }
+
+      let postTimeoutVerification = null;
+      if (WRITE_COMMIT_METHODS.has(method) && planId && bridgeAlive && error?.details?.requestMayHaveBeenSent === true) {
+        recoveryActions.push('post_timeout_readonly_plan_verification');
+        try {
+          const plan = await exchange('revit.plan.get', { planId }, signal, { timeoutOverrideMs: Math.min(2500, probeTimeoutMs), skipGrace: true });
+          const observedStatus = typeof plan?.status === 'string' ? plan.status : 'unknown';
+          postTimeoutVerification = {
+            attempted: true,
+            method: 'revit.plan.get',
+            planId,
+            verified: true,
+            observedStatus,
+            committed: observedStatus === 'committed'
+          };
+        } catch (verifyErr) {
+          postTimeoutVerification = {
+            attempted: true,
+            method: 'revit.plan.get',
+            planId,
+            verified: false,
+            errorCode: verifyErr?.code || 'verification_failed'
+          };
+        }
+      }
+
+      const classified = classifyRevitBridgeStall({ code: error.code, bridgeAlive, hostState, method, planId });
+      const stallReceipt = buildStallReceipt({
+        stallDetected: true,
+        stallReason: classified.stallReason,
+        autoRecoveryAttempted: true,
+        recoveryActions,
+        recoveryOutcome: postTimeoutVerification?.verified ? 'verified_state_only' : 'failed',
+        automaticRetryAllowed: false,
+        nextSafeAction: classified.nextSafeAction,
+        hostState: hostState?.available ? hostState : null,
+        postTimeoutVerification
+      });
+      error.details = {
+        ...(error.details || {}),
+        bridgeAlive,
+        stallReceipt
+      };
+      if (classified.stallReason === 'revit_modal_dialog') {
+        error.message = `Revit bridge timed out: Revit UI thread appears blocked by a modal dialog. ${classified.nextSafeAction}`;
+      } else if (classified.stallReason === 'revit_process_not_running') {
+        error.message = `Revit bridge timed out: Revit process is not running. ${classified.nextSafeAction}`;
+      } else if (postTimeoutVerification?.verified) {
+        error.message = `Revit bridge timed out on ${method}; read-only verification observed plan "${planId}" status=${postTimeoutVerification.observedStatus}. Never automatically recreate a write.`;
+      }
+      throw error;
+    }
+
+    // For non-timeout transport failures (e.g., bridge_connection_closed / unavailable),
+    // attach a synchronous structured stallReceipt without emitting extra TCP calls.
+    if (error?.code && ['bridge_connection_closed', 'bridge_connection_unavailable'].includes(error.code)) {
+      const classified = classifyRevitBridgeStall({ code: error.code, method, planId });
+      error.details = {
+        ...(error.details || {}),
+        stallReceipt: buildStallReceipt({
+          stallDetected: true,
+          stallReason: classified.stallReason,
+          autoRecoveryAttempted: readOnlyRetried,
+          recoveryActions: readOnlyRetried ? ['readonly_bridge_reconnect_retry'] : [],
+          recoveryOutcome: 'failed',
+          automaticRetryAllowed: false,
+          nextSafeAction: classified.nextSafeAction
+        })
+      };
+    }
+    throw error;
+  }
+}
+
+async function exchange(method,params = {},signal,{timeoutOverrideMs=null,skipGrace=false}={}) {
   const settings = JSON.parse((await fs.readFile(process.env.REVIT_AI_CONFIG || runtime,'utf8')).replace(/^\uFEFF/,''));
   const port = Number(settings.port); const token = settings.token;
   if (!Number.isInteger(port) || port < 1024 || port > 65535 || typeof token !== 'string' || token.length < 40)
     throw new Error('Invalid bridge settings. Run install-v27.ps1 first.');
-  const requestedTimeout=Number(process.env.REVIT_AI_TIMEOUT_MS || 180000);
+  const requestedTimeout=timeoutOverrideMs !== null ? Number(timeoutOverrideMs) : Number(process.env.REVIT_AI_TIMEOUT_MS || 180000);
   if (!Number.isFinite(requestedTimeout)) throw new Error('REVIT_AI_TIMEOUT_MS must be a finite number.');
-  const timeout = Math.max(1000,Math.min(180000,requestedTimeout));
+  const minTimeout = timeoutOverrideMs !== null ? 100 : 1000;
+  const timeout = Math.max(minTimeout,Math.min(180000,requestedTimeout));
+  const transportBudget = timeout + (skipGrace ? 0 : TRANSPORT_GRACE_MS);
   return new Promise((resolve,reject) => {
     const requestId = randomUUID();
     let requestMayHaveBeenSent = false;
@@ -137,7 +279,7 @@ async function exchange(method,params = {},signal) {
     const socket = net.createConnection({host:'127.0.0.1',port});
     const decoder = new StringDecoder('utf8'); let buffer = ''; let settled = false;
     const cancelled = () => finish(reject,transportError('bridge_cancelled','MCP request cancelled. Query the existing plan to establish its outcome; cancellation is not proof of rollback.'));
-    const timer = setTimeout(() => finish(reject,transportError('bridge_timeout',`Revit bridge timed out. Check whether Revit is busy. Do not recreate/retry a write automatically; query revit.plan.get for its status.`)),timeout+TRANSPORT_GRACE_MS);
+    const timer = setTimeout(() => finish(reject,transportError('bridge_timeout',`Revit bridge timed out. Check whether Revit is busy. Do not recreate/retry a write automatically; query revit.plan.get for its status.`)),transportBudget);
     const finish = (callback,value) => {if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort',cancelled); socket.destroy(); callback(value);};
     signal?.addEventListener('abort',cancelled,{once:true});
     socket.on('connect',() => {

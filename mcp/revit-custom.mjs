@@ -48,7 +48,7 @@ const result = data => ({content:[{type:'text',text:JSON.stringify(data,null,2)}
 function register(name,description,inputSchema,handler,{readOnly=true,idempotent=readOnly,outputSchema} = {}) {
   server.registerTool(name.replaceAll('.','_'),{description: executionAuthorization.describe(description) + ` [Logical API: ${name}]`,inputSchema,...(outputSchema?{outputSchema}:{}),annotations:{readOnlyHint:readOnly,destructiveHint:!readOnly,idempotentHint:idempotent,openWorldHint:false}},async(args,extra) => {
     try {const raw=await handler(args,extra.signal);const data=await executionAuthorization.present(raw,extra.signal);return outputSchema?{...result(data),structuredContent:data}:result(data);}
-    catch(error) {return {...result({code:error.code || 'tool_failed',message:error.message,details:error.details}),isError:true};}
+    catch(error) {const stallReceipt=error.details?.stallReceipt;return {...result({code:error.code || 'tool_failed',message:error.message,details:error.details,...(stallReceipt?{stallReceipt}:{})}),isError:true};}
   });
 }
 register('revit.context.get','Read current project identity/revision, active view, levels, type catalog, selection and counts.',{},(_,signal)=>callRevit('revit.context.get',{},signal));

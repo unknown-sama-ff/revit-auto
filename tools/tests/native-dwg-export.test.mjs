@@ -42,7 +42,9 @@ test('scripts use read-only boundaries without private source assumptions',async
 });
 
 test('LISP strings and expression structure are balanced',async()=>{
- const text=(await fs.readFile(lispPath,'utf8')).split(/\r?\n/).filter(line=>!line.trimStart().startsWith(';')).join('\n');
+ const rawLines=(await fs.readFile(lispPath,'utf8')).split(/\r?\n/);
+ for(let i=0;i<rawLines.length;i++)assert.ok(rawLines[i].length<=240,`Line ${i+1} exceeds 240 chars`);
+ const text=rawLines.filter(line=>!line.trimStart().startsWith(';')).join('\n');
  let depth=0,string=false,escape=false;
  for(const ch of text){if(string){if(escape)escape=false;else if(ch==='\\')escape=true;else if(ch==='"')string=false;}else if(ch==='"')string=true;else if(ch==='(')depth++;else if(ch===')'){depth--;assert.ok(depth>=0);}}
  assert.equal(string,false);assert.equal(depth,0);

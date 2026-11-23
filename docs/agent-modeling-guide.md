@@ -24,7 +24,7 @@ Tool schemas are authoritative. Do not invent parameters from this table. The lo
 Current priority focuses on Agent-driven MCP automated modeling rather than built-in AI API integration. Before driving Revit MCP modeling from CAD reference drawings:
 
 1. **Confirm required skills first**: Check what CAD inspection/parsing skills or local tools are needed. If any skill needs to be installed or enabled, confirm with the user before installing.
-2. **Inspect the CAD drawing before modeling**: Read the CAD drawing first (layers, text notes, dimensions, grids, levels, blocks, geometry, and parser warnings/unknown entities). Do not jump straight into generating Revit operations.
+2. **Inspect the CAD drawing before modeling**: Read the CAD drawing first (layers, text notes, dimensions, grids, levels, blocks, geometry, and parser warnings/unknown entities) via `revit_cad_preflight` (`tools/inspect-cad-preflight.ps1`). The preflight pass automatically streams a complete read-only `geometry.jsonl` sidecar (`sourceEvidence.geometryJsonlPath`) alongside `preflight.json`; reuse `geometry.jsonl` directly during modeling rather than hand-writing ad-hoc `.lsp`/`.scr` scripts or spawning `accoreconsole.exe` a second time. Do not jump straight into generating Revit operations.
 3. **Evaluate drawing completeness**: Explicitly assess whether the drawing contains sufficient engineering information to model, listing what is verified and what is missing or ambiguous.
 4. **Pause for two-branch user confirmation**:
    - **Complete**: Present the completeness judgment and ask the user to confirm **Yes, start modeling** before creating Revit modeling plans.
@@ -66,6 +66,15 @@ Inspect the resulting native elements and relationships. Verify the user's geome
 Read `nativeChanges` when provided, including extra IDs, unknown modifications, deletions and truncation. Missing evidence means unknown. For stairs and other edit scopes, inspect `rollbackStatus` and `cleanupEvidence` where present. `scope-commit-returned-unverified`, cancellation, or an exception does not establish model restoration. Stop dependent writes while uncertain; do not hide unknowns as successful cleanup.
 
 Report what was created/changed, what native checks passed, remaining warnings/unknowns and whether anything was saved. Ordinary plans never automatically save the model. A native in-session check and a later persistence check are different results.
+
+## Stall detection, bounded self-healing and circuit breakers
+
+`revit-auto` enforces tiered stall detection and safe recovery across CAD preflight and the Revit bridge:
+
+1. **CAD Core Console watchdog & orphan cleanup**: `tools/inspect-cad-preflight.ps1` cleans only verified stale owned `accoreconsole.exe` orphans (`/isolate cad-pf-* /readonly` with a dead supervisor parent or expired age; GUI `acad.exe` and active unrelated processes are never touched). During execution it polls CPU delta, output file growth, and interactive prompt hang signatures (`(_>`, `Press ENTER`, font/recovery prompts) to terminate stalled consoles early instead of waiting for total timeout.
+2. **Bounded degraded CAD fallback & circuit breaker**: `revit_cad_preflight` performs at most one automatic summary-only fallback retry (skipping `geometry.jsonl`) on recoverable progress/size budget stalls, attaching a structured `stallRecovery` receipt. Two consecutive unrecovered stalls of the same reason on the same DWG trip the circuit breaker (`cad_preflight_circuit_open`).
+3. **Revit bridge stall probe & write verification**: Read-only native queries perform at most one bounded reconnect retry after a transient mid-flight socket drop. On `bridge_timeout`, `mcp/bridge.mjs` runs a bounded read-only `revit.bridge.info` liveness probe plus read-only Windows process/modal-dialog inspection to distinguish modal dialogs (`revit_modal_dialog`), unresponsive UI (`revit_ui_unresponsive`), or exited Revit (`revit_process_not_running`). When a write commit (`revit.plan.confirm` / `revit.import.commit`) times out while the bridge responds, it runs read-only `revit.plan.get` verification and **never retries or recreates the write**.
+4. **Structured `stallReceipt` contract**: Errors and degraded recoveries include `stallReceipt` (`stallDetected`, `stallReason`, `autoRecoveryAttempted`, `recoveryActions`, `recoveryOutcome`, `automaticRetryAllowed`, `nextSafeAction`). Whenever `automaticRetryAllowed` is `false` or `circuitState.open` is `true`, agents must stop retrying and report the diagnosis to the user.
 
 ## Capability status
 

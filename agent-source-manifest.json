@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-23T18:53:55.347Z",
+  "generatedAtUtc": "2026-11-23T20:38:42.242Z",
   "publicationPerformed": false,
   "counts": {
-    "files": 319,
-    "productionModules": 62,
+    "files": 321,
+    "productionModules": 63,
     "auxiliaryModules": 1,
-    "includedModules": 96,
+    "includedModules": 98,
     "nativeSources": 182,
-    "portableTestFiles": 33
+    "portableTestFiles": 34
   },
   "externalPackages": [
     "@modelcontextprotocol/sdk",
@@ -51,8 +51,8 @@
     {
       "path": "docs/agent-modeling-guide.md",
       "source": "public-docs/agent-modeling-guide.md",
-      "bytes": 11233,
-      "sha256": "e0538c87fa5913d3349e10397331374f6747ba4dccb0cc0c960fffcfcfd55a39"
+      "bytes": 13694,
+      "sha256": "70f840ae927e74c5870a89618fc4f8e166ef342077ff7c73979f08aecf254f7e"
     },
     {
       "path": "docs/annotation-creation.md",
@@ -183,14 +183,14 @@
     {
       "path": "mcp/bridge.mjs",
       "source": "mcp/bridge.mjs",
-      "bytes": 15576,
-      "sha256": "59860c6b43d1b923f1cf1938c1477f6377b878725f3b608c35d4b5e13307bff8"
+      "bytes": 22645,
+      "sha256": "4c44515861c086d5c01202037acc7d04f7c516d403c6fa6e186c7f12924ec53f"
     },
     {
       "path": "mcp/cad-preflight.mjs",
       "source": "mcp/cad-preflight.mjs",
-      "bytes": 29738,
-      "sha256": "e5cf0a757f0d7d3a14a363bd9066564396f935ec4c84a52a37009fe3c70199f2"
+      "bytes": 44536,
+      "sha256": "b4d6efaa61c4bf2a207d080789ef124984336076a1f2fd103c310e1498d70e3f"
     },
     {
       "path": "mcp/candidate-planning.mjs",
@@ -460,8 +460,8 @@
     {
       "path": "mcp/revit-custom.mjs",
       "source": "mcp/revit-custom.mjs",
-      "bytes": 47497,
-      "sha256": "08381a5524dc8f724fb6df6906fe9cfd9581d4477a148b8a4a9fdc9f148c5435"
+      "bytes": 47580,
+      "sha256": "d5cc615ed6d1d991ba10d985544a1e0aab8698aa4fa7bfffba22edbef4f4656e"
     },
     {
       "path": "mcp/roof-creation.mjs",
@@ -512,6 +512,12 @@
       "sha256": "2b93a8e53bf451707a0bb2a6f3142c2cdf23038c367d5817c721b5154dd59544"
     },
     {
+      "path": "mcp/stall-recovery.mjs",
+      "source": "mcp/stall-recovery.mjs",
+      "bytes": 11744,
+      "sha256": "f0f321684f0e3be27738c669090819d294c2e8a469f54796174f11fe6a8c9744"
+    },
+    {
       "path": "mcp/structural-elements.mjs",
       "source": "mcp/structural-elements.mjs",
       "bytes": 2806,
@@ -538,8 +544,8 @@
     {
       "path": "mcp/tests/cad-preflight.test.mjs",
       "source": "mcp/tests/cad-preflight.test.mjs",
-      "bytes": 10475,
-      "sha256": "f18ed50e6947534ceb1b6e40d1cc8abc59351748a7167760659ad28540e25977"
+      "bytes": 15220,
+      "sha256": "91051334a0da13927ed768f389ae03df48af2d63637312842703e3de98a561fc"
     },
     {
       "path": "mcp/tests/candidate-source-evidence.test.mjs",
@@ -692,6 +698,12 @@
       "sha256": "3afaec15f74a52f25636cf5dd7f7db151415b16edbda1ba3cdac07663b4a7195"
     },
     {
+      "path": "mcp/tests/stall-recovery.test.mjs",
+      "source": "mcp/tests/stall-recovery.test.mjs",
+      "bytes": 20027,
+      "sha256": "030dc24bc33ec7c96b71072269c422856cb4577e57c7690c456756c0f88a1475"
+    },
+    {
       "path": "mcp/tests/structural-elements.test.mjs",
       "source": "mcp/tests/structural-elements.test.mjs",
       "bytes": 4331,
@@ -760,8 +772,8 @@
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
       "source": "skills/revit-cad-auto-modeling/SKILL.md",
-      "bytes": 6637,
-      "sha256": "bd52da32f8bdaced1adaadc8ec1d0dfc0c725c9ccfe0b0054f06a102de1e3610"
+      "bytes": 9260,
+      "sha256": "25c3e50edcd9ef4c6114c264e000b20543051029b648140d00dd17ed06b0dfbb"
     },
     {
       "path": "tests/CoreTests/AnnotationCreationRulesTests.cs",
@@ -1108,8 +1120,8 @@
     {
       "path": "tools/cad-preflight-readonly.lsp",
       "source": "tools/cad-preflight-readonly.lsp",
-      "bytes": 11109,
-      "sha256": "c2e4a71f9fe57f0d91ea0a15fae478b9c65d3ae873d70424cb245788f0821df9"
+      "bytes": 18466,
+      "sha256": "f7f0c809af22d444b7a18f2a3d75ea1b33d5ca5450471d21ae9bfe440020befb"
     },
     {
       "path": "tools/export-dwg-native.ps1",
@@ -1120,20 +1132,20 @@
     {
       "path": "tools/inspect-cad-preflight.ps1",
       "source": "tools/inspect-cad-preflight.ps1",
-      "bytes": 11428,
-      "sha256": "5f4256717e4971d6504cf22863582bf4502445843b7433a8645617a6448e5f78"
+      "bytes": 20907,
+      "sha256": "fbd50e644fd645af827ec23e67e78f4df047d40652491bf1751c8ec6f902a541"
     },
     {
       "path": "tools/native-dwg-readonly.lsp",
       "source": "tools/native-dwg-readonly.lsp",
-      "bytes": 7713,
-      "sha256": "a398c9654ec865fbc064e9e4a832d52ff017c93b16e7139d3ee1c2690650039e"
+      "bytes": 8735,
+      "sha256": "58ef17c602c8dee6f8a6c1a4227c857b4c215c9a5f4749d27912f18316cf5259"
     },
     {
       "path": "tools/tests/native-dwg-export.test.mjs",
       "source": "tools/tests/native-dwg-export.test.mjs",
-      "bytes": 11808,
-      "sha256": "d8628fd1b8e2ca04f0ab5c0105b2872cb4d8e69dd1c18c2a47629e2e65b481eb"
+      "bytes": 11937,
+      "sha256": "d05c652316e5826dd936401ec39ebcc3cfe53a3b33e7eff093ba4a36cff8d6b1"
     },
     {
       "path": "v27/AnnotationCreationRules.cs",

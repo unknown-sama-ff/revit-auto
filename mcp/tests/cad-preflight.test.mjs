@@ -75,8 +75,19 @@ test('CAD preflight LISP and PowerShell scripts enforce read-only safety and bal
   assert.match(psSource, /SHA256\]::Create/);
   assert.doesNotMatch(psSource, /Stop-Process|taskkill|New-Object\s+-ComObject|Documents\.Open|\.Save(?:As)?\(/i);
   assert.doesNotMatch(lspSource, /\((?:setvar|entmod|entdel|entmake|vl-load-com|vlax-get-acad-object|command)\b/i);
+  assert.match(psSource, /Assert-PreflightScriptSyntax/);
+  assert.match(psSource, /CAD_PREFLIGHT_GEOMETRY_OUTPUT/);
+  assert.match(lspSource, /CAD_PREFLIGHT_GEOMETRY_OUTPUT/);
 
-  const stripped = lspSource.split(/\r?\n/).filter(line => !line.trimStart().startsWith(';')).join('\n');
+  const rawLines = lspSource.split(/\r?\n/);
+  for (let idx = 0; idx < rawLines.length; idx++) {
+    assert.ok(
+      rawLines[idx].length <= 240,
+      `Line ${idx + 1} in cad-preflight-readonly.lsp is ${rawLines[idx].length} chars (>240); wrap lines to avoid .scr buffer truncation`
+    );
+  }
+
+  const stripped = rawLines.filter(line => !line.trimStart().startsWith(';')).join('\n');
   let depth = 0;
   let inString = false;
   let escape = false;
@@ -217,4 +228,83 @@ test('revit-custom MCP exposes revit_cad_preflight tool and cad-preflight-guide 
 test('runCadPreflight rejects conflicting or missing sources', async () => {
   await assert.rejects(() => runCadPreflight({}), /Provide either filePath/);
   await assert.rejects(() => runCadPreflight({ filePath: 'a.json', preflightData: {} }), /not both/);
+});
+
+test('Assert-PreflightScriptSyntax rejects oversized LISP lines and unbalanced expressions before starting CAD', { skip: process.platform !== 'win32' }, () => {
+  const cmd = [
+    `$ErrorActionPreference='Stop'`,
+    `$tokens=$null;$errors=$null`,
+    `$ast=[System.Management.Automation.Language.Parser]::ParseFile(${quote(psScript)},[ref]$tokens,[ref]$errors)`,
+    `if($errors.Count){throw ($errors|Out-String)}`,
+    `$ast.FindAll({param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst]},$true)|ForEach-Object{Invoke-Expression $_.Extent.Text}`,
+    `$long='(defun x () \"' + ('a'*520) + '\")'`,
+    `$rejectedLong=$false; try { [void](Assert-PreflightScriptSyntax $long) } catch { if ($_.Exception.Message -match 'exceeds 500 characters') { $rejectedLong=$true } }`,
+    `if (-not $rejectedLong) { throw 'Oversized LISP line was not rejected' }`,
+    `$unbalanced='(defun x () (princ \"hi\")'`,
+    `$rejectedUnbalanced=$false; try { [void](Assert-PreflightScriptSyntax $unbalanced) } catch { if ($_.Exception.Message -match 'unbalanced') { $rejectedUnbalanced=$true } }`,
+    `if (-not $rejectedUnbalanced) { throw 'Unbalanced LISP was not rejected' }`,
+    `Write-Output 'ok'`
+  ].join(';');
+  const res = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd], { encoding: 'utf8', timeout: 20000 });
+  assert.equal(res.status, 0, res.stderr || res.error?.message);
+  assert.equal(res.stdout.trim(), 'ok');
+});
+
+test('runCadPreflight serializes concurrent DWG preflight runs and returns geometryJsonlPath', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cad-preflight-queue-'));
+  try {
+    const dwgA = path.join(dir, 'a.dwg');
+    const dwgB = path.join(dir, 'b.dwg');
+    const fakeConsole = path.join(dir, 'accoreconsole.exe');
+    await fs.writeFile(dwgA, 'AC1021-a');
+    await fs.writeFile(dwgB, 'AC1021-b');
+    await fs.writeFile(fakeConsole, 'mock');
+
+    let active = 0;
+    let maxConcurrent = 0;
+    const order = [];
+
+    const mockRunner = async ({ sourcePath }) => {
+      active++;
+      maxConcurrent = Math.max(maxConcurrent, active);
+      order.push(`start:${path.basename(sourcePath)}`);
+      await new Promise(r => setTimeout(r, 25));
+      const runDir = path.join(dir, `run-${path.basename(sourcePath, '.dwg')}`);
+      await fs.mkdir(runDir, { recursive: true });
+      const preflightPath = path.join(runDir, 'preflight.json');
+      const geometryPath = path.join(runDir, 'geometry.jsonl');
+      const manifestPath = path.join(runDir, 'manifest.json');
+      const fixture = { ...completeFixture(), geometryJsonlCount: 42 };
+      await fs.writeFile(preflightPath, JSON.stringify(fixture), 'utf8');
+      await fs.writeFile(geometryPath, '{"t":"LINE","h":"10","l":"AXIS","p1":[0,0],"p2":[1000,0]}\n', 'utf8');
+      await fs.writeFile(manifestPath, JSON.stringify({
+        schemaVersion: 1,
+        status: 'cad-preflight-complete-review-logs',
+        preflightPath,
+        geometryPath,
+        sourceSha256Before: 'AA',
+        sourceSha256After: 'AA',
+        copySha256After: 'AA',
+        dwgSignature: 'AC1021',
+        artifacts: { 'geometry.jsonl': { bytes: 58, sha256: 'BB' } }
+      }), 'utf8');
+      order.push(`end:${path.basename(sourcePath)}`);
+      active--;
+      return { manifestPath, stdout: manifestPath, stderr: '' };
+    };
+
+    const [resA, resB] = await Promise.all([
+      runCadPreflight({ filePath: dwgA, consolePath: fakeConsole, outputDirectory: dir, modelingGoal: 'pump_room' }, undefined, { runPreflightScript: mockRunner }),
+      runCadPreflight({ filePath: dwgB, consolePath: fakeConsole, outputDirectory: dir, modelingGoal: 'pump_room' }, undefined, { runPreflightScript: mockRunner })
+    ]);
+
+    assert.equal(maxConcurrent, 1, 'Concurrent DWG preflight runs must be serialized');
+    assert.deepEqual(order, ['start:a.dwg', 'end:a.dwg', 'start:b.dwg', 'end:b.dwg']);
+    assert.ok(resA.sourceEvidence.geometryJsonlPath.endsWith('geometry.jsonl'));
+    assert.equal(resA.sourceEvidence.geometryJsonlBytes, 58);
+    assert.equal(resA.drawingStats.geometryJsonlCount, 42);
+    assert.ok(resB.sourceEvidence.geometryJsonlPath.endsWith('geometry.jsonl'));
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 });

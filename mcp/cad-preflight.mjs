@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
+import { buildStallReceipt, CircuitBreaker, classifyCadConsoleLog } from './stall-recovery.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const PREFLIGHT_SCRIPT = path.join(REPO_ROOT, 'tools', 'inspect-cad-preflight.ps1');
@@ -32,8 +33,8 @@ export const CAD_PREFLIGHT_GUIDE = {
     {
       step: 2,
       id: 'inspect_cad_readonly',
-      title: '先看 CAD 图纸（只读审查）',
-      rule: '使用 revit_cad_preflight（或受控只读提取器）在隔离副本上完整审阅 CAD 图纸的图层、文字说明、尺寸标注、轴网、标高、图块、几何实体与代理实体/解析异常，绝不跳过看图直接落模。'
+      title: '先看 CAD 图纸（只读审查并一次产出 geometry.jsonl）',
+      rule: '使用 revit_cad_preflight（或 tools/inspect-cad-preflight.ps1）在隔离副本上一次完成只读审查并流式产出完整几何坐标边车文件 geometry.jsonl（sourceEvidence.geometryJsonlPath），绝不跳过看图直接落模，且后续建模直接复用 geometry.jsonl，禁止二次手写 .lsp/.scr 重跑 accoreconsole.exe。'
     },
     {
       step: 3,
@@ -51,7 +52,14 @@ export const CAD_PREFLIGHT_GUIDE = {
     }
   ],
   recommendedSkills: ['revit-cad-auto-modeling', 'dwg-field-review', 'libredwg'],
-  tool: 'revit_cad_preflight'
+  tool: 'revit_cad_preflight',
+  stallRecoveryPolicy: {
+    cadWatchdog: 'Monitors CPU progress, output file growth and interactive prompt hangs; terminates stalled owned accoreconsole.exe early instead of waiting for total timeout.',
+    ownedOrphanCleanup: 'Cleans only verified stale owned accoreconsole.exe orphans (/isolate cad-pf-* /readonly) with dead parent or expired age; never touches GUI acad.exe or active unrelated consoles.',
+    degradedFallback: 'Allows at most 1 bounded summary-only retry (skipping geometry.jsonl) on recoverable progress/size stalls; repeated identical stalls trip the circuit breaker.',
+    revitBridgeProtection: 'Read-only transient mid-flight disconnects retry at most once; timeouts run read-only liveness + Windows modal-dialog host inspection; write commits run read-only revit.plan.get verification and never auto-retry writes.',
+    agentCircuitBreakerRule: 'When stallReceipt.automaticRetryAllowed is false or circuitState.open is true, stop retrying immediately and report stallReason + nextSafeAction to the user.'
+  }
 };
 
 export const cadPreflightRequestSchema = {
@@ -62,7 +70,9 @@ export const cadPreflightRequestSchema = {
   modelingGoal: z.enum(['general', 'architecture', 'structure', 'mep', 'pump_room', 'electrical']).optional(),
   availableSkills: z.array(z.string().trim().min(1).max(120)).max(100).optional(),
   requiredSkills: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
-  timeoutSeconds: z.number().int().min(1).max(120).optional()
+  timeoutSeconds: z.number().int().min(1).max(300).optional(),
+  stallTimeoutSeconds: z.number().int().min(5).max(300).optional(),
+  autoRecover: z.boolean().optional()
 };
 
 function fail(code, message, details) {
@@ -137,6 +147,7 @@ function normalizePreflightInput(raw) {
     modelSpaceEntityCount,
     paperSpaceEntityCount,
     proxyEntityCount,
+    geometryJsonlCount: Number.isFinite(raw.geometryJsonlCount) ? raw.geometryJsonlCount : null,
     geometrySummary: {
       line: Number.isFinite(geom.line) ? geom.line : (countsByType.LINE ?? 0),
       polyline: Number.isFinite(geom.polyline) ? geom.polyline : ((countsByType.LWPOLYLINE ?? 0) + (countsByType.POLYLINE ?? 0)),
@@ -475,6 +486,7 @@ export function evaluateCadCompleteness(rawData, options = {}) {
       insunitsLabel: INSUNITS_LABELS[data.insunits] ?? `INSUNITS=${data.insunits}`,
       extentsSpan,
       proxyEntityCount: data.proxyEntityCount,
+      geometryJsonlCount: data.geometryJsonlCount,
       nonSimpleEntityRatio: nonSimpleRatio,
       geometrySummary: data.geometrySummary,
       countsByType: data.countsByType
@@ -497,44 +509,148 @@ export function evaluateCadCompleteness(rawData, options = {}) {
   };
 }
 
-function runPreflightScript({ sourcePath, consolePath, outputDirectory, timeoutSeconds, signal }) {
-  return new Promise((resolve, reject) => {
+let preflightQueue = Promise.resolve();
+const cadPreflightCircuitBreaker = new CircuitBreaker({ threshold: 2, windowMs: 10 * 60 * 1000 });
+
+export function resetCadPreflightCircuitBreaker(key) {
+  cadPreflightCircuitBreaker.reset(key);
+}
+
+function enqueuePreflightTask(task) {
+  const next = preflightQueue.then(task, task);
+  preflightQueue = next.catch(() => {});
+  return next;
+}
+
+async function readManifestSafely(manifestPath) {
+  if (!manifestPath) return null;
+  try {
+    const raw = await fs.readFile(manifestPath, 'utf8');
+    return JSON.parse(raw.replace(/^\uFEFF/, ''));
+  } catch {
+    return null;
+  }
+}
+
+function classifyPreflightFailure(err, manifest) {
+  const message = `${err?.message || ''}\n${err?.details?.stderr || ''}\n${manifest?.failure || ''}`;
+  const logHit = classifyCadConsoleLog(message);
+  let stallReason = manifest?.stallReason || null;
+  let stallDetected = Boolean(manifest?.stallDetected || manifest?.timedOut);
+
+  if (!stallReason) {
+    if (logHit.stalled) {
+      stallReason = logHit.reason;
+      stallDetected = true;
+    } else if (/already running and did not finish/i.test(message)) {
+      stallReason = 'orphan_lock_contention';
+      stallDetected = true;
+    } else if (/geometry JSONL.*exceeds the 50 MB budget/i.test(message)) {
+      stallReason = 'geometry_budget_exceeded';
+      stallDetected = true;
+    } else if (err?.code === 'cad_preflight_cleanup_outcome_unknown') {
+      stallReason = 'watchdog_cleanup_timeout';
+      stallDetected = true;
+    } else if (/timed out/i.test(message)) {
+      stallReason = 'total_timeout';
+      stallDetected = true;
+    } else {
+      stallReason = err?.code || 'process_exit_nonzero';
+    }
+  }
+
+  const recoverableWithDegradedRetry = ['no_progress_timeout', 'total_timeout', 'geometry_budget_exceeded'].includes(stallReason);
+  return { stallDetected, stallReason, recoverableWithDegradedRetry };
+}
+
+function nextActionForPreflightStall(stallReason, manifestPath) {
+  const ref = manifestPath ? ` Inspect manifest at ${manifestPath}.` : '';
+  switch (stallReason) {
+    case 'interactive_prompt_hang':
+      return `AutoCAD Core Console stalled waiting for interactive input (unclosed prompt/font/dialog).${ref} Verify DWG integrity and fonts before retrying.`;
+    case 'drawing_recovery_prompt':
+      return `AutoCAD reported the DWG is corrupt or requires interactive recovery.${ref} Repair or re-save the DWG in AutoCAD before running preflight.`;
+    case 'cad_fatal_or_license_error':
+      return `AutoCAD Core Console hit a fatal or license error.${ref} Verify local AutoCAD license/activation before retrying.`;
+    case 'orphan_lock_contention':
+      return `Another non-orphan accoreconsole.exe process remained active beyond the 15s wait window.${ref} Wait for the other CAD job to finish before re-running.`;
+    case 'no_progress_timeout':
+    case 'total_timeout':
+    case 'geometry_budget_exceeded':
+      return `DWG extraction exceeded the watchdog progress or size budget even after degraded fallback.${ref} Simplify/purge the DWG, split into smaller sheets, or pass pre-extracted JSON.`;
+    default:
+      return `CAD preflight failed.${ref} Inspect console.decoded.log before retrying.`;
+  }
+}
+
+// The PowerShell CLI owns its Core Console PID, start-time verification and cleanup.
+// Never kill the PowerShell supervisor from Node on abort, which would orphan accoreconsole.exe;
+// instead serialize invocations and wait for the CLI's bounded watchdog/cleanup to finish.
+function runPreflightScript({ sourcePath, consolePath, outputDirectory, timeoutSeconds, stallTimeoutSeconds = 30, skipGeometryJsonl = false, signal }) {
+  return enqueuePreflightTask(() => new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(Object.assign(new Error('CAD preflight cancelled before launch.'), { code: 'cancelled' }));
       return;
     }
     const psExe = process.platform === 'win32' ? 'powershell.exe' : 'pwsh';
+    // Pass paths via a UTF-16 environment block JSON payload rather than CLI argv
+    // so Chinese/Unicode DWG paths are never garbled by Windows console code-page mismatches.
+    const command = "$ErrorActionPreference='Stop'; try { [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); $p=ConvertFrom-Json $env:REVIT_AI_CAD_PREFLIGHT_ARGS; $params=@{SourcePath=$p.sourcePath;ConsolePath=$p.consolePath;OutputDirectory=$p.outputDirectory;TimeoutSeconds=[int]$p.timeoutSeconds;StallTimeoutSeconds=[int]$p.stallTimeoutSeconds}; if($p.skipGeometryJsonl){$params['SkipGeometryJsonl']=$true}; & $p.script @params; if($LASTEXITCODE){exit $LASTEXITCODE} } catch { Write-Error $_ -ErrorAction Continue; exit 1 }";
     const args = [
       '-NoProfile',
       '-NonInteractive',
-      '-File',
-      PREFLIGHT_SCRIPT,
-      '-SourcePath',
-      sourcePath,
-      '-ConsolePath',
-      consolePath,
-      '-OutputDirectory',
-      outputDirectory,
-      '-TimeoutSeconds',
-      String(timeoutSeconds)
+      '-Command',
+      command
     ];
-    const child = spawn(psExe, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(psExe, args, {
+      windowsHide: true,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        REVIT_AI_CAD_PREFLIGHT_ARGS: JSON.stringify({
+          script: PREFLIGHT_SCRIPT,
+          sourcePath,
+          consolePath,
+          outputDirectory,
+          timeoutSeconds,
+          stallTimeoutSeconds,
+          skipGeometryJsonl: Boolean(skipGeometryJsonl)
+        })
+      }
+    });
     let stdout = '';
     let stderr = '';
-    const onAbort = () => {
-      try { child.kill(); } catch {}
-    };
+    let aborted = signal?.aborted === true;
+    const onAbort = () => { aborted = true; };
     signal?.addEventListener('abort', onAbort, { once: true });
+    const watchdog = setTimeout(() => {
+      child.unref();
+      signal?.removeEventListener('abort', onAbort);
+      reject(Object.assign(
+        new Error('CAD preflight CLI did not finish within its watchdog/cleanup budget; inspect retained manifest and logs.'),
+        { code: 'cad_preflight_cleanup_outcome_unknown', details: { cliPid: child.pid, cleanupVerified: false } }
+      ));
+    }, (timeoutSeconds + 45) * 1000);
     child.stdout.on('data', chunk => { stdout += chunk.toString('utf8'); });
     child.stderr.on('data', chunk => { stderr += chunk.toString('utf8'); });
-    child.on('error', err => {
+    child.once('error', err => {
+      clearTimeout(watchdog);
       signal?.removeEventListener('abort', onAbort);
       reject(Object.assign(new Error(`Failed to start CAD preflight script: ${err.message}`), { code: 'cad_preflight_spawn_failed' }));
     });
-    child.on('close', code => {
+    child.once('close', code => {
+      clearTimeout(watchdog);
       signal?.removeEventListener('abort', onAbort);
       const lines = stdout.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
       const manifestPath = lines.length ? lines[lines.length - 1] : null;
+      if (aborted) {
+        reject(Object.assign(
+          new Error('CAD preflight cancelled after waiting for CLI owned-process cleanup.'),
+          { code: 'cancelled', details: { exitCode: code, manifestPath, cleanupVerified: code !== null } }
+        ));
+        return;
+      }
       if (code !== 0 || !manifestPath) {
         reject(Object.assign(
           new Error(`CAD preflight extraction failed (exit ${code}): ${stderr.trim() || stdout.trim() || 'no output'}`),
@@ -544,7 +660,7 @@ function runPreflightScript({ sourcePath, consolePath, outputDirectory, timeoutS
       }
       resolve({ manifestPath, stdout, stderr });
     });
-  });
+  }));
 }
 
 export async function runCadPreflight(args = {}, signal, dependencies = {}) {
@@ -559,6 +675,13 @@ export async function runCadPreflight(args = {}, signal, dependencies = {}) {
 
   let rawData = args.preflightData;
   let sourceEvidence = { sourceKind: 'inline-preflight-json', readOnly: true };
+  let stallRecovery = buildStallReceipt({
+    stallDetected: false,
+    recoveryOutcome: 'not_needed',
+    automaticRetryAllowed: false,
+    nextSafeAction: 'Proceed to completeness review and user two-branch confirmation gate.'
+  });
+  const extraWarnings = [];
 
   if (hasFile) {
     const resolved = path.resolve(args.filePath);
@@ -566,7 +689,18 @@ export async function runCadPreflight(args = {}, signal, dependencies = {}) {
     if (ext === '.json') {
       const content = await fs.readFile(resolved, 'utf8');
       rawData = JSON.parse(content.replace(/^\uFEFF/, ''));
-      sourceEvidence = { sourceKind: 'extracted-json-file', filePath: resolved, readOnly: true };
+      const siblingGeometry = path.join(path.dirname(resolved), 'geometry.jsonl');
+      let geometryJsonlPath = null;
+      try {
+        const st = await fs.stat(siblingGeometry);
+        if (st.isFile()) geometryJsonlPath = siblingGeometry;
+      } catch {}
+      sourceEvidence = {
+        sourceKind: 'extracted-json-file',
+        filePath: resolved,
+        geometryJsonlPath,
+        readOnly: true
+      };
     } else if (ext === '.dwg') {
       const consolePath = args.consolePath || process.env.REVIT_AI_DWG_CONSOLE_PATH;
       if (!consolePath) {
@@ -575,21 +709,170 @@ export async function runCadPreflight(args = {}, signal, dependencies = {}) {
       const outputDirectory = args.outputDirectory
         ? path.resolve(args.outputDirectory)
         : path.join(REPO_ROOT, 'imports', 'cad-preflight');
-      const timeoutSeconds = args.timeoutSeconds ?? 120;
-      const runner = dependencies.runPreflightScript ?? runPreflightScript;
-      const { manifestPath } = await runner({ sourcePath: resolved, consolePath: path.resolve(consolePath), outputDirectory, timeoutSeconds, signal });
-      const manifestRaw = await fs.readFile(manifestPath, 'utf8');
-      const manifest = JSON.parse(manifestRaw.replace(/^\uFEFF/, ''));
-      if (manifest.status !== 'cad-preflight-complete-review-logs' || !manifest.preflightPath) {
-        fail('cad_preflight_manifest_unaccepted', `CAD preflight manifest did not pass integrity checks: ${manifest.status}`, { manifestPath, failure: manifest.failure ?? null });
+      const timeoutSeconds = args.timeoutSeconds ?? 180;
+      const stallTimeoutSeconds = args.stallTimeoutSeconds ?? 30;
+      const autoRecover = args.autoRecover !== false;
+      const circuitKey = `cad-preflight:${resolved.toLowerCase()}`;
+      const circuit = cadPreflightCircuitBreaker.check(circuitKey);
+      if (circuit.open) {
+        const receipt = buildStallReceipt({
+          stallDetected: true,
+          stallReason: circuit.lastReason || 'repeated_cad_stall',
+          autoRecoveryAttempted: false,
+          recoveryActions: ['circuit_breaker_blocked_repeat_launch'],
+          recoveryOutcome: 'failed',
+          automaticRetryAllowed: false,
+          circuitState: circuit,
+          nextSafeAction: 'Circuit breaker is open after repeated identical CAD preflight stalls for this DWG. Inspect retained manifest/logs or simplify/repair the DWG before retrying.'
+        });
+        fail('cad_preflight_circuit_open', `CAD preflight circuit breaker tripped after ${circuit.consecutiveFailures} consecutive stalls (${circuit.lastReason}).`, { stallReceipt: receipt });
       }
+
+      const runner = dependencies.runPreflightScript
+        ? opts => enqueuePreflightTask(() => dependencies.runPreflightScript(opts))
+        : runPreflightScript;
+
+      const executeOnce = async ({ skipGeometryJsonl, activeStallTimeout }) => {
+        const { manifestPath } = await runner({
+          sourcePath: resolved,
+          consolePath: path.resolve(consolePath),
+          outputDirectory,
+          timeoutSeconds,
+          stallTimeoutSeconds: activeStallTimeout,
+          skipGeometryJsonl,
+          signal
+        });
+        const manifest = await readManifestSafely(manifestPath);
+        if (!manifest || manifest.status !== 'cad-preflight-complete-review-logs' || !manifest.preflightPath) {
+          fail(
+            'cad_preflight_manifest_unaccepted',
+            `CAD preflight manifest did not pass integrity checks: ${manifest?.status ?? 'unreadable'}`,
+            { manifestPath, failure: manifest?.failure ?? null }
+          );
+        }
+        return { manifestPath, manifest };
+      };
+
+      let runResult = null;
+      let degradedRecoveryFrom = null;
+      try {
+        runResult = await executeOnce({ skipGeometryJsonl: false, activeStallTimeout: stallTimeoutSeconds });
+      } catch (primaryErr) {
+        if (primaryErr?.code === 'cancelled' || signal?.aborted) {
+          const receipt = buildStallReceipt({
+            stallDetected: false,
+            stallReason: 'cancelled',
+            autoRecoveryAttempted: false,
+            recoveryOutcome: 'failed',
+            automaticRetryAllowed: false,
+            nextSafeAction: 'CAD preflight was cancelled; inspect retained manifest if partial output exists.'
+          });
+          primaryErr.details = { ...(primaryErr.details || {}), stallReceipt: receipt };
+          throw primaryErr;
+        }
+        const primaryManifestPath = primaryErr?.details?.manifestPath ?? null;
+        const primaryManifest = await readManifestSafely(primaryManifestPath);
+        const classification = classifyPreflightFailure(primaryErr, primaryManifest);
+        const recoveryActions = [];
+        if (primaryManifest?.orphanCleanup?.cleanedCount > 0) {
+          recoveryActions.push('cleaned_owned_orphan_console');
+        }
+        if (classification.stallDetected) {
+          recoveryActions.push('terminated_stalled_primary_console');
+        }
+
+        if (autoRecover && classification.recoverableWithDegradedRetry && !signal?.aborted) {
+          recoveryActions.push('retry_summary_only_without_geometry_jsonl');
+          try {
+            runResult = await executeOnce({
+              skipGeometryJsonl: true,
+              activeStallTimeout: Math.min(300, Math.max(stallTimeoutSeconds, 45))
+            });
+            degradedRecoveryFrom = {
+              stallReason: classification.stallReason,
+              primaryManifestPath,
+              recoveryActions
+            };
+          } catch (degradedErr) {
+            const degradedManifestPath = degradedErr?.details?.manifestPath ?? null;
+            const degradedManifest = await readManifestSafely(degradedManifestPath);
+            const degradedClass = classifyPreflightFailure(degradedErr, degradedManifest);
+            const circuitState = cadPreflightCircuitBreaker.recordFailure(circuitKey, classification.stallReason);
+            const receipt = buildStallReceipt({
+              stallDetected: true,
+              stallReason: classification.stallReason,
+              autoRecoveryAttempted: true,
+              recoveryActions,
+              recoveryOutcome: 'failed',
+              automaticRetryAllowed: false,
+              circuitState,
+              nextSafeAction: nextActionForPreflightStall(degradedClass.stallReason || classification.stallReason, degradedManifestPath || primaryManifestPath)
+            });
+            fail(
+              degradedErr?.code || primaryErr?.code || 'cad_preflight_extraction_failed',
+              `CAD preflight stalled (${classification.stallReason}) and degraded summary-only fallback also failed: ${degradedErr?.message || 'unknown error'}`,
+              {
+                primaryManifestPath,
+                degradedManifestPath,
+                stallReceipt: receipt
+              }
+            );
+          }
+        } else {
+          const circuitState = cadPreflightCircuitBreaker.recordFailure(circuitKey, classification.stallReason);
+          const receipt = buildStallReceipt({
+            stallDetected: classification.stallDetected,
+            stallReason: classification.stallReason,
+            autoRecoveryAttempted: recoveryActions.includes('cleaned_owned_orphan_console'),
+            recoveryActions,
+            recoveryOutcome: 'failed',
+            automaticRetryAllowed: false,
+            circuitState,
+            nextSafeAction: nextActionForPreflightStall(classification.stallReason, primaryManifestPath)
+          });
+          primaryErr.details = { ...(primaryErr.details || {}), stallReceipt: receipt };
+          throw primaryErr;
+        }
+      }
+
+      cadPreflightCircuitBreaker.recordSuccess(circuitKey);
+      const { manifestPath, manifest } = runResult;
       const preflightRaw = await fs.readFile(manifest.preflightPath, 'utf8');
       rawData = JSON.parse(preflightRaw.replace(/^\uFEFF/, ''));
+      const orphanCleanedCount = Number(manifest.orphanCleanup?.cleanedCount) || 0;
+      if (degradedRecoveryFrom) {
+        stallRecovery = buildStallReceipt({
+          stallDetected: true,
+          stallReason: degradedRecoveryFrom.stallReason,
+          autoRecoveryAttempted: true,
+          recoveryActions: degradedRecoveryFrom.recoveryActions,
+          recoveryOutcome: 'recovered_degraded',
+          automaticRetryAllowed: false,
+          nextSafeAction: 'Primary extraction stalled while streaming full geometry; degraded summary-only preflight succeeded (geometry.jsonl skipped). Review completeness report and simplify/split the DWG if full geometry coordinates are required.'
+        });
+        extraWarnings.push(`初次全量提取触发看门狗保护（${degradedRecoveryFrom.stallReason}），已自动降级为仅摘要模式完成只读预检（未产出 geometry.jsonl）；后续如需精确坐标，请先简化/分块图纸。`);
+      } else if (orphanCleanedCount > 0) {
+        stallRecovery = buildStallReceipt({
+          stallDetected: false,
+          stallReason: null,
+          autoRecoveryAttempted: true,
+          recoveryActions: ['cleaned_owned_orphan_console'],
+          recoveryOutcome: 'recovered_full',
+          automaticRetryAllowed: false,
+          nextSafeAction: `Automatically cleaned ${orphanCleanedCount} stale owned orphan accoreconsole.exe process(es) before clean extraction.`
+        });
+      }
+
       sourceEvidence = {
         sourceKind: 'native-dwg-core-console',
         filePath: resolved,
         manifestPath,
+        primaryFailedManifestPath: degradedRecoveryFrom?.primaryManifestPath ?? null,
         preflightJsonPath: manifest.preflightPath,
+        geometryJsonlPath: manifest.geometryPath ?? null,
+        geometryJsonlBytes: manifest.artifacts?.['geometry.jsonl']?.bytes ?? null,
+        skipGeometryJsonl: manifest.skipGeometryJsonl === true,
+        orphanCleanedCount,
         sourceSha256Before: manifest.sourceSha256Before,
         sourceSha256After: manifest.sourceSha256After,
         copySha256After: manifest.copySha256After,
@@ -606,9 +889,13 @@ export async function runCadPreflight(args = {}, signal, dependencies = {}) {
     availableSkills: args.availableSkills,
     requiredSkills: args.requiredSkills
   });
+  if (extraWarnings.length) {
+    report.warnings = [...extraWarnings, ...report.warnings];
+  }
 
   return {
     ...report,
-    sourceEvidence
+    sourceEvidence,
+    stallRecovery
   };
 }
