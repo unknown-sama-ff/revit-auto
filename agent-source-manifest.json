@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-23T20:38:42.242Z",
+  "generatedAtUtc": "2026-11-23T20:43:14.556Z",
   "publicationPerformed": false,
   "counts": {
-    "files": 321,
+    "files": 323,
     "productionModules": 63,
     "auxiliaryModules": 1,
     "includedModules": 98,
@@ -147,6 +147,18 @@
     {
       "path": "LICENSE",
       "source": "LICENSE",
+      "bytes": 6139,
+      "sha256": "0a9bb69756e955ff7c31986b34a14465443a7a7281b6e94d4612a1ad150513ca"
+    },
+    {
+      "path": "LICENSING.md",
+      "source": "LICENSING.md",
+      "bytes": 3339,
+      "sha256": "e3fea2fffb1e1996455bf7eff0630572c0af2982949e343eaca7c7db34c91f71"
+    },
+    {
+      "path": "licensing/Apache-2.0.txt",
+      "source": "licensing/Apache-2.0.txt",
       "bytes": 11358,
       "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
@@ -339,8 +351,8 @@
     {
       "path": "mcp/LICENSE",
       "source": "mcp/LICENSE",
-      "bytes": 11358,
-      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      "bytes": 5972,
+      "sha256": "b75ae4ecb0e54999a414dde8dd669dd2b0fd09f437ff0127521c59d62f6a3ea7"
     },
     {
       "path": "mcp/lighting-footprint.mjs",
@@ -417,15 +429,15 @@
     {
       "path": "mcp/package-lock.json",
       "source": "mcp/package-lock.json",
-      "bytes": 46905,
-      "sha256": "271e67df52bd80afb2d1696f5e4c8890917d3d1a920e17dffb3cca2c938c7c68"
+      "bytes": 46917,
+      "sha256": "d6287813273dd37188dcb416968c916c5588c4f2e371404f5d15a03720522614"
     },
     {
       "path": "mcp/package.json",
       "source": "mcp/package.json",
       "transform": "public-portable-test-selection",
-      "bytes": 560,
-      "sha256": "9d718151da05baf0730e72b3041f35e18b4ff9f62f9cf64ac2571d886f6d4856"
+      "bytes": 572,
+      "sha256": "63f64a4e57ff67bde08a5da0cc802a2683af34ebc54b233cacf0b25954316296"
     },
     {
       "path": "mcp/parameter-import.mjs",
@@ -760,14 +772,14 @@
     {
       "path": "NOTICE",
       "source": "NOTICE",
-      "bytes": 388,
-      "sha256": "ab6d3b70b546d54477633498cbfa6beaf14f47680e867129298b6e38964fcdf4"
+      "bytes": 828,
+      "sha256": "0133655602fd7740727e94a667bed60f226f5a7062d9e45632924771e91820be"
     },
     {
       "path": "README.md",
       "source": "public-docs/README.md",
-      "bytes": 8743,
-      "sha256": "cc092b3b4be95777bb24094f359099bbbc25e23c810e8a7be597bc1b58c296e2"
+      "bytes": 9256,
+      "sha256": "ec428bf1db7a85163ced492874fcf783864c88afd3aeff8e4e096af9048d34ec"
     },
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
@@ -1102,8 +1114,8 @@
     {
       "path": "THIRD_PARTY_NOTICES.md",
       "source": "THIRD_PARTY_NOTICES.md",
-      "bytes": 20157,
-      "sha256": "3f1262772d7c10f201faa3d841314d7a04dfd04a412e77e1cb694a1e60b4d73c"
+      "bytes": 20468,
+      "sha256": "af3af94b97964d5da36db0317703bdec21449eb48ee6a5ce0e780143cd0b514b"
     },
     {
       "path": "third_party/licenses/RevitMCP-MIT.txt",
