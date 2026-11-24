@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-23T21:04:23.977Z",
+  "generatedAtUtc": "2026-11-24T09:35:52.968Z",
   "publicationPerformed": false,
   "counts": {
     "files": 323,
@@ -784,8 +784,8 @@
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
       "source": "skills/revit-cad-auto-modeling/SKILL.md",
-      "bytes": 9260,
-      "sha256": "25c3e50edcd9ef4c6114c264e000b20543051029b648140d00dd17ed06b0dfbb"
+      "bytes": 10386,
+      "sha256": "66f5339945ded5e8543ee58c81c5e7478a3ac9b0e76807f8078f3483dbe1ae3b"
     },
     {
       "path": "tests/CoreTests/AnnotationCreationRulesTests.cs",

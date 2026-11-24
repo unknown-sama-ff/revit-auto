@@ -75,3 +75,9 @@ description: Agent 驱动 RevitAuto (revit-custom) MCP 看图自动建模标准�
 1. **CAD 看门狗与降级自愈**：`revit_cad_preflight` / `inspect-cad-preflight.ps1` 自动巡检 CPU 增量、输出文件增长及交互式提示符假死（如 `((_>`、缺失字体/恢复提示），命中后提前终止归属 `accoreconsole.exe`；启动前仅自动清理已确认归属且父进程已退/超期的自有孤儿 `accoreconsole.exe`（绝不触碰 GUI `acad.exe`）。对可恢复的进度/体积超限，最多自动降级重跑 1 次（跳过 `geometry.jsonl` 仅输出摘要）；同图连续触发同类卡死 2 次将触发熔断（`cad_preflight_circuit_open`）。
 2. **Revit Bridge 分级检测与写保护**：只读查询遇瞬时断连最多自动重连 1 次；一旦发生超时，桥接层会自动执行只读探活与 Windows 模态弹窗/无响应检测；若是 `revit_plan_confirm` / `revit_import_commit` 超时，自动调用只读 `revit_plan_get` 核验真实提交状态，**绝不自动重发写操作**。
 3. **Agent 熔断硬约束**：凡工具返回 `stallReceipt.automaticRetryAllowed === false` 或 `circuitState.open === true`，必须立即停止重试，向用户清晰汇报 `stallReason`、`postTimeoutVerification`（若有）与 `nextSafeAction`，严禁手写临时 `.lsp`/`.scr` 绕过或盲目重建建模计划。
+
+## 长会话防静默断流规则（保持全自动连续推进）
+
+1. **大 JSON 禁止逐页 `read_file`**：对于超过 200 行的 `*-preview.json`、`*-commit.json`、`geometry.jsonl` 等运行产物，**严禁**用 `read_file` 分页翻看全文；一律用 Node 脚本或 `ctx_execute` 只打印总计、分组统计、异常项及前 3 条样例，延缓上下文膨胀。
+2. **脚本修改与执行严格分步**：对 `stage*.mjs` 等建模脚本调用 `write_file` / `edit_file` 时，**禁止**在同一轮模型响应里并行发起运行该脚本的 `run_command`；必须等写入/编辑工具明确返回成功后再在下一轮执行，防止编辑失败却误跑旧脚本及多工具并发回写竞态。
+3. **中断后先核对落盘断点再续跑**：Step 5 默认全自动连续完成全部建模并回读核验；仅当真的遇到宿主静默停顿或断流并由用户拉起恢复时，先只读检查 `work/` 下最新 `*-preview.json` / `*-commit.json` 与 `revit_context_get` / `revit_plan_get`，确认已提交阶段后直接从下一未提交阶段接续，不重跑或回滚已提交成果。
