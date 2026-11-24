@@ -73,7 +73,10 @@ description: Agent 驱动 RevitAuto (revit-custom) MCP 看图自动建模标准�
    - **墙柱无缝闭合硬规则**：外墙须按每层精确 CAD 轮廓多边形**连续拉通至转角顶点**（不得在柱位/轴网处挖空断缝）；内墙须先跨 CAD 门洞与柱位合并，再吸附至框架柱中心线或垂直墙中心线（对极个别自动连接会拉偏端点的内墙/梁使用 `disallowJoin: true`）；
    - **楼梯起止层逐层核对**：每个楼梯井必须逐层核对原 CAD 平面中的「上 / 下」标注与屋面/机房覆盖范围，**严禁**在顶层仅标「下」且无屋顶机房覆盖的屋面层多建梯段导致楼梯栏杆穿出屋顶；
    - **门窗完整提取与真实规格**：必须按图块名/编号明确区分门（含首层主出入口外门、裙房/退台露台门、屋顶机房门与室内防火门）与窗，先跨门洞合并宿主墙再按真实 CAD 宽度复制族类型放置，杜绝漏门；
-   - **强制自查后方可交付**：提交用户验收前，必须调用 `revit_audit_run` 检查 `architectureGeometryAudit`（确认 `wallVerticalGapTotalCount=0`、`stairsOrRailingsExceedingRoofTotalCount=0`、`wallColumnEndpointGapTotalCount=0`、`openingWarnings=[]`），并调用 `revit_view_export_images` 导出 4096px 三维、立面及关键楼层平面图逐张目视审查，发现任何错位、缝隙、穿顶或多余构件必须先修复并复查通过后再交付用户核对；不自动保存模型，由用户在验收后手动保存。
+   - **首层主入口与内凹门廊必核查**：核对首层 CAD 中 `主入口 / 门厅 / 大堂 / MQ / MLC` 文字与门窗图块，凡相对外柱网内凹的门厅/幕墙主入口必须按真实凹入轮廓拆墙建模并完整放置连续主大门、侧窗及室外入口台阶，严禁用拉直外墙封堵内凹入口；
+   - **屋顶与各级退台女儿墙必建**：核对立剖面女儿墙标高与高度，在主屋面、退台露台、裙房屋面、北翼屋面及机房顶的全部临空外沿补齐闭合女儿墙（避让露台/屋面出口门）；
+   - **室外地坪/简单地形与入口台阶必核查**：读取立剖面室外地坪标高（如 `-0.600 m`），按任务书/场地要求建立绕开地下室本体的室外地坪或地形模型（零侵入地下室室内）及首层主次入口室外踏步；
+   - **强制自查后方可交付**：提交用户验收前，必须调用 `revit_audit_run` 检查 `architectureGeometryAudit`（确认 `wallVerticalGapTotalCount=0`、`stairsOrRailingsExceedingRoofTotalCount=0`、`wallColumnEndpointGapTotalCount=0`、`roofsMissingParapetsTotalCount=0`、`groundFloorExteriorDoorCount>0`、`hasSiteGround=true`、`openingWarnings=[]`、`envelopeAndSiteWarnings=[]`），并调用 `revit_view_export_images` 导出 4096px 三维、立面及关键楼层平面图逐张目视审查，发现任何错位、缝隙、穿顶、漏门或多余构件必须先修复并复查通过后再交付用户核对；不自动保存模型，由用户在验收后手动保存。
 
 ## 防卡死自动检测、分级自愈与熔断规则
 

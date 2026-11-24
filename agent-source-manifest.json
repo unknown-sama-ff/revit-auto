@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-24T12:28:33.371Z",
+  "generatedAtUtc": "2026-11-24T12:40:14.755Z",
   "publicationPerformed": false,
   "counts": {
     "files": 327,
@@ -790,8 +790,8 @@
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
       "source": "skills/revit-cad-auto-modeling/SKILL.md",
-      "bytes": 11946,
-      "sha256": "21c10611dbbc300097efc848834a92a5e87b9774cb57d1c64971dddd8e7f66a0"
+      "bytes": 12917,
+      "sha256": "4cd4982bc50b7a16364b72ece9eeb66338a014f1d118fd86c0192d5ad15deb4f"
     },
     {
       "path": "tests/CoreTests/AnnotationCreationRulesTests.cs",
@@ -808,8 +808,8 @@
     {
       "path": "tests/CoreTests/ArchitecturalGeometryAuditRulesTests.cs",
       "source": "tests/CoreTests/ArchitecturalGeometryAuditRulesTests.cs",
-      "bytes": 4670,
-      "sha256": "5c524d58591355f4aa4c1f888d24f9b4f021343e17872286140d1109c78d6d3a"
+      "bytes": 6900,
+      "sha256": "a1dbef2153ecfd567015a8823cd13e53c2e9a9180488dec8666066f84df6f5da"
     },
     {
       "path": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
@@ -1198,14 +1198,14 @@
     {
       "path": "v27/ArchitecturalGeometryAuditRules.cs",
       "source": "v27/ArchitecturalGeometryAuditRules.cs",
-      "bytes": 10518,
-      "sha256": "f952cc49005468fc1b9da4ef0b18ffaa30b41fb34244b46079be43cbd2bdda93"
+      "bytes": 15540,
+      "sha256": "cd0ddc7779c69200c75ebbb0aef5a2f9af9c84d999ad288e7a3c4344aef37d66"
     },
     {
       "path": "v27/ArchitecturalGeometryAuditService.cs",
       "source": "v27/ArchitecturalGeometryAuditService.cs",
-      "bytes": 4448,
-      "sha256": "7470923766e2d66eeb1a620fba7edb6eaa469bc365432a5d600265da89b27b55"
+      "bytes": 5223,
+      "sha256": "576260b0b8dfcff11e0f520e2a4d17049eecda00780690768748a531b2e224f6"
     },
     {
       "path": "v27/ArchitecturePlacementReadbackRules.cs",

@@ -79,9 +79,20 @@ internal static class ArchitecturalGeometryAuditService
                 Mm(bb.Max.X), Mm(bb.Max.Y), Mm(bb.Max.Z)));
         }
 
-        var doorCount = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType().GetElementCount();
-        var windowCount = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType().GetElementCount();
+        var doors = new List<AuditDoorGeometry>();
+        foreach (var door in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType().OfType<FamilyInstance>())
+        {
+            if (door.Location is not LocationPoint pt) continue;
+            var hostId = door.Host?.Id.Value ?? -1;
+            var baseZMm = doc.GetElement(door.LevelId) is Level lvl ? Mm(lvl.ProjectElevation) : Mm(pt.Point.Z);
+            doors.Add(new AuditDoorGeometry(door.Id.Value, hostId, baseZMm, Mm(pt.Point.X), Mm(pt.Point.Y)));
+        }
 
-        return ArchitecturalGeometryAuditRules.Analyze(walls, surfaces, columns, stairsAndRailings, doorCount, windowCount);
+        var windowCount = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType().GetElementCount();
+        var hasNativeTopography =
+            new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Toposolid).WhereElementIsNotElementType().GetElementCount() > 0 ||
+            new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Topography).WhereElementIsNotElementType().GetElementCount() > 0;
+
+        return ArchitecturalGeometryAuditRules.Analyze(walls, surfaces, columns, stairsAndRailings, doors.Count, windowCount, doors, hasNativeTopography);
     }
 }
