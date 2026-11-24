@@ -68,7 +68,12 @@ description: Agent 驱动 RevitAuto (revit-custom) MCP 看图自动建模标准�
 2. **坐标标定（直接复用 Step 2 的 `geometry.jsonl`）**：直接读取 Step 2 预检生成的 `geometry.jsonl`（严禁二次调用 `accoreconsole.exe` 或手写自定义 `.lsp/.scr`），将 CAD 几何显式标定为 Revit 内部原点毫米与绝对 Z，可先经 `imports.dwg_candidate` 生成只读候选复核。
 3. **可控预览**：调用 `revit_plan_create`（或对应注册工作流）生成无副作用预览，检查操作列表、依赖、警告与有效期。
 4. **单次提交**：按当前生效授权策略（默认逐计划聊天确认；或已授权隔离副本的 `project-authorization` 代理复核）调用 `revit_plan_confirm` 恰好一次；超时先 `revit_plan_get` 查原计划，绝不盲目重试。
-5. **原生回读与视觉核验**：通过 `revit_inspect`、`revit_audit_run`、`revit_mep_disconnects` / `revit_view_export_images` 核验真实模型结果与副作用；不自动保存模型，由用户在必要检查点手动保存。
+5. **原生回读、几何自审与视觉核验（交付前强制闸门）**：
+   - **墙高零楼层空隙硬规则**：建墙优先使用 `create_wall` 的 `topLevelId` 绑定上层标高（`topOffsetMm: 0`）或精确完整层高 `topZ - baseZ`，**严禁**随意扣减 `300 mm` 等假定板厚导致楼层板底与迹线屋顶下方出现水平通缝；
+   - **墙柱无缝闭合硬规则**：外墙须按每层精确 CAD 轮廓多边形**连续拉通至转角顶点**（不得在柱位/轴网处挖空断缝）；内墙须先跨 CAD 门洞与柱位合并，再吸附至框架柱中心线或垂直墙中心线（对极个别自动连接会拉偏端点的内墙/梁使用 `disallowJoin: true`）；
+   - **楼梯起止层逐层核对**：每个楼梯井必须逐层核对原 CAD 平面中的「上 / 下」标注与屋面/机房覆盖范围，**严禁**在顶层仅标「下」且无屋顶机房覆盖的屋面层多建梯段导致楼梯栏杆穿出屋顶；
+   - **门窗完整提取与真实规格**：必须按图块名/编号明确区分门（含首层主出入口外门、裙房/退台露台门、屋顶机房门与室内防火门）与窗，先跨门洞合并宿主墙再按真实 CAD 宽度复制族类型放置，杜绝漏门；
+   - **强制自查后方可交付**：提交用户验收前，必须调用 `revit_audit_run` 检查 `architectureGeometryAudit`（确认 `wallVerticalGapTotalCount=0`、`stairsOrRailingsExceedingRoofTotalCount=0`、`wallColumnEndpointGapTotalCount=0`、`openingWarnings=[]`），并调用 `revit_view_export_images` 导出 4096px 三维、立面及关键楼层平面图逐张目视审查，发现任何错位、缝隙、穿顶或多余构件必须先修复并复查通过后再交付用户核对；不自动保存模型，由用户在验收后手动保存。
 
 ## 防卡死自动检测、分级自愈与熔断规则
 

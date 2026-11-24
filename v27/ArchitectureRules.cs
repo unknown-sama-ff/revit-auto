@@ -36,6 +36,14 @@ internal static class ArchitectureRules
         return valueMm;
     }
 
+    // Revit TwoLevelsBased vertical structural columns store LocationPoint.Z at 0 regardless of base level elevation.
+    // Vertical placement is authoritatively verified via FAMILY_BASE_LEVEL_PARAM/FAMILY_TOP_LEVEL_PARAM and their offsets.
+    public static bool ColumnHorizontalPointMatches(double expectedXMm, double expectedYMm, double actualXMm, double actualYMm, double toleranceMm = 1.0) =>
+        double.IsFinite(expectedXMm) && double.IsFinite(expectedYMm) &&
+        double.IsFinite(actualXMm) && double.IsFinite(actualYMm) &&
+        double.IsFinite(toleranceMm) && toleranceMm >= 0 &&
+        Math.Sqrt(Math.Pow(actualXMm - expectedXMm, 2) + Math.Pow(actualYMm - expectedYMm, 2)) <= toleranceMm;
+
     public static void Grid(JsonElement op)
     {
         Shape(op, ["operationType", "id", "dependencies", "name", "start", "end"], GridInvalid);

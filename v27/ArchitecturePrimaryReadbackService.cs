@@ -17,19 +17,31 @@ internal sealed class ArchitecturePrimaryReadbackService
     // Wall.Create uses the explicit base level and offset for vertical placement.
     // Floor.Create projects the supplied profile onto its level with zero offset.
     // Keep the original operation separately, and disclose this resolved geometry.
-    internal static JsonElement Resolve(JsonElement operation, long typeId, Level level, CurveLoop? floorLoop = null)
+    internal static JsonElement Resolve(JsonElement operation, long typeId, Level level, CurveLoop? floorLoop = null, Level? topLevel = null)
     {
         var fields = operation.EnumerateObject().ToDictionary(p => p.Name, p => p.Value.Clone(), StringComparer.Ordinal);
         var wall = JsonDefaults.String(operation, "operationType") == "create_wall";
         fields[wall ? "wallTypeId" : "floorTypeId"] = JsonSerializer.SerializeToElement(typeId);
         fields["levelId"] = JsonSerializer.SerializeToElement(level.Id.Value);
-        var zMm = JsonDefaults.InternalToMm(level.ProjectElevation) + (wall ? JsonDefaults.Double(operation, "offsetMm") ?? 0 : 0);
+        var baseOffsetMm = wall ? JsonDefaults.Double(operation, "offsetMm") ?? 0 : 0;
+        var zMm = JsonDefaults.InternalToMm(level.ProjectElevation) + baseOffsetMm;
         if (!double.IsFinite(zMm)) throw Invalid("Resolved architecture level elevation is non-finite.");
         object Project(JsonElement point) => new { xMm = PlanRules.Number(point,"xMm"), yMm = PlanRules.Number(point,"yMm"), zMm };
         if (wall)
         {
             fields["start"] = JsonSerializer.SerializeToElement(Project(JsonDefaults.Get(operation,"start")));
             fields["end"] = JsonSerializer.SerializeToElement(Project(JsonDefaults.Get(operation,"end")));
+            if (topLevel is not null)
+            {
+                var topOffsetMm = JsonDefaults.Double(operation, "topOffsetMm") ?? 0;
+                var topZMm = JsonDefaults.InternalToMm(topLevel.ProjectElevation) + topOffsetMm;
+                var resolvedHeightMm = topZMm - zMm;
+                if (!double.IsFinite(resolvedHeightMm) || resolvedHeightMm < 1)
+                    throw Invalid("Wall topLevelId + topOffsetMm must be at least 1 mm above base level + offsetMm.");
+                fields["topLevelId"] = JsonSerializer.SerializeToElement(topLevel.Id.Value);
+                fields["topOffsetMm"] = JsonSerializer.SerializeToElement(topOffsetMm);
+                fields["heightMm"] = JsonSerializer.SerializeToElement(resolvedHeightMm);
+            }
         }
         else
         {
@@ -79,7 +91,9 @@ internal sealed class ArchitecturePrimaryReadbackService
         switch (kind)
         {
             case "create_wall" when element is Wall wall:
-                if (ReadParameter(wall,BuiltInParameter.WALL_HEIGHT_TYPE,StorageType.ElementId).AsElementId() != ElementId.InvalidElementId)
+                var expectedTopLevel = JsonDefaults.Int64(binding.Resolved, "topLevelId");
+                var actualTopConstraint = ReadParameter(wall, BuiltInParameter.WALL_HEIGHT_TYPE, StorageType.ElementId).AsElementId();
+                if (expectedTopLevel is null && actualTopConstraint != ElementId.InvalidElementId)
                     throw Invalid("The reviewed wall must retain its unconnected top constraint.");
                 var wallState = ReadWall(wall);
                 ArchitecturePrimaryReadbackRules.RequireWall(binding.Resolved, wallState);
@@ -129,9 +143,12 @@ internal sealed class ArchitecturePrimaryReadbackService
     {
         if (wall.Location is not LocationCurve location || location.Curve is not Line line || !line.IsBound)
             throw Invalid("Native wall location is not a bounded straight line.");
+        var topConstraintId = ReadParameter(wall, BuiltInParameter.WALL_HEIGHT_TYPE, StorageType.ElementId).AsElementId();
+        long? topLevelId = topConstraintId != ElementId.InvalidElementId ? topConstraintId.Value : null;
+        var topOffsetMm = topLevelId is not null ? ReadMm(wall, BuiltInParameter.WALL_TOP_OFFSET) : 0;
         return new(wall.GetTypeId().Value, ReadParameter(wall,BuiltInParameter.WALL_BASE_CONSTRAINT,StorageType.ElementId).AsElementId().Value,
             ReadMm(wall,BuiltInParameter.WALL_USER_HEIGHT_PARAM), ReadMm(wall,BuiltInParameter.WALL_BASE_OFFSET), wall.Flipped,
-            ReadFlag(wall,BuiltInParameter.WALL_STRUCTURAL_SIGNIFICANT), Edge(line));
+            ReadFlag(wall,BuiltInParameter.WALL_STRUCTURAL_SIGNIFICANT), Edge(line), topLevelId, topOffsetMm);
     }
     private static ArchitectureFloorReadback ReadFloor(Floor floor)
     {

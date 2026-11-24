@@ -11,12 +11,13 @@ export function validateStructuralElement(op){
  const beam=op?.operationType==='create_structural_beam';
  if(!beam&&op?.operationType!=='create_isolated_foundation')throw new Error('Unsupported structural element operation.');
  const required=['symbolId','levelId',...(beam?['start','end']:['point'])];
- const allowed=[...metadata,...required,'rotationDegrees'];
+ const allowed=[...metadata,...required,'rotationDegrees',...(beam?['disallowJoin']:[])];
  if(!object(op)||Object.keys(op).some(key=>!allowed.includes(key))||required.some(key=>!Object.hasOwn(op,key)))throw new Error('Structural creation requires existing symbolId/levelId and complete geometry; unknown fields are refused.');
  for(const field of ['symbolId','levelId'])if(!Number.isSafeInteger(op[field])||op[field]<=0)throw new Error(`${field} must identify an existing native element; deferred types and levels require a separate preview.`);
  if(beam){
   point(op.start,'start');point(op.end,'end');
   if(Math.hypot(op.end.xMm-op.start.xMm,op.end.yMm-op.start.yMm)<1)throw new Error('A beam requires at least 1 mm horizontal span; vertical members use the column adapter.');
+  if(Object.hasOwn(op,'disallowJoin')&&typeof op.disallowJoin!=='boolean')throw new Error('disallowJoin must be a boolean.');
  }else point(op.point,'point');
  if(Object.hasOwn(op,'rotationDegrees')){finite(op.rotationDegrees,'rotationDegrees');if(Math.abs(op.rotationDegrees)>360)throw new Error('rotationDegrees must be in [-360,360].');}
  return op;

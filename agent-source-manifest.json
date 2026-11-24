@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-24T09:35:52.968Z",
+  "generatedAtUtc": "2026-11-24T12:28:33.371Z",
   "publicationPerformed": false,
   "counts": {
-    "files": 323,
+    "files": 327,
     "productionModules": 63,
     "auxiliaryModules": 1,
-    "includedModules": 98,
-    "nativeSources": 182,
-    "portableTestFiles": 34
+    "includedModules": 99,
+    "nativeSources": 185,
+    "portableTestFiles": 35
   },
   "externalPackages": [
     "@modelcontextprotocol/sdk",
@@ -472,8 +472,8 @@
     {
       "path": "mcp/revit-custom.mjs",
       "source": "mcp/revit-custom.mjs",
-      "bytes": 47580,
-      "sha256": "d5cc615ed6d1d991ba10d985544a1e0aab8698aa4fa7bfffba22edbef4f4656e"
+      "bytes": 47774,
+      "sha256": "fdb1c9e6501bb025615ebe278333f4fd5031076245497c7fb459663ebf910cd4"
     },
     {
       "path": "mcp/roof-creation.mjs",
@@ -532,8 +532,8 @@
     {
       "path": "mcp/structural-elements.mjs",
       "source": "mcp/structural-elements.mjs",
-      "bytes": 2806,
-      "sha256": "a6b9e25d6fbad7494692c59143c5bd5542dbcfc63c26c324b99e9e2a4dddc7a9"
+      "bytes": 2962,
+      "sha256": "184427f281bd90d58e1a5dcb9a3d7bf00eb11d5ed7a2be45ad11ad0c389a98bb"
     },
     {
       "path": "mcp/tests/annotation-creation.test.mjs",
@@ -546,6 +546,12 @@
       "source": "mcp/tests/annotation-input.test.mjs",
       "bytes": 2941,
       "sha256": "7a7cdcebc0c93fc8fb4acd0f9a38f5513124f6fed01fae5f4c9dc3a722ab0051"
+    },
+    {
+      "path": "mcp/tests/arch-seamless-contracts.test.mjs",
+      "source": "mcp/tests/arch-seamless-contracts.test.mjs",
+      "bytes": 2020,
+      "sha256": "e4181650f7bcc51fd173e46aede8e93fe50ed3429aa5edf8d63eebfb403f4bd0"
     },
     {
       "path": "mcp/tests/bridge.test.mjs",
@@ -766,8 +772,8 @@
     {
       "path": "mcp/workflows.mjs",
       "source": "mcp/workflows.mjs",
-      "bytes": 27730,
-      "sha256": "5f5449c9d765161ac34ce6fc37387f85c13753cda0a7de721a99e099338a1f92"
+      "bytes": 28129,
+      "sha256": "405d272be4cabe009230d3292efab1fe389796f048a6cc3ee912d0071a50b7d1"
     },
     {
       "path": "NOTICE",
@@ -784,8 +790,8 @@
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
       "source": "skills/revit-cad-auto-modeling/SKILL.md",
-      "bytes": 10386,
-      "sha256": "66f5339945ded5e8543ee58c81c5e7478a3ac9b0e76807f8078f3483dbe1ae3b"
+      "bytes": 11946,
+      "sha256": "21c10611dbbc300097efc848834a92a5e87b9774cb57d1c64971dddd8e7f66a0"
     },
     {
       "path": "tests/CoreTests/AnnotationCreationRulesTests.cs",
@@ -800,6 +806,12 @@
       "sha256": "5eb503dc716acffe4bc3ffa59e3fd88ddd1f7a0024f18501f555e88cc76b7d90"
     },
     {
+      "path": "tests/CoreTests/ArchitecturalGeometryAuditRulesTests.cs",
+      "source": "tests/CoreTests/ArchitecturalGeometryAuditRulesTests.cs",
+      "bytes": 4670,
+      "sha256": "5c524d58591355f4aa4c1f888d24f9b4f021343e17872286140d1109c78d6d3a"
+    },
+    {
       "path": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
       "source": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
       "bytes": 3649,
@@ -808,14 +820,14 @@
     {
       "path": "tests/CoreTests/ArchitecturePrimaryReadbackRulesTests.cs",
       "source": "tests/CoreTests/ArchitecturePrimaryReadbackRulesTests.cs",
-      "bytes": 6517,
-      "sha256": "db5aa2faa300862699362f6d038e3c11bc287a273b9120365256b22f0b532311"
+      "bytes": 7979,
+      "sha256": "084306c1041b68a0360324b35e165e7693c8af8594fe24aac60cca520619a8de"
     },
     {
       "path": "tests/CoreTests/ArchitectureRulesTests.cs",
       "source": "tests/CoreTests/ArchitectureRulesTests.cs",
-      "bytes": 4872,
-      "sha256": "fafad6886f5cbd794e1363085b35ba43193f87be51a04bbcae3d14473ea6ff96"
+      "bytes": 5359,
+      "sha256": "21f0c07469087176483243c528cb16de99534659ff77a926bd5edfcc3adcfc89"
     },
     {
       "path": "tests/CoreTests/ArchitectureTypeCopyRulesTests.cs",
@@ -838,8 +850,8 @@
     {
       "path": "tests/CoreTests/CoreTests.csproj",
       "source": "tests/CoreTests/CoreTests.csproj",
-      "bytes": 7530,
-      "sha256": "b7b07b1a47ab19f3d99d69024fee333ffae30ac434acfd50aad30586969bc8fd"
+      "bytes": 7637,
+      "sha256": "0a9606511f0dfb97db22fdb3e149fe8ab605145520c0b385f4990f265127f2bc"
     },
     {
       "path": "tests/CoreTests/CreationSourceProtectionTests.cs",
@@ -1024,8 +1036,8 @@
     {
       "path": "tests/CoreTests/Program.cs",
       "source": "tests/CoreTests/Program.cs",
-      "bytes": 81068,
-      "sha256": "c53caee8a7fea7f0d44561776a8a82354c35c3a00d9fbb1ab7e4c094c7523087"
+      "bytes": 81117,
+      "sha256": "4dd6181026ff479a96b3d9c1f2385774fbdbd91c3b1390e89ed4793b986feb01"
     },
     {
       "path": "tests/CoreTests/RebarCreationRulesTests.cs",
@@ -1072,8 +1084,8 @@
     {
       "path": "tests/CoreTests/StructuralElementRulesTests.cs",
       "source": "tests/CoreTests/StructuralElementRulesTests.cs",
-      "bytes": 8210,
-      "sha256": "df2066a0df2c6a92db42eb921a427995d741d39fbe6b1eca4f847f2be8b8115d"
+      "bytes": 8622,
+      "sha256": "df602887917baa36e671c7bb1ff0a0e22e2dcf187bbf6d0ed0e723b9924ff42c"
     },
     {
       "path": "tests/CoreTests/TitleBlockChangeRulesTests.cs",
@@ -1184,6 +1196,18 @@
       "sha256": "fd0f94e3b324f73dbf7a29936b05c79a8c9c28343b411594ebebdf80684a6789"
     },
     {
+      "path": "v27/ArchitecturalGeometryAuditRules.cs",
+      "source": "v27/ArchitecturalGeometryAuditRules.cs",
+      "bytes": 10518,
+      "sha256": "f952cc49005468fc1b9da4ef0b18ffaa30b41fb34244b46079be43cbd2bdda93"
+    },
+    {
+      "path": "v27/ArchitecturalGeometryAuditService.cs",
+      "source": "v27/ArchitecturalGeometryAuditService.cs",
+      "bytes": 4448,
+      "sha256": "7470923766e2d66eeb1a620fba7edb6eaa469bc365432a5d600265da89b27b55"
+    },
+    {
       "path": "v27/ArchitecturePlacementReadbackRules.cs",
       "source": "v27/ArchitecturePlacementReadbackRules.cs",
       "bytes": 1853,
@@ -1192,26 +1216,26 @@
     {
       "path": "v27/ArchitecturePrimaryReadbackRules.cs",
       "source": "v27/ArchitecturePrimaryReadbackRules.cs",
-      "bytes": 7155,
-      "sha256": "d9f762d2a7ba5a1243bb1e9068184786eb35410fd3c88a05d43286868b19d989"
+      "bytes": 8281,
+      "sha256": "0829ce4b12e67426d4376913b1dd121acde2266a8243a51cd465c99705f4a46a"
     },
     {
       "path": "v27/ArchitecturePrimaryReadbackService.cs",
       "source": "v27/ArchitecturePrimaryReadbackService.cs",
-      "bytes": 13437,
-      "sha256": "607069a2dc900718d83af8376819a88937268c0ec35633837cb7b9c6491a6312"
+      "bytes": 14812,
+      "sha256": "d99c9931c9047bfbc5c6a02f7842ed6fb156efeea8d49a416a0af0511f666436"
     },
     {
       "path": "v27/ArchitectureRules.cs",
       "source": "v27/ArchitectureRules.cs",
-      "bytes": 5575,
-      "sha256": "197e706c2b0a454e7905f52ceeb75a7887976614e6f20d4f94dd439636d52cf7"
+      "bytes": 6287,
+      "sha256": "d80b0da0060f8b01b6531d15346da30688c06262832229739fa9113e38e03439"
     },
     {
       "path": "v27/ArchitectureService.cs",
       "source": "v27/ArchitectureService.cs",
-      "bytes": 14550,
-      "sha256": "53adfaf53ee70b45c3c56b39a38b9aefd9272944fb62e5f9c775c63a656e7f99"
+      "bytes": 14633,
+      "sha256": "1dc6f1a2bf7706e0b5d4e003e83be80ea04d85d9b6d9d92d9a5d600b82562885"
     },
     {
       "path": "v27/ArchitectureTypeCopyRules.cs",
@@ -1630,8 +1654,8 @@
     {
       "path": "v27/ModelExecutor.cs",
       "source": "v27/ModelExecutor.cs",
-      "bytes": 82615,
-      "sha256": "5019771dd59eb65ee963152ac9c241ae383e143881d4855cec2b459fdf8b8963"
+      "bytes": 84875,
+      "sha256": "eb82674fccea7a5f7c6dad55422a8ebc303eada52ad62d4430575282fa8176a8"
     },
     {
       "path": "v27/MultiportFittingReadbackRules.cs",
@@ -1720,8 +1744,8 @@
     {
       "path": "v27/ProtocolTypes.cs",
       "source": "v27/ProtocolTypes.cs",
-      "bytes": 23980,
-      "sha256": "184d86f144f3b763d7269cd7f11855865f7fb11fd4c82a2edbc43908bfb9ce93"
+      "bytes": 24622,
+      "sha256": "659c4170261a2f86bba09cae31a12d8644e52ba75e2ce1eac72e00f0f168219e"
     },
     {
       "path": "v27/RebarCreationRules.cs",
@@ -1762,8 +1786,8 @@
     {
       "path": "v27/RevitQueryService.cs",
       "source": "v27/RevitQueryService.cs",
-      "bytes": 25102,
-      "sha256": "dbbfceb6ee152d6621705c8e5af679ee9b43e70b800d236e25aa74c72cf67b56"
+      "bytes": 25186,
+      "sha256": "1826eca5edebc5f45239fc0822d308f5addba096fc38c429802acbab4f59a089"
     },
     {
       "path": "v27/RoofCreationRules.cs",
@@ -1858,14 +1882,14 @@
     {
       "path": "v27/StructuralElementRules.cs",
       "source": "v27/StructuralElementRules.cs",
-      "bytes": 7360,
-      "sha256": "e1d3e53dd9bad1bce4bab1dc452a625e9ce6edf46257821be984c9f464f9ce68"
+      "bytes": 8007,
+      "sha256": "dc552568a62d7d1781a0576915e49fad1d89f026c73e4e0381757983c0882871"
     },
     {
       "path": "v27/StructuralElementService.cs",
       "source": "v27/StructuralElementService.cs",
-      "bytes": 14072,
-      "sha256": "13f2bcf68b833d6e74b0951209c9518fcb7e07a6b47657d73a99e87b3777fae5"
+      "bytes": 14297,
+      "sha256": "bab69a25e14d369873b53aebc9b7ab81ec5c8cd84267ef48177c6d9591c1290a"
     },
     {
       "path": "v27/TagHeadPositionSnapshotService.cs",

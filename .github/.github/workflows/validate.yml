@@ -1,0 +1,38 @@
+name: Validate reusable agent source
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-contracts:
+    name: Portable MCP and core contracts
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install MCP dependencies
+        working-directory: mcp
+        run: npm ci --ignore-scripts
+      - name: Run portable MCP tests
+        working-directory: mcp
+        run: npm test
+      - name: Run native-independent core tests
+        run: dotnet run --project tests/CoreTests/CoreTests.csproj -c Release
+      - name: Run optional CAD exporter contracts
+        run: node --test tools/tests/native-dwg-export.test.mjs

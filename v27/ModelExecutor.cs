@@ -435,7 +435,18 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 if (originalType is not null && new FilteredElementCollector(Doc).WhereElementIsElementType().Any(e => e.GetType() == originalType.GetType() && e.Name == JsonDefaults.String(op, "name"))) throw Invalid("Duplicate type name already exists.");
                 break;
             case "duplicate_architecture_type": ArchitectureTypeCopyService.Validate(Doc, op); break;
-            case "create_wall": Check<WallType>(op, "wallTypeId"); Level(op); Line(op); break;
+            case "create_wall":
+                Check<WallType>(op, "wallTypeId");
+                var previewWallBase = Level(op);
+                var previewWallTop = JsonDefaults.Has(op, "topLevelId") ? Check<Level>(op, "topLevelId") : null;
+                if (previewWallBase is not null && previewWallTop is not null)
+                {
+                    var previewBaseZ = JsonDefaults.InternalToMm(previewWallBase.ProjectElevation) + (JsonDefaults.Double(op, "offsetMm") ?? 0);
+                    var previewTopZ = JsonDefaults.InternalToMm(previewWallTop.ProjectElevation) + (JsonDefaults.Double(op, "topOffsetMm") ?? 0);
+                    if (previewTopZ - previewBaseZ < 1) throw Invalid("Wall topLevelId + topOffsetMm must be at least 1 mm above base level + offsetMm.");
+                }
+                Line(op);
+                break;
             case "create_structural_column": ArchitectureService.ValidateColumn(Doc, MaterializeArchitectureColumn(op)); break;
             case "create_floor": Check<FloorType>(op, "floorTypeId"); Level(op); FloorLoop(op); break;
             case "create_opening": ValidateOpening(op); break;
@@ -735,8 +746,29 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                 created = ArchitectureService.CreateColumn(Doc, materializedColumn.Value); break;
             case "create_wall":
                 var wallTypeId = Id(op,"wallTypeId"); var wallLevel = Level(op)!;
-                resolvedPrimary = ArchitecturePrimaryReadbackService.Resolve(op,wallTypeId.Value,wallLevel);
-                created = Wall.Create(Doc, Line(op), wallTypeId, wallLevel.Id, Mm(PlanRules.Number(op, "heightMm")), Mm(JsonDefaults.Double(op, "offsetMm") ?? 0), JsonDefaults.Bool(op, "flip"), JsonDefaults.Bool(op, "structural")); break;
+                var wallTopLevel = JsonDefaults.Has(op, "topLevelId") ? Required<Level>(op, "topLevelId") : null;
+                var wallBaseOffsetMm = JsonDefaults.Double(op, "offsetMm") ?? 0;
+                var wallTopOffsetMm = JsonDefaults.Double(op, "topOffsetMm") ?? 0;
+                var wallHeightMm = wallTopLevel is not null
+                    ? JsonDefaults.InternalToMm(wallTopLevel.ProjectElevation - wallLevel.ProjectElevation) + wallTopOffsetMm - wallBaseOffsetMm
+                    : PlanRules.Number(op, "heightMm");
+                if (!double.IsFinite(wallHeightMm) || wallHeightMm < 1)
+                    throw Invalid("Wall height must be at least 1 mm above base level + offsetMm.");
+                resolvedPrimary = ArchitecturePrimaryReadbackService.Resolve(op, wallTypeId.Value, wallLevel, null, wallTopLevel);
+                var createdWall = Wall.Create(Doc, Line(op), wallTypeId, wallLevel.Id, Mm(wallHeightMm), Mm(wallBaseOffsetMm), JsonDefaults.Bool(op, "flip"), JsonDefaults.Bool(op, "structural"));
+                if (wallTopLevel is not null)
+                {
+                    var topConstraintParam = createdWall.get_Parameter(BuiltInParameter.WALL_HEIGHT_TYPE) ?? throw Invalid("Native WALL_HEIGHT_TYPE parameter is missing.");
+                    if (topConstraintParam.IsReadOnly || !topConstraintParam.Set(wallTopLevel.Id)) throw Invalid("Revit refused wall topLevelId constraint.");
+                    SetBuiltIn(createdWall, BuiltInParameter.WALL_TOP_OFFSET, Mm(wallTopOffsetMm));
+                }
+                if (JsonDefaults.Bool(op, "disallowJoin"))
+                {
+                    WallUtils.DisallowWallJoinAtEnd(createdWall, 0);
+                    WallUtils.DisallowWallJoinAtEnd(createdWall, 1);
+                }
+                created = createdWall;
+                break;
             case "create_floor":
                 var floorTypeId = Id(op,"floorTypeId"); var floorLevel = Level(op)!; var floorLoop = FloorLoop(op);
                 resolvedPrimary = ArchitecturePrimaryReadbackService.Resolve(op,floorTypeId.Value,floorLevel,floorLoop);

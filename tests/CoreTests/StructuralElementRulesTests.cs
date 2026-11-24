@@ -61,6 +61,11 @@ internal static class StructuralElementRulesTests
             foreach (var x in new[] { "0", "0.999", "1e308" })
                 Reject(() => StructuralElementRules.Validate(Set(Beam,"end","{\"xMm\":" + x + ",\"yMm\":0,\"zMm\":4000}")));
             StructuralElementRules.Validate(Set(Beam,"end","{\"xMm\":1,\"yMm\":0,\"zMm\":4000}"));
+            StructuralElementRules.Validate(Set(Beam,"disallowJoin","true"));
+            StructuralElementRules.Validate(Set(Beam,"disallowJoin","false"));
+            foreach (var bad in new[] { "1", "\"true\"", "null" })
+                Reject(() => StructuralElementRules.Validate(Set(Beam,"disallowJoin",bad)));
+            Reject(() => StructuralElementRules.Validate(Set(Footing,"disallowJoin","true")));
         });
         test("structural XYZ magnitude accepts exact bounds and rejects every overbound coordinate", () =>
         {

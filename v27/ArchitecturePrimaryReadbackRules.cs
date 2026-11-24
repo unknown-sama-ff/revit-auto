@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace RevitAutoV27;
 
 internal readonly record struct ArchitectureEdgeReadback(double StartXmm, double StartYmm, double StartZmm, double EndXmm, double EndYmm, double EndZmm);
-internal readonly record struct ArchitectureWallReadback(long TypeId, long LevelId, double HeightMm, double OffsetMm, bool Flipped, bool Structural, ArchitectureEdgeReadback Location);
+internal readonly record struct ArchitectureWallReadback(long TypeId, long LevelId, double HeightMm, double OffsetMm, bool Flipped, bool Structural, ArchitectureEdgeReadback Location, long? TopLevelId = null, double TopOffsetMm = 0);
 internal readonly record struct ArchitectureFloorReadback(long TypeId, long LevelId, IReadOnlyList<ArchitectureEdgeReadback> Boundary, double OffsetMm = 0, bool Structural = false);
 internal readonly record struct ArchitectureHostedReadback(long TypeId, long HostId, long LevelId, long CategoryId, ArchitecturePlacementReadback Placement);
 
@@ -16,12 +16,15 @@ internal static class ArchitecturePrimaryReadbackRules
     {
         var start = Point(JsonDefaults.Get(op, "start"));
         var end = Point(JsonDefaults.Get(op, "end"));
+        var topLevelId = JsonDefaults.Int64(op, "topLevelId");
+        var topOffsetMm = JsonDefaults.Double(op, "topOffsetMm") ?? 0;
         var expected = new ArchitectureWallReadback(
             JsonDefaults.Int64(op, "wallTypeId") ?? throw Invalid("Wall type readback requires wallTypeId."),
             JsonDefaults.Int64(op, "levelId") ?? throw Invalid("Wall level readback requires levelId."),
             PlanRules.Number(op, "heightMm"), JsonDefaults.Double(op, "offsetMm") ?? 0,
             JsonDefaults.Bool(op, "flip"), JsonDefaults.Bool(op, "structural"),
-            new(start.X, start.Y, start.Z, end.X, end.Y, end.Z));
+            new(start.X, start.Y, start.Z, end.X, end.Y, end.Z),
+            topLevelId, topOffsetMm);
         RequireWall(expected, actual);
     }
 
@@ -29,11 +32,19 @@ internal static class ArchitecturePrimaryReadbackRules
     {
         var direct = SameSegment(expected.Location, actual.Location);
         var reverse = SameSegment(expected.Location, Reverse(actual.Location));
+        var topOk = expected.TopLevelId is long expectedTop
+            ? expectedTop > 0 && actual.TopLevelId == expectedTop && Close(actual.TopOffsetMm, expected.TopOffsetMm)
+            : actual.TopLevelId is null;
         if (expected.TypeId <= 0 || expected.LevelId <= 0 || actual.TypeId != expected.TypeId || actual.LevelId != expected.LevelId ||
-            !Close(actual.HeightMm, expected.HeightMm) || !Close(actual.OffsetMm, expected.OffsetMm) ||
+            !topOk || !Close(actual.HeightMm, expected.HeightMm) || !Close(actual.OffsetMm, expected.OffsetMm) ||
             actual.Structural != expected.Structural ||
             !(direct && actual.Flipped == expected.Flipped || reverse && actual.Flipped != expected.Flipped))
-            throw Invalid("Native wall type, level, height, offset, flags or location differs from the reviewed operation; roll back.");
+            throw Invalid(
+                $"Native wall type, level, height, offset, flags or location differs from the reviewed operation; roll back. " +
+                $"Expected start=({expected.Location.StartXmm:F2},{expected.Location.StartYmm:F2},{expected.Location.StartZmm:F2}) " +
+                $"end=({expected.Location.EndXmm:F2},{expected.Location.EndYmm:F2},{expected.Location.EndZmm:F2}) H={expected.HeightMm:F2} topLevel={expected.TopLevelId?.ToString() ?? "unconnected"}; " +
+                $"actual start=({actual.Location.StartXmm:F2},{actual.Location.StartYmm:F2},{actual.Location.StartZmm:F2}) " +
+                $"end=({actual.Location.EndXmm:F2},{actual.Location.EndYmm:F2},{actual.Location.EndZmm:F2}) H={actual.HeightMm:F2} topLevel={actual.TopLevelId?.ToString() ?? "unconnected"}.");
     }
 
     public static void RequireFloor(JsonElement op, ArchitectureFloorReadback actual)

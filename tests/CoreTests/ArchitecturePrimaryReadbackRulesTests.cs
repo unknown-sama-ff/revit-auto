@@ -23,6 +23,19 @@ internal static class ArchitecturePrimaryReadbackRulesTests
             Reject(() => ArchitecturePrimaryReadbackRules.RequireWall(op, native with { Structural = false }));
             Reject(() => ArchitecturePrimaryReadbackRules.RequireWall(op, native with { Location = native.Location with { EndXmm = 3001 } }));
         });
+        test("wall readback verifies optional topLevelId topOffsetMm and disallowJoin constraints", () =>
+        {
+            var op = Json("""{"operationType":"create_wall","wallTypeId":10,"levelId":20,"topLevelId":30,"topOffsetMm":-50,"start":{"xMm":0,"yMm":0,"zMm":0},"end":{"xMm":6000,"yMm":0,"zMm":0},"heightMm":3950,"disallowJoin":true}""");
+            PlanRules.Validate(Json("[" + op.GetRawText() + "]"));
+            var native = new ArchitectureWallReadback(10, 20, 3950, 0, false, false, new(0, 0, 0, 6000, 0, 0), 30, -50);
+            ArchitecturePrimaryReadbackRules.RequireWall(op, native);
+            Reject(() => ArchitecturePrimaryReadbackRules.RequireWall(op, native with { TopLevelId = null }));
+            Reject(() => ArchitecturePrimaryReadbackRules.RequireWall(op, native with { TopLevelId = 31 }));
+            Reject(() => ArchitecturePrimaryReadbackRules.RequireWall(op, native with { TopOffsetMm = 0 }));
+            // Plan validation permits omitting heightMm when topLevelId is provided, and rejects non-boolean disallowJoin.
+            PlanRules.Validate(Json("""[{"operationType":"create_wall","wallTypeId":10,"levelId":20,"topLevelId":30,"start":{"xMm":0,"yMm":0},"end":{"xMm":6000,"yMm":0}}]"""));
+            Reject(() => PlanRules.Validate(Json("""[{"operationType":"create_wall","wallTypeId":10,"levelId":20,"heightMm":3000,"start":{"xMm":0,"yMm":0},"end":{"xMm":6000,"yMm":0},"disallowJoin":"yes"}]""")));
+        });
         test("wall readback rejects nonfinite evidence and reversed line with the wrong physical side", () =>
         {
             var op = Json("""{"operationType":"create_wall","wallTypeId":10,"levelId":20,"start":{"xMm":0,"yMm":0},"end":{"xMm":3000,"yMm":0},"heightMm":3000}""");

@@ -53,6 +53,12 @@ internal static class ArchitectureRulesTests
             foreach (var value in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
                 Throws("invalid_structural_column", () => ArchitectureRules.NativeOffset(true, value));
         });
+        test("column horizontal point comparison checks XY tolerance independently of LocationPoint Z", () =>
+        {
+            if (!ArchitectureRules.ColumnHorizontalPointMatches(10800, 50400, 10800.4, 50399.6)) throw new Exception();
+            if (ArchitectureRules.ColumnHorizontalPointMatches(10800, 50400, 10802, 50400)) throw new Exception();
+            if (ArchitectureRules.ColumnHorizontalPointMatches(10800, 50400, double.NaN, 50400)) throw new Exception();
+        });
         test("named horizontal grids validate but unnamed tilted degenerate and hidden fields fail", () =>
         {
             PlanRules.Validate(Json("[" + Grid + "]"));

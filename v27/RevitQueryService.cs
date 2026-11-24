@@ -126,7 +126,8 @@ internal static class RevitQueryService
             unconnectedMechanicalPorts = unconnected,
             connectedMechanicalPorts = connected,
             unknownMechanicalPorts = unknown,
-            mechanicalPortAudit = new { totalCount = mechanicalPortRows.Length, scannedCount = mechanicalPortSample.Length, truncated = mechanicalPortRows.Length > mechanicalPortSample.Length, classification = "connected|unconnected|unknown" }
+            mechanicalPortAudit = new { totalCount = mechanicalPortRows.Length, scannedCount = mechanicalPortSample.Length, truncated = mechanicalPortRows.Length > mechanicalPortSample.Length, classification = "connected|unconnected|unknown" },
+            architectureGeometryAudit = ArchitecturalGeometryAuditService.Run(doc)
         });
     }
     private static MechanicalPortAuditState MechanicalPortState(object row)

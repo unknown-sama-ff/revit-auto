@@ -72,7 +72,8 @@ internal static class ArchitectureService
     private static void VerifyColumn(FamilyInstance column, JsonElement op, Level bottom)
     {
         var point = JsonDefaults.Get(op, "point");
-        var expected = new XYZ(Mm(PlanRules.Number(point, "xMm")), Mm(PlanRules.Number(point, "yMm")), bottom.Elevation + Mm(PlanRules.Number(op, "baseOffsetMm")));
+        var expectedXMm = PlanRules.Number(point, "xMm");
+        var expectedYMm = PlanRules.Number(point, "yMm");
         var expectedRotation = (JsonDefaults.Double(op, "rotationDegrees") ?? 0) * Math.PI / 180;
         if (column.Category?.Id.Value != (long)BuiltInCategory.OST_StructuralColumns || column.StructuralType != StructuralType.Column ||
             column.Symbol.Id.Value != JsonDefaults.Int64(op, "symbolId") ||
@@ -80,7 +81,8 @@ internal static class ArchitectureService
             ReadLevel(column, BuiltInParameter.FAMILY_TOP_LEVEL_PARAM) != JsonDefaults.Int64(op, "topLevelId") ||
             Math.Abs(ReadOffset(column, BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM) - PlanRules.Number(op, "baseOffsetMm")) > 0.01 ||
             Math.Abs(ReadOffset(column, BuiltInParameter.FAMILY_TOP_LEVEL_OFFSET_PARAM) - PlanRules.Number(op, "topOffsetMm")) > 0.01 ||
-            column.Location is not LocationPoint location || !FinitePoint(location.Point) || !double.IsFinite(location.Rotation) || location.Point.DistanceTo(expected) > Mm(1) ||
+            column.Location is not LocationPoint location || !FinitePoint(location.Point) || !double.IsFinite(location.Rotation) ||
+            !ArchitectureRules.ColumnHorizontalPointMatches(expectedXMm, expectedYMm, JsonDefaults.InternalToMm(location.Point.X), JsonDefaults.InternalToMm(location.Point.Y)) ||
             Math.Abs(Math.Atan2(Math.Sin(location.Rotation - expectedRotation), Math.Cos(location.Rotation - expectedRotation))) > 1e-6)
             throw Invalid("Native structural column type, constraints, offsets, point or rotation differ from the reviewed inputs; the entire plan must roll back.");
     }

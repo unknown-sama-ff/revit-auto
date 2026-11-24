@@ -21,7 +21,7 @@ internal static class StructuralElementRules
         var kind = JsonDefaults.String(op, "operationType");
         if (kind is not ("create_structural_beam" or "create_isolated_foundation")) throw Invalid("Unsupported structural operationType.");
         var beam = IsBeam(op);
-        Shape(op, beam ? ["operationType", "id", "dependencies", "symbolId", "levelId", "start", "end", "rotationDegrees"] :
+        Shape(op, beam ? ["operationType", "id", "dependencies", "symbolId", "levelId", "start", "end", "rotationDegrees", "disallowJoin"] :
             ["operationType", "id", "dependencies", "symbolId", "levelId", "point", "rotationDegrees"]);
         Id(op, "symbolId"); Id(op, "levelId");
         if (beam)
@@ -31,6 +31,8 @@ internal static class StructuralElementRules
             var projection = Math.Sqrt(dx * dx + dy * dy);
             if (!double.IsFinite(projection) || !double.IsFinite(dz) || !double.IsFinite(dx * dx + dy * dy + dz * dz) || projection < 1)
                 throw Invalid("Beam endpoints require a finite horizontal projection of at least 1 mm; vertical beams are unsupported.");
+            if (op.TryGetProperty("disallowJoin", out var dj) && dj.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                throw Invalid("disallowJoin must be a boolean.");
         }
         else Point(op, "point");
         if (op.TryGetProperty("rotationDegrees", out _) && Math.Abs(Number(op, "rotationDegrees")) > 360)
@@ -95,7 +97,11 @@ internal static class StructuralElementRules
             var start = Point(op, "start"); var end = Point(op, "end");
             if (actual.Point is not null || !((Matches(start, actual.Start) && Matches(end, actual.End)) ||
                 (Matches(start, actual.End) && Matches(end, actual.Start))))
-                throw Invalid("Native beam complete XYZ endpoints differ from the reviewed input; only endpoint order may reverse.");
+            {
+                var actualStart = actual.Start is null ? "null" : $"({actual.Start.XMm:F2},{actual.Start.YMm:F2},{actual.Start.ZMm:F2})";
+                var actualEnd = actual.End is null ? "null" : $"({actual.End.XMm:F2},{actual.End.YMm:F2},{actual.End.ZMm:F2})";
+                throw Invalid($"Native beam complete XYZ endpoints differ from the reviewed input; only endpoint order may reverse. Expected ({start.XMm:F2},{start.YMm:F2},{start.ZMm:F2})->({end.XMm:F2},{end.YMm:F2},{end.ZMm:F2}) mm, actual {actualStart}->{actualEnd} mm.");
+            }
         }
         else if (actual.Start is not null || actual.End is not null || !Matches(Point(op, "point"), actual.Point))
         {

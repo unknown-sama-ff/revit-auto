@@ -61,6 +61,7 @@ DocumentLifecycleRulesTests.Run(Test);
 LifecycleQueuePolicyTests.Run(Test);
 TitleBlockChangeRulesTests.Run(Test);
 CommandResponseBudgetTests.Run(Test);
+ArchitecturalGeometryAuditRulesTests.Run(Test);
 var valid = Json("""[{"operationType":"create_level","id":"level1","name":"AI Level","elevationMm":0},{"operationType":"create_grid","id":"grid1","name":"AI Grid","start":{"xMm":0,"yMm":0},"end":{"xMm":3000,"yMm":0}}]""");
 Test("valid read-only plan data", () => { if (PlanRules.Validate(valid).Count != 2) throw new Exception(); });
 Test("existing drawing placement movement validates explicit IDs and paper XY", () => PlanRules.Validate(Json("""[{"operationType":"move_drawing_placement","placementId":10,"sheetId":20,"viewId":30,"xMm":420,"yMm":280,"zMm":0}]""")));

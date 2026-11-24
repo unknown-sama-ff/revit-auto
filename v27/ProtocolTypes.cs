@@ -212,7 +212,17 @@ internal static class PlanRules
                 case "create_grid": ArchitectureRules.Grid(op); break;
                 case "create_wall": case "create_pipe": case "create_duct":
                     Point(JsonDefaults.Get(op, "start")); Point(JsonDefaults.Get(op, "end"));
-                    if (type == "create_wall") Positive(op, "heightMm");
+                    if (type == "create_wall")
+                    {
+                        if (JsonDefaults.Has(op, "topLevelId"))
+                        {
+                            if (JsonDefaults.Has(op, "heightMm")) Positive(op, "heightMm");
+                            if (JsonDefaults.Has(op, "topOffsetMm")) Number(op, "topOffsetMm");
+                        }
+                        else Positive(op, "heightMm");
+                        if (op.TryGetProperty("disallowJoin", out var dj) && dj.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                            throw new BridgeException("invalid_operation", "create_wall disallowJoin must be a boolean.");
+                    }
                     if (type == "create_pipe") { Require(op, "pipeTypeId"); Require(op, "systemTypeId"); Positive(op, "diameterMm"); }
                     if (type == "create_duct") { Require(op, "ductTypeId"); Require(op, "systemTypeId"); DuctDimensions(op); }
                     break;

@@ -142,7 +142,16 @@ export function validateOperations(operations) {
       case 'change_titleblock_type': validateTitleBlockChange(op); break;
       case 'create_wall': case 'create_pipe': case 'create_duct':
         point(op.start); point(op.end);
-        if (op.operationType === 'create_wall') { requireField(op,'wallTypeId'); number(op,'heightMm',true); }
+        if (op.operationType === 'create_wall') {
+          requireField(op,'wallTypeId');
+          if (op.topLevelId !== undefined) {
+            if (op.heightMm !== undefined) number(op,'heightMm',true);
+            if (op.topOffsetMm !== undefined) number(op,'topOffsetMm');
+          } else {
+            number(op,'heightMm',true);
+          }
+          if (op.disallowJoin !== undefined && typeof op.disallowJoin !== 'boolean') throw new Error('create_wall: disallowJoin must be a boolean.');
+        }
         if (op.operationType === 'create_pipe') { requireField(op,'pipeTypeId'); requireField(op,'systemTypeId'); number(op,'diameterMm',true); }
         if (op.operationType === 'create_duct') { requireField(op,'ductTypeId'); requireField(op,'systemTypeId'); validateDuctDimensions(op); }
         break;
