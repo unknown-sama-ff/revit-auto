@@ -1,6 +1,6 @@
 # Third-party notices
 
-Original project source code and documentation first published after the historical Apache-2.0 baseline (`436ce293d5e47fcea544f0fb416f7f0e41cc3dec`) are governed by the RevitAuto Noncommercial Source License 1.0 (free for personal/noncommercial use; commercial use or repackaged resale requires separate paid/written authorization); see LICENSE, LICENSING.md, and NOTICE. Historical Apache-2.0 snapshots (`licensing/Apache-2.0.txt`) and third-party components retain the copyrights, licenses, and attribution recorded below. The project license does not replace or remove those third-party terms.
+Original project source code and documentation are licensed under Apache-2.0 unless otherwise stated; see LICENSE and LICENSING.md. Third-party components retain the copyrights, licenses, and attribution recorded below. The project license does not replace or remove those third-party terms.
 
 ## Argument-name diagnostics adapted from rvt-mcp
 

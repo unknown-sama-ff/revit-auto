@@ -72,7 +72,7 @@ internal static class StairGeometryService
             var requested=JsonDefaults.Array(op,"landings").ToArray();if(landings.Count!=requested.Length)throw Invalid("Native landing set differs from the explicit sketched profiles.");
             foreach(var profile in requested)
             {
-                var expected=JsonDefaults.Array(profile,"boundary").Select(p=>{var point=OpeningRules.Point(p);return new OpeningPoint(point.X,point.Y,0);}).ToArray();var match=landings.FindIndex(landing=>Math.Abs(ToMm(stair.BaseElevation+landing.BaseElevation)-PlanRules.Number(profile,"elevationMm"))<=tolerance&&OpeningRules.EdgesMatch(expected,landing.GetFootprintBoundary().Select(curve=>(PlanPoint(curve.GetEndPoint(0)),PlanPoint(curve.GetEndPoint(1)))).ToArray(),tolerance));
+                var expected=JsonDefaults.Array(profile,"boundary").Select(p=>{var point=OpeningRules.Point(p);return new OpeningPoint(point.X,point.Y,0);}).ToArray();var match=landings.FindIndex(landing=>Math.Abs(ToMm(stair.BaseElevation+landing.BaseElevation)-PlanRules.Number(profile,"elevationMm"))<=tolerance&&OpeningRules.EdgesMatch(expected,OpeningRules.SimplifyCollinearLoop(landing.GetFootprintBoundary().Select(curve=>(PlanPoint(curve.GetEndPoint(0)),PlanPoint(curve.GetEndPoint(1)))).ToArray(),tolerance),tolerance));
                 if(match<0)throw Invalid("Native sketched landing elevation or boundary differs from the approved profile.");landings.RemoveAt(match);
             }
         }

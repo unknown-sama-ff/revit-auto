@@ -34,6 +34,36 @@ internal readonly record struct WallColumnGapFinding(
 internal readonly record struct RoofMissingParapetFinding(
     long RoofId, double RoofBaseZMm);
 
+internal readonly record struct AuditStructuralMemberFamily(
+    long ElementId, string Category, string FamilyName, string TypeName);
+
+internal readonly record struct StructuralFamilyMismatchFinding(
+    long ElementId, string Category, string FamilyName, string TypeName, string Reason);
+
+internal readonly record struct AuditOpeningGeometry(
+    long ElementId, string Category, long HostWallId, double BaseZMm, double XMm, double YMm, double WidthMm);
+
+internal readonly record struct FloatingHostedWallFinding(
+    long WallId, int HostedOpeningCount, double LengthMm);
+
+internal readonly record struct OpeningCollisionFinding(
+    long OpeningId, string Category, long HostWallId, long ConflictElementId, string Reason, double OverlapMm);
+
+internal readonly record struct AuditStairRunMetric(
+    long StairId, long RunId, double RunWidthMm, double TreadDepthMm);
+
+internal readonly record struct IsolatedShortWallStubFinding(
+    long WallId, double LengthMm, bool StartConnected, bool EndConnected);
+
+internal readonly record struct CloseParallelWallFinding(
+    long WallIdA, long WallIdB, double SpacingMm, double OverlapMm);
+
+internal readonly record struct UndersizedStairFinding(
+    long StairId, long RunId, double RunWidthMm, double TreadDepthMm, string Reason);
+
+internal readonly record struct WallToWallEndpointGapFinding(
+    long WallId, string Endpoint, long NearestWallId, double ClearGapMm);
+
 internal sealed record ArchitecturalGeometryAuditReport(
     int ScannedWallCount,
     int ScannedFloorCount,
@@ -55,6 +85,21 @@ internal sealed record ArchitecturalGeometryAuditReport(
     bool HasSiteGround,
     string[] OpeningWarnings,
     string[] EnvelopeAndSiteWarnings,
+    StructuralFamilyMismatchFinding[] StructuralFamilyMismatches,
+    int StructuralFamilyMismatchTotalCount,
+    string[] StructuralFamilyWarnings,
+    FloatingHostedWallFinding[] FloatingHostedWalls,
+    int FloatingHostedWallTotalCount,
+    OpeningCollisionFinding[] OpeningCollisions,
+    int OpeningCollisionTotalCount,
+    IsolatedShortWallStubFinding[] IsolatedShortWallStubs,
+    int IsolatedShortWallStubTotalCount,
+    CloseParallelWallFinding[] CloseParallelOverlappingWalls,
+    int CloseParallelOverlappingWallTotalCount,
+    UndersizedStairFinding[] UndersizedStairs,
+    int UndersizedStairTotalCount,
+    WallToWallEndpointGapFinding[] WallToWallEndpointGaps,
+    int WallToWallEndpointGapTotalCount,
     bool HasIssues);
 
 // Pure geometric self-audit rules (zero Revit API dependencies; unit-tested in CoreTests).
@@ -65,6 +110,8 @@ internal static class ArchitecturalGeometryAuditRules
     public const double MinRoofProtrusionMm = 50.0;
     public const double MinWallColumnGapMm = 20.0;
     public const double MaxWallColumnGapMm = 500.0;
+    public const double MinWallToWallClearGapMm = 80.0;
+    public const double MaxWallToWallClearGapMm = 380.0;
     public const double MinUpperRoofParapetCheckZMm = 3000.0;
     public const double MaxParapetWallHeightMm = 2200.0;
     public const int MaxFindingsPerKind = 100;
@@ -77,7 +124,10 @@ internal static class ArchitecturalGeometryAuditRules
         int doorCount,
         int windowCount,
         IReadOnlyList<AuditDoorGeometry>? doors = null,
-        bool hasNativeTopography = false)
+        bool hasNativeTopography = false,
+        IReadOnlyList<AuditStructuralMemberFamily>? structuralMembers = null,
+        IReadOnlyList<AuditOpeningGeometry>? openings = null,
+        IReadOnlyList<AuditStairRunMetric>? stairRuns = null)
     {
         var roofs = floorsAndRoofs.Where(s => string.Equals(s.Kind, "Roof", StringComparison.OrdinalIgnoreCase)).ToArray();
         var floors = floorsAndRoofs.Where(s => string.Equals(s.Kind, "Floor", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -214,12 +264,12 @@ internal static class ArchitecturalGeometryAuditRules
 
             return BuildReport(walls, floors, roofs, columns, stairsAndRailings, doorCount, windowCount,
                 verticalGaps, roofProtrusions, wallColumnGaps, roofsMissingParapets,
-                groundFloorExteriorDoorCount, hasSiteGround, envelopeAndSiteWarnings);
+                groundFloorExteriorDoorCount, hasSiteGround, envelopeAndSiteWarnings, structuralMembers, openings, stairRuns);
         }
 
         return BuildReport(walls, floors, roofs, columns, stairsAndRailings, doorCount, windowCount,
             verticalGaps, roofProtrusions, wallColumnGaps, roofsMissingParapets,
-            groundFloorExteriorDoorCount, hasNativeTopography, envelopeAndSiteWarnings);
+            groundFloorExteriorDoorCount, hasNativeTopography, envelopeAndSiteWarnings, structuralMembers, openings, stairRuns);
     }
 
     private static ArchitecturalGeometryAuditReport BuildReport(
@@ -236,7 +286,10 @@ internal static class ArchitecturalGeometryAuditRules
         List<RoofMissingParapetFinding> roofsMissingParapets,
         int groundFloorExteriorDoorCount,
         bool hasSiteGround,
-        List<string> envelopeAndSiteWarnings)
+        List<string> envelopeAndSiteWarnings,
+        IReadOnlyList<AuditStructuralMemberFamily>? structuralMembers,
+        IReadOnlyList<AuditOpeningGeometry>? openings,
+        IReadOnlyList<AuditStairRunMetric>? stairRuns)
     {
         var openingWarnings = new List<string>();
         if (walls.Count >= 20 && doorCount == 0)
@@ -244,8 +297,29 @@ internal static class ArchitecturalGeometryAuditRules
         else if (walls.Count >= 100 && doorCount < Math.Max(5, walls.Count / 40))
             openingWarnings.Add($"low_door_count_relative_to_walls (doors={doorCount}, walls={walls.Count})");
 
+        var (structuralFamilyMismatches, structuralFamilyWarnings) = CheckStructuralFamilyMismatches(structuralMembers);
+        var (floatingHostedWalls, openingCollisions) = CheckHostedOpeningAlignment(walls, columns, openings);
+        var (isolatedShortStubs, closeParallelWalls) = CheckWallStubsAndDoubleBoxes(walls, columns, openings);
+        var wallToWallGaps = CheckWallToWallEndpointGaps(walls, columns);
+        var undersizedStairs = CheckStairRunMetrics(stairRuns);
+
+        if (floatingHostedWalls.Count > 0)
+            openingWarnings.Add($"floating_hosted_walls_disconnected_at_both_ends (count={floatingHostedWalls.Count})");
+        if (openingCollisions.Count > 0)
+            openingWarnings.Add($"opening_geometry_collisions_or_overhangs (count={openingCollisions.Count})");
+        if (isolatedShortStubs.Count > 0)
+            envelopeAndSiteWarnings.Add($"isolated_short_wall_stubs (count={isolatedShortStubs.Count})");
+        if (closeParallelWalls.Count > 0)
+            envelopeAndSiteWarnings.Add($"close_parallel_double_wall_boxes (count={closeParallelWalls.Count})");
+        if (wallToWallGaps.Count > 0)
+            envelopeAndSiteWarnings.Add($"wall_to_wall_endpoint_gaps (count={wallToWallGaps.Count})");
+        if (undersizedStairs.Count > 0)
+            envelopeAndSiteWarnings.Add($"undersized_stair_runs_below_1050mm (count={undersizedStairs.Count})");
+
         var hasIssues = verticalGaps.Count > 0 || roofProtrusions.Count > 0 || wallColumnGaps.Count > 0 ||
-            roofsMissingParapets.Count > 0 || openingWarnings.Count > 0 || envelopeAndSiteWarnings.Count > 0;
+            roofsMissingParapets.Count > 0 || openingWarnings.Count > 0 || envelopeAndSiteWarnings.Count > 0 ||
+            structuralFamilyMismatches.Count > 0 || floatingHostedWalls.Count > 0 || openingCollisions.Count > 0 ||
+            isolatedShortStubs.Count > 0 || closeParallelWalls.Count > 0 || wallToWallGaps.Count > 0 || undersizedStairs.Count > 0;
         return new ArchitecturalGeometryAuditReport(
             walls.Count, floors.Length, roofs.Length, columns.Count,
             stairsAndRailings.Count(s => s.Category == "OST_Stairs"),
@@ -259,7 +333,317 @@ internal static class ArchitecturalGeometryAuditRules
             hasSiteGround,
             openingWarnings.ToArray(),
             envelopeAndSiteWarnings.ToArray(),
+            structuralFamilyMismatches.Take(MaxFindingsPerKind).ToArray(),
+            structuralFamilyMismatches.Count,
+            structuralFamilyWarnings.ToArray(),
+            floatingHostedWalls.Take(MaxFindingsPerKind).ToArray(),
+            floatingHostedWalls.Count,
+            openingCollisions.Take(MaxFindingsPerKind).ToArray(),
+            openingCollisions.Count,
+            isolatedShortStubs.Take(MaxFindingsPerKind).ToArray(),
+            isolatedShortStubs.Count,
+            closeParallelWalls.Take(MaxFindingsPerKind).ToArray(),
+            closeParallelWalls.Count,
+            undersizedStairs.Take(MaxFindingsPerKind).ToArray(),
+            undersizedStairs.Count,
+            wallToWallGaps.Take(MaxFindingsPerKind).ToArray(),
+            wallToWallGaps.Count,
             hasIssues);
+    }
+
+    private static List<WallToWallEndpointGapFinding> CheckWallToWallEndpointGaps(
+        IReadOnlyList<AuditWallGeometry> walls,
+        IReadOnlyList<AuditColumnGeometry> columns)
+    {
+        var findings = new List<WallToWallEndpointGapFinding>();
+        if (walls.Count < 2) return findings;
+        var fullWalls = walls.Where(w => FiniteWall(w) && (w.TopZMm - w.BaseZMm) > MaxParapetWallHeightMm).ToArray();
+        foreach (var w in fullWalls)
+        {
+            var len = Math.Sqrt((w.EndXMm - w.StartXMm) * (w.EndXMm - w.StartXMm) + (w.EndYMm - w.StartYMm) * (w.EndYMm - w.StartYMm));
+            if (len < 200.0) continue;
+            foreach (var (endpoint, px, py) in new[] { ("start", w.StartXMm, w.StartYMm), ("end", w.EndXMm, w.EndYMm) })
+            {
+                var insideColumn = columns.Any(c =>
+                    FiniteColumn(c) &&
+                    c.TopZMm > w.BaseZMm + 50.0 && c.BaseZMm < w.TopZMm - 50.0 &&
+                    Math.Abs(px - c.CenterXMm) <= c.HalfWidthXMm + 150.0 &&
+                    Math.Abs(py - c.CenterYMm) <= c.HalfWidthYMm + 150.0);
+                if (insideColumn) continue;
+
+                var minClear = double.PositiveInfinity;
+                long nearestWallId = -1;
+                foreach (var ow in fullWalls)
+                {
+                    if (ow.ElementId == w.ElementId) continue;
+                    if (ow.TopZMm <= w.BaseZMm + 50.0 || ow.BaseZMm >= w.TopZMm - 50.0) continue;
+                    var dist = PointToSegmentDistMm(px, py, ow.StartXMm, ow.StartYMm, ow.EndXMm, ow.EndYMm);
+                    var halfOther = (double.IsFinite(ow.ThicknessMm) && ow.ThicknessMm > 0 ? ow.ThicknessMm : 200.0) / 2.0;
+                    var clear = Math.Max(0.0, dist - halfOther);
+                    if (clear < minClear)
+                    {
+                        minClear = clear;
+                        nearestWallId = ow.ElementId;
+                    }
+                }
+                if (nearestWallId > 0 && minClear >= MinWallToWallClearGapMm && minClear <= MaxWallToWallClearGapMm)
+                    findings.Add(new WallToWallEndpointGapFinding(w.ElementId, endpoint, nearestWallId, Math.Round(minClear, 1)));
+            }
+        }
+        return findings;
+    }
+
+    private static (List<IsolatedShortWallStubFinding> Stubs, List<CloseParallelWallFinding> DoubleWalls) CheckWallStubsAndDoubleBoxes(
+        IReadOnlyList<AuditWallGeometry> walls,
+        IReadOnlyList<AuditColumnGeometry> columns,
+        IReadOnlyList<AuditOpeningGeometry>? openings)
+    {
+        var stubs = new List<IsolatedShortWallStubFinding>();
+        var doubleWalls = new List<CloseParallelWallFinding>();
+        if (walls.Count == 0) return (stubs, doubleWalls);
+
+        var hostedWallIds = openings is null
+            ? new HashSet<long>()
+            : openings.Where(o => o.HostWallId > 0).Select(o => o.HostWallId).ToHashSet();
+
+        var fullWalls = walls.Where(w => FiniteWall(w) && (w.TopZMm - w.BaseZMm) > MaxParapetWallHeightMm).ToArray();
+
+        bool EndpointConnected(AuditWallGeometry target, double px, double py)
+        {
+            foreach (var ow in fullWalls)
+            {
+                if (ow.ElementId == target.ElementId) continue;
+                if (ow.TopZMm <= target.BaseZMm + 50.0 || ow.BaseZMm >= target.TopZMm - 50.0) continue;
+                if (PointToSegmentDistMm(px, py, ow.StartXMm, ow.StartYMm, ow.EndXMm, ow.EndYMm) <= 260.0) return true;
+            }
+            foreach (var c in columns)
+            {
+                if (!FiniteColumn(c)) continue;
+                if (c.TopZMm <= target.BaseZMm + 50.0 || c.BaseZMm >= target.TopZMm - 50.0) continue;
+                if (Math.Abs(px - c.CenterXMm) <= c.HalfWidthXMm + 150.0 && Math.Abs(py - c.CenterYMm) <= c.HalfWidthYMm + 150.0) return true;
+            }
+            return false;
+        }
+
+        // 1. Flag isolated short wall stubs (curtain-wall jamb ticks or column-hanging stubs <= 1200mm with free ends).
+        foreach (var w in fullWalls)
+        {
+            var len = Math.Sqrt((w.EndXMm - w.StartXMm) * (w.EndXMm - w.StartXMm) + (w.EndYMm - w.StartYMm) * (w.EndYMm - w.StartYMm));
+            if (len > 1200.0 || len < 1.0) continue;
+            var sc = EndpointConnected(w, w.StartXMm, w.StartYMm);
+            var ec = EndpointConnected(w, w.EndXMm, w.EndYMm);
+            if ((!sc && !ec) || ((!sc || !ec) && len <= 850.0 && !hostedWallIds.Contains(w.ElementId)))
+                stubs.Add(new IsolatedShortWallStubFinding(w.ElementId, Math.Round(len, 1), sc, ec));
+        }
+
+        // 2. Flag close parallel overlapping full-height walls (220..900mm apart, overlap >= 1000mm) forming accidental double-wall corridor boxes.
+        for (int i = 0; i < fullWalls.Length; i++)
+        {
+            var a = fullWalls[i];
+            var adx = a.EndXMm - a.StartXMm; var ady = a.EndYMm - a.StartYMm;
+            var alen = Math.Sqrt(adx * adx + ady * ady);
+            if (alen < 1000.0) continue;
+            var ux = adx / alen; var uy = ady / alen;
+            for (int j = i + 1; j < fullWalls.Length; j++)
+            {
+                var b = fullWalls[j];
+                if (b.TopZMm <= a.BaseZMm + 50.0 || b.BaseZMm >= a.TopZMm - 50.0) continue;
+                var bdx = b.EndXMm - b.StartXMm; var bdy = b.EndYMm - b.StartYMm;
+                var blen = Math.Sqrt(bdx * bdx + bdy * bdy);
+                if (blen < 1000.0) continue;
+                if (Math.Abs((bdx / blen) * ux + (bdy / blen) * uy) < 0.995) continue;
+                var perp = Math.Abs((b.StartXMm - a.StartXMm) * (-uy) + (b.StartYMm - a.StartYMm) * ux);
+                if (perp < 220.0 || perp > 900.0) continue;
+                var b0 = (b.StartXMm - a.StartXMm) * ux + (b.StartYMm - a.StartYMm) * uy;
+                var b1 = (b.EndXMm - a.StartXMm) * ux + (b.EndYMm - a.StartYMm) * uy;
+                var ov = Math.Min(alen, Math.Max(b0, b1)) - Math.Max(0.0, Math.Min(b0, b1));
+                if (ov >= 1000.0 && (hostedWallIds.Contains(a.ElementId) || hostedWallIds.Contains(b.ElementId)))
+                    doubleWalls.Add(new CloseParallelWallFinding(a.ElementId, b.ElementId, Math.Round(perp, 1), Math.Round(ov, 1)));
+            }
+        }
+        return (stubs, doubleWalls);
+    }
+
+    private static List<UndersizedStairFinding> CheckStairRunMetrics(IReadOnlyList<AuditStairRunMetric>? stairRuns)
+    {
+        var findings = new List<UndersizedStairFinding>();
+        if (stairRuns is null || stairRuns.Count == 0) return findings;
+        foreach (var r in stairRuns)
+        {
+            if (!double.IsFinite(r.RunWidthMm) || r.RunWidthMm <= 0) continue;
+            if (r.RunWidthMm < 1050.0)
+                findings.Add(new UndersizedStairFinding(r.StairId, r.RunId, Math.Round(r.RunWidthMm, 1), Math.Round(r.TreadDepthMm, 1), "stair_run_width_below_1050mm_verify_against_cad"));
+        }
+        return findings;
+    }
+
+    private static (List<FloatingHostedWallFinding> FloatingWalls, List<OpeningCollisionFinding> Collisions) CheckHostedOpeningAlignment(
+        IReadOnlyList<AuditWallGeometry> walls,
+        IReadOnlyList<AuditColumnGeometry> columns,
+        IReadOnlyList<AuditOpeningGeometry>? openings)
+    {
+        var floatingWalls = new List<FloatingHostedWallFinding>();
+        var collisions = new List<OpeningCollisionFinding>();
+        if (openings is null || openings.Count == 0 || walls.Count == 0) return (floatingWalls, collisions);
+
+        var wallById = walls.Where(FiniteWall).ToDictionary(w => w.ElementId);
+        var byHost = openings.Where(o => o.HostWallId > 0 && double.IsFinite(o.XMm) && double.IsFinite(o.YMm) && double.IsFinite(o.WidthMm) && o.WidthMm > 0)
+            .GroupBy(o => o.HostWallId);
+
+        foreach (var group in byHost)
+        {
+            if (!wallById.TryGetValue(group.Key, out var host)) continue;
+            var dx = host.EndXMm - host.StartXMm;
+            var dy = host.EndYMm - host.StartYMm;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1.0) continue;
+            var ux = dx / len;
+            var uy = dy / len;
+
+            // 1. Check whether BOTH endpoints of this hosted wall float disconnected in mid-air.
+            bool IsConnected(double px, double py)
+            {
+                foreach (var ow in walls)
+                {
+                    if (ow.ElementId == host.ElementId || !FiniteWall(ow)) continue;
+                    if (ow.TopZMm <= host.BaseZMm + 50.0 || ow.BaseZMm >= host.TopZMm - 50.0) continue;
+                    if (PointToSegmentDistMm(px, py, ow.StartXMm, ow.StartYMm, ow.EndXMm, ow.EndYMm) <= 260.0) return true;
+                }
+                foreach (var c in columns)
+                {
+                    if (!FiniteColumn(c)) continue;
+                    if (c.TopZMm <= host.BaseZMm + 50.0 || c.BaseZMm >= host.TopZMm - 50.0) continue;
+                    if (Math.Abs(px - c.CenterXMm) <= c.HalfWidthXMm + 150.0 && Math.Abs(py - c.CenterYMm) <= c.HalfWidthYMm + 150.0) return true;
+                }
+                return false;
+            }
+            if (!IsConnected(host.StartXMm, host.StartYMm) && !IsConnected(host.EndXMm, host.EndYMm))
+                floatingWalls.Add(new FloatingHostedWallFinding(host.ElementId, group.Count(), Math.Round(len, 1)));
+
+            // 2. Check each opening on this host wall for overhang, column overlap, or perpendicular wall collision.
+            foreach (var op in group)
+            {
+                var pos = (op.XMm - host.StartXMm) * ux + (op.YMm - host.StartYMm) * uy;
+                var lo = pos - op.WidthMm * 0.5;
+                var hi = pos + op.WidthMm * 0.5;
+                if (lo < -50.0 || hi > len + 50.0)
+                {
+                    var over = Math.Max(-lo, hi - len);
+                    collisions.Add(new OpeningCollisionFinding(op.ElementId, op.Category, host.ElementId, host.ElementId, "opening_exceeds_host_wall_end", Math.Round(over, 1)));
+                }
+                foreach (var col in columns)
+                {
+                    if (!FiniteColumn(col)) continue;
+                    if (col.TopZMm <= host.BaseZMm + 50.0 || col.BaseZMm >= host.TopZMm - 50.0) continue;
+                    var perp = Math.Abs((col.CenterXMm - host.StartXMm) * (-uy) + (col.CenterYMm - host.StartYMm) * ux);
+                    var colPerpHalf = Math.Abs(uy) * col.HalfWidthXMm + Math.Abs(ux) * col.HalfWidthYMm;
+                    if (perp > colPerpHalf + host.ThicknessMm * 0.5 + 20.0) continue;
+                    var colAlong = (col.CenterXMm - host.StartXMm) * ux + (col.CenterYMm - host.StartYMm) * uy;
+                    var colAlongHalf = Math.Abs(ux) * col.HalfWidthXMm + Math.Abs(uy) * col.HalfWidthYMm;
+                    var overlap = Math.Min(hi, colAlong + colAlongHalf) - Math.Max(lo, colAlong - colAlongHalf);
+                    if (overlap > 50.0)
+                        collisions.Add(new OpeningCollisionFinding(op.ElementId, op.Category, host.ElementId, col.ElementId, "opening_overlaps_column", Math.Round(overlap, 1)));
+                }
+                foreach (var ow in walls)
+                {
+                    if (ow.ElementId == host.ElementId || !FiniteWall(ow)) continue;
+                    if (ow.TopZMm <= host.BaseZMm + 50.0 || ow.BaseZMm >= host.TopZMm - 50.0) continue;
+                    var odx = ow.EndXMm - ow.StartXMm;
+                    var ody = ow.EndYMm - ow.StartYMm;
+                    var olen = Math.Sqrt(odx * odx + ody * ody);
+                    if (olen < 1.0) continue;
+                    if (Math.Abs((odx / olen) * ux + (ody / olen) * uy) > 0.3) continue; // perpendicular walls only
+                    foreach (var (epx, epy) in new[] { (ow.StartXMm, ow.StartYMm), (ow.EndXMm, ow.EndYMm) })
+                    {
+                        var perp = Math.Abs((epx - host.StartXMm) * (-uy) + (epy - host.StartYMm) * ux);
+                        if (perp <= host.ThicknessMm * 0.5 + 150.0)
+                        {
+                            var along = (epx - host.StartXMm) * ux + (epy - host.StartYMm) * uy;
+                            if (along > lo + 40.0 && along < hi - 40.0)
+                            {
+                                var pen = Math.Min(along - lo, hi - along);
+                                collisions.Add(new OpeningCollisionFinding(op.ElementId, op.Category, host.ElementId, ow.ElementId, "opening_overlaps_perpendicular_wall", Math.Round(pen, 1)));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return (floatingWalls, collisions);
+    }
+
+    private static double PointToSegmentDistMm(double px, double py, double ax, double ay, double bx, double by)
+    {
+        var dx = bx - ax; var dy = by - ay;
+        var len2 = dx * dx + dy * dy;
+        if (len2 < 1e-9) return Math.Sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+        var t = Math.Max(0.0, Math.Min(1.0, ((px - ax) * dx + (py - ay) * dy) / len2));
+        var cx = ax + t * dx; var cy = ay + t * dy;
+        return Math.Sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+    }
+
+    private static readonly string[] SteelTemplateFamilyMarkers =
+    [
+        "UC-", "UB-", "热轧H型钢", "H型钢", "Wide Flange", "W-Wide", "I-Beam",
+        "Universal Column", "Universal Beam", "M_W-Wide", "H-Section"
+    ];
+
+    private static readonly string[] ExplicitSteelTypeMarkers =
+    [
+        "STEEL", "钢", "GJ", "GL", "GZ_STEEL", "HM", "HN", "HW", "TC", "SC", "CRANE", "SHED", "MAST", "塔吊", "钢柱", "钢梁"
+    ];
+
+    private static readonly string[] ConcreteMemberTypePrefixes =
+    [
+        "KZ", "GZ", "TZ", "XZ", "Z_", "KL", "WKL", "JKL", "JL", "LL", "DL", "QL", "L_", "RC_", "CONCRETE", "混凝土", "砼"
+    ];
+
+    private static (List<StructuralFamilyMismatchFinding> Findings, List<string> Warnings) CheckStructuralFamilyMismatches(
+        IReadOnlyList<AuditStructuralMemberFamily>? members)
+    {
+        var findings = new List<StructuralFamilyMismatchFinding>();
+        var warnings = new List<string>();
+        if (members is null || members.Count == 0) return (findings, warnings);
+
+        foreach (var member in members)
+        {
+            var family = (member.FamilyName ?? string.Empty).Trim();
+            var typeName = (member.TypeName ?? string.Empty).Trim();
+            if (family.Length == 0 || typeName.Length == 0) continue;
+
+            var isSteelTemplateFamily = SteelTemplateFamilyMarkers.Any(m =>
+                family.Contains(m, StringComparison.OrdinalIgnoreCase));
+            if (!isSteelTemplateFamily) continue;
+
+            var upperType = typeName.ToUpperInvariant();
+            if (ExplicitSteelTypeMarkers.Any(m => upperType.Contains(m, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            var looksLikeConcreteMember = ConcreteMemberTypePrefixes.Any(p =>
+                upperType.StartsWith(p, StringComparison.OrdinalIgnoreCase) ||
+                upperType.Contains("混凝土", StringComparison.OrdinalIgnoreCase) ||
+                upperType.Contains("CONCRETE", StringComparison.OrdinalIgnoreCase) ||
+                upperType.Contains("砼", StringComparison.OrdinalIgnoreCase));
+
+            if (looksLikeConcreteMember)
+            {
+                findings.Add(new StructuralFamilyMismatchFinding(
+                    member.ElementId, member.Category, family, typeName,
+                    "steel_template_family_used_for_concrete_member"));
+            }
+        }
+
+        if (findings.Count > 0)
+        {
+            var grouped = findings
+                .GroupBy(f => $"{f.Category}:{f.FamilyName}")
+                .Select(g => $"{g.Key} (count={g.Count()})")
+                .ToArray();
+            warnings.Add($"steel_template_family_mismatch_on_concrete_members: {string.Join(", ", grouped)} — load true rectangular concrete families (e.g. 混凝土-矩形-柱 / 混凝土-矩形梁) matching CAD drawings instead of Revit template default steel families.");
+        }
+
+        return (findings, warnings);
     }
 
     private static void CheckEndpointGap(

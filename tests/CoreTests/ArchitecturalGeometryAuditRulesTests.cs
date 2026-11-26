@@ -94,5 +94,104 @@ internal static class ArchitecturalGeometryAuditRulesTests
             var clean = ArchitecturalGeometryAuditRules.Analyze(walls, [], [], [], 15, 20);
             if (clean.HasIssues) throw new Exception("Expected clean model to report HasIssues == false.");
         });
+
+        test("geometry audit flags template H-steel families misused for concrete columns/beams and passes true concrete or genuine steel members", () =>
+        {
+            var mismatchedMembers = new AuditStructuralMemberFamily[]
+            {
+                new(1001, "OST_StructuralColumns", "UC-普通柱-柱", "KZ_700x700"),
+                new(1002, "OST_StructuralFraming", "热轧H型钢", "KL_350x750"),
+                new(1003, "OST_StructuralFraming", "热轧H型钢", "JL_500x1050"),
+                new(1004, "OST_StructuralFraming", "M_W-Wide Flange", "L_200x400")
+            };
+            var bad = ArchitecturalGeometryAuditRules.Analyze([], [], [], [], 0, 0, null, false, mismatchedMembers);
+            if (bad.StructuralFamilyMismatchTotalCount != 4 || !bad.HasIssues || bad.StructuralFamilyWarnings.Length == 0)
+                throw new Exception($"Expected 4 structural family mismatches, got {bad.StructuralFamilyMismatchTotalCount}.");
+
+            var validMembers = new AuditStructuralMemberFamily[]
+            {
+                new(2001, "OST_StructuralColumns", "混凝土-矩形-柱", "KZ_700x700_混凝土"),
+                new(2002, "OST_StructuralFraming", "混凝土-矩形梁", "KL_350x750_混凝土"),
+                new(2003, "OST_StructuralFraming", "热轧H型钢", "HM300x200x8x12"),
+                new(2004, "OST_StructuralColumns", "UC-普通柱-柱", "GJ_H400x400"),
+                new(2005, "OST_StructuralColumns", "UC-普通柱-柱", "TC6013_Crane_Mast")
+            };
+            var good = ArchitecturalGeometryAuditRules.Analyze([], [], [], [], 0, 0, null, false, validMembers);
+            if (good.StructuralFamilyMismatchTotalCount != 0 || good.HasIssues)
+                throw new Exception($"Expected 0 structural family mismatches for valid concrete/steel members, got {good.StructuralFamilyMismatchTotalCount}.");
+        });
+
+        test("geometry audit flags floating alcove door-host walls and opening collisions with columns/perpendicular walls", () =>
+        {
+            // Reproduce recessed door alcove missing both 1000mm side return walls + a door colliding with a perpendicular wall
+            var floatingAlcoveWall = new AuditWallGeometry(3001, 1, 0, 4050, 200, 52050, 43950, 55950, 43950);
+            var corridorLeft = new AuditWallGeometry(3002, 1, 0, 4050, 200, 36050, 42950, 51950, 42950);
+            var corridorRight = new AuditWallGeometry(3003, 1, 0, 4050, 200, 56050, 42950, 65050, 42950);
+            var collidingPerp = new AuditWallGeometry(3004, 1, 0, 4050, 200, 53200, 43950, 53200, 50400);
+            var door1 = new AuditOpeningGeometry(4001, "OST_Doors", 3001, 0, 53000, 43950, 1100);
+            var door2 = new AuditOpeningGeometry(4002, "OST_Doors", 3001, 0, 55000, 43950, 1100);
+
+            var broken = ArchitecturalGeometryAuditRules.Analyze(
+                [floatingAlcoveWall, corridorLeft, corridorRight, collidingPerp], [], [], [], 2, 0, null, false, null, [door1, door2]);
+            if (broken.FloatingHostedWallTotalCount != 1)
+                throw new Exception($"Expected 1 floating hosted wall, got {broken.FloatingHostedWallTotalCount}.");
+            if (broken.OpeningCollisionTotalCount != 1 || broken.OpeningCollisions[0].Reason != "opening_overlaps_perpendicular_wall")
+                throw new Exception($"Expected 1 perpendicular-wall opening collision, got {broken.OpeningCollisionTotalCount}.");
+
+            // Now add both 1000mm return walls and move the perpendicular partition wall to clean center X=54100
+            var returnLeft = new AuditWallGeometry(3005, 1, 0, 4050, 200, 51950, 42950, 51950, 43950);
+            var returnRight = new AuditWallGeometry(3006, 1, 0, 4050, 200, 56050, 42950, 56050, 43950);
+            var cleanPerp = new AuditWallGeometry(3007, 1, 0, 4050, 200, 54100, 43950, 54100, 50400);
+            var fixedAlcove = new AuditWallGeometry(3001, 1, 0, 4050, 200, 51950, 43950, 56050, 43950);
+
+            var clean = ArchitecturalGeometryAuditRules.Analyze(
+                [fixedAlcove, corridorLeft, corridorRight, returnLeft, returnRight, cleanPerp], [], [], [], 2, 0, null, false, null, [door1, door2]);
+            if (clean.FloatingHostedWallTotalCount != 0 || clean.OpeningCollisionTotalCount != 0 || clean.HasIssues)
+                throw new Exception($"Expected clean closed alcove, got float={clean.FloatingHostedWallTotalCount}, collisions={clean.OpeningCollisionTotalCount}.");
+        });
+
+        test("geometry audit flags isolated short wall stubs, double-wall corridor boxes, and undersized stairs", () =>
+        {
+            var floatingStub = new AuditWallGeometry(5001, 1, 0, 4050, 200, 32000, 40350, 32900, 40350);
+            var hangingColStub = new AuditWallGeometry(5002, 1, 0, 4050, 200, 20500, 33600, 21200, 33600);
+            var col = new AuditColumnGeometry(5099, 0, 4050, 21600, 33600, 350, 350);
+            var corridorMain = new AuditWallGeometry(5003, 1, 0, 4050, 200, 10800, 8000, 10800, 25000);
+            var corridorRecess = new AuditWallGeometry(5004, 1, 0, 4050, 200, 11550, 12000, 11550, 18000);
+            var doorOnRecess = new AuditOpeningGeometry(5050, "OST_Doors", 5004, 0, 11550, 15000, 1100);
+            var toyStair = new AuditStairRunMetric(6001, 6002, 1000, 250);
+
+            var bad = ArchitecturalGeometryAuditRules.Analyze(
+                [floatingStub, hangingColStub, corridorMain, corridorRecess], [], [col], [], 1, 0, null, false, null, [doorOnRecess], [toyStair]);
+            if (bad.IsolatedShortWallStubTotalCount != 2)
+                throw new Exception($"Expected 2 isolated short wall stubs, got {bad.IsolatedShortWallStubTotalCount}.");
+            if (bad.CloseParallelOverlappingWallTotalCount != 1)
+                throw new Exception($"Expected 1 close parallel double-wall box, got {bad.CloseParallelOverlappingWallTotalCount}.");
+            if (bad.UndersizedStairTotalCount != 1)
+                throw new Exception($"Expected 1 undersized stair run, got {bad.UndersizedStairTotalCount}.");
+
+            var properStair = new AuditStairRunMetric(6001, 6002, 1830, 280);
+            var clean = ArchitecturalGeometryAuditRules.Analyze([], [], [], [], 0, 0, null, false, null, null, [properStair]);
+            if (clean.UndersizedStairTotalCount != 0 || clean.HasIssues)
+                throw new Exception("Expected CAD-width 1830mm stair run to pass cleanly.");
+        });
+
+        test("geometry audit flags disconnected wall-to-wall Z-jog endpoint gaps (80..380mm) and passes closed corners", () =>
+        {
+            var topCorridor = new AuditWallGeometry(7001, 1, 0, 4050, 200, 2000, 37700, 8050, 37700);
+            var doorJamb = new AuditWallGeometry(7002, 1, 0, 4050, 200, 6950, 35300, 6950, 37700);
+            var shaftWest = new AuditWallGeometry(7003, 1, 0, 4050, 200, 7250, 31800, 7250, 35400);
+            var shaftEast = new AuditWallGeometry(7004, 1, 0, 4050, 200, 7950, 24700, 7950, 35400);
+            var shortCap = new AuditWallGeometry(7005, 1, 0, 4050, 200, 7350, 35300, 7850, 35300);
+
+            var bad = ArchitecturalGeometryAuditRules.Analyze([topCorridor, doorJamb, shaftWest, shaftEast, shortCap], [], [], [], 1, 0);
+            if (bad.WallToWallEndpointGapTotalCount != 1 || bad.WallToWallEndpointGaps[0].WallId != 7002 || bad.WallToWallEndpointGaps[0].ClearGapMm != 200.0)
+                throw new Exception($"Expected 1 wall-to-wall gap (200mm on wall 7002), got count={bad.WallToWallEndpointGapTotalCount}.");
+
+            // Connect the cap continuously from X=6950 to X=7950
+            var fullCap = new AuditWallGeometry(7005, 1, 0, 4050, 200, 6950, 35300, 7950, 35300);
+            var clean = ArchitecturalGeometryAuditRules.Analyze([topCorridor, doorJamb, shaftWest, shaftEast, fullCap], [], [], [], 1, 0);
+            if (clean.WallToWallEndpointGapTotalCount != 0 || clean.HasIssues)
+                throw new Exception($"Expected 0 wall-to-wall gaps after closing Z-jog, got {clean.WallToWallEndpointGapTotalCount}.");
+        });
     }
 }

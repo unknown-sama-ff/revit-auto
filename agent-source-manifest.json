@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-24T12:40:14.755Z",
+  "generatedAtUtc": "2026-11-26T09:32:34.064Z",
   "publicationPerformed": false,
   "counts": {
     "files": 327,
@@ -39,8 +39,8 @@
     {
       "path": "AGENTS.md",
       "source": "public-docs/AGENTS.md",
-      "bytes": 4951,
-      "sha256": "37172a51b4f2472dcdd5d14c67f094e42f45ca0ea59a986eaf4457ebaed9fae4"
+      "bytes": 5725,
+      "sha256": "dfb5214c7966a88e8f5e13da5c1e3545040c49505a639125681c868be7628e3d"
     },
     {
       "path": "build-v27.ps1",
@@ -51,8 +51,8 @@
     {
       "path": "docs/agent-modeling-guide.md",
       "source": "public-docs/agent-modeling-guide.md",
-      "bytes": 13694,
-      "sha256": "70f840ae927e74c5870a89618fc4f8e166ef342077ff7c73979f08aecf254f7e"
+      "bytes": 16374,
+      "sha256": "0036b5ed5d25e22c73064d8838147e4853da3641e62b762516583596d14d09ee"
     },
     {
       "path": "docs/annotation-creation.md",
@@ -147,14 +147,14 @@
     {
       "path": "LICENSE",
       "source": "LICENSE",
-      "bytes": 6139,
-      "sha256": "0a9bb69756e955ff7c31986b34a14465443a7a7281b6e94d4612a1ad150513ca"
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
     {
       "path": "LICENSING.md",
       "source": "LICENSING.md",
-      "bytes": 3339,
-      "sha256": "e3fea2fffb1e1996455bf7eff0630572c0af2982949e343eaca7c7db34c91f71"
+      "bytes": 2136,
+      "sha256": "aacd544be12caa7e247e2a39ba56c4f5d274f8e6898f890fdc884b6f09c8fe4e"
     },
     {
       "path": "licensing/Apache-2.0.txt",
@@ -351,8 +351,8 @@
     {
       "path": "mcp/LICENSE",
       "source": "mcp/LICENSE",
-      "bytes": 5972,
-      "sha256": "b75ae4ecb0e54999a414dde8dd669dd2b0fd09f437ff0127521c59d62f6a3ea7"
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
     {
       "path": "mcp/lighting-footprint.mjs",
@@ -429,15 +429,15 @@
     {
       "path": "mcp/package-lock.json",
       "source": "mcp/package-lock.json",
-      "bytes": 46917,
-      "sha256": "d6287813273dd37188dcb416968c916c5588c4f2e371404f5d15a03720522614"
+      "bytes": 46905,
+      "sha256": "271e67df52bd80afb2d1696f5e4c8890917d3d1a920e17dffb3cca2c938c7c68"
     },
     {
       "path": "mcp/package.json",
       "source": "mcp/package.json",
       "transform": "public-portable-test-selection",
-      "bytes": 572,
-      "sha256": "63f64a4e57ff67bde08a5da0cc802a2683af34ebc54b233cacf0b25954316296"
+      "bytes": 560,
+      "sha256": "9d718151da05baf0730e72b3041f35e18b4ff9f62f9cf64ac2571d886f6d4856"
     },
     {
       "path": "mcp/parameter-import.mjs",
@@ -472,8 +472,8 @@
     {
       "path": "mcp/revit-custom.mjs",
       "source": "mcp/revit-custom.mjs",
-      "bytes": 47774,
-      "sha256": "fdb1c9e6501bb025615ebe278333f4fd5031076245497c7fb459663ebf910cd4"
+      "bytes": 48556,
+      "sha256": "d66c52719ef8c9c57551dca84d0f4f6091e4e6366e4edb8c6222560497fd04ae"
     },
     {
       "path": "mcp/roof-creation.mjs",
@@ -778,20 +778,20 @@
     {
       "path": "NOTICE",
       "source": "NOTICE",
-      "bytes": 828,
-      "sha256": "0133655602fd7740727e94a667bed60f226f5a7062d9e45632924771e91820be"
+      "bytes": 388,
+      "sha256": "ab6d3b70b546d54477633498cbfa6beaf14f47680e867129298b6e38964fcdf4"
     },
     {
       "path": "README.md",
       "source": "public-docs/README.md",
-      "bytes": 12641,
-      "sha256": "4679c012c76cbef1ec6f6cf3ffb470135764f800a6c206d4fba80178bf9c26f7"
+      "bytes": 12308,
+      "sha256": "9f3602130744123f1ddbff06a381c533877ba0dca918dc36765c2c88d72d3f50"
     },
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
       "source": "skills/revit-cad-auto-modeling/SKILL.md",
-      "bytes": 12917,
-      "sha256": "4cd4982bc50b7a16364b72ece9eeb66338a014f1d118fd86c0192d5ad15deb4f"
+      "bytes": 16460,
+      "sha256": "66ab3a1ed16293993d266cc6b572835760bba70dce975b45cc24128a8db75948"
     },
     {
       "path": "tests/CoreTests/AnnotationCreationRulesTests.cs",
@@ -808,8 +808,8 @@
     {
       "path": "tests/CoreTests/ArchitecturalGeometryAuditRulesTests.cs",
       "source": "tests/CoreTests/ArchitecturalGeometryAuditRulesTests.cs",
-      "bytes": 6900,
-      "sha256": "a1dbef2153ecfd567015a8823cd13e53c2e9a9180488dec8666066f84df6f5da"
+      "bytes": 14937,
+      "sha256": "63038fd61b00897851ed2294f13c6885ec1bf71b6e2867e6b350f6759c34df77"
     },
     {
       "path": "tests/CoreTests/ArchitecturePlacementReadbackRulesTests.cs",
@@ -1036,8 +1036,8 @@
     {
       "path": "tests/CoreTests/Program.cs",
       "source": "tests/CoreTests/Program.cs",
-      "bytes": 81117,
-      "sha256": "4dd6181026ff479a96b3d9c1f2385774fbdbd91c3b1390e89ed4793b986feb01"
+      "bytes": 82457,
+      "sha256": "e0bbe055f00d45c8439b9df26c98c8a4607384f0d8f011304b95a55d814d79f9"
     },
     {
       "path": "tests/CoreTests/RebarCreationRulesTests.cs",
@@ -1126,8 +1126,8 @@
     {
       "path": "THIRD_PARTY_NOTICES.md",
       "source": "THIRD_PARTY_NOTICES.md",
-      "bytes": 20468,
-      "sha256": "af3af94b97964d5da36db0317703bdec21449eb48ee6a5ce0e780143cd0b514b"
+      "bytes": 20163,
+      "sha256": "2558d6a74d3b9d32bd4c0ae0d8884860e9b42baad4350cca0503854d7edefe42"
     },
     {
       "path": "third_party/licenses/RevitMCP-MIT.txt",
@@ -1198,14 +1198,14 @@
     {
       "path": "v27/ArchitecturalGeometryAuditRules.cs",
       "source": "v27/ArchitecturalGeometryAuditRules.cs",
-      "bytes": 15540,
-      "sha256": "cd0ddc7779c69200c75ebbb0aef5a2f9af9c84d999ad288e7a3c4344aef37d66"
+      "bytes": 36846,
+      "sha256": "7be4bfeea2b403207ab25512504d37bb947cd15062cd25b10b5f19f09554700a"
     },
     {
       "path": "v27/ArchitecturalGeometryAuditService.cs",
       "source": "v27/ArchitecturalGeometryAuditService.cs",
-      "bytes": 5223,
-      "sha256": "576260b0b8dfcff11e0f520e2a4d17049eecda00780690768748a531b2e224f6"
+      "bytes": 7716,
+      "sha256": "c5809ece2183e6cfeb1072eba9a9ba83bd93ed91a4c25c0296abf92d1b1d3b95"
     },
     {
       "path": "v27/ArchitecturePlacementReadbackRules.cs",
@@ -1702,8 +1702,8 @@
     {
       "path": "v27/OpeningRules.cs",
       "source": "v27/OpeningRules.cs",
-      "bytes": 7655,
-      "sha256": "f83e122f3cf60f5fd177fae3490b79746959382aed145137f2aaf90b94cd4abc"
+      "bytes": 10012,
+      "sha256": "1030992e02f69a560530f491e47aa7458301d49de501a2880bd5ba6f4d4a9bc8"
     },
     {
       "path": "v27/OpeningService.cs",
@@ -1870,8 +1870,8 @@
     {
       "path": "v27/StairGeometryService.cs",
       "source": "v27/StairGeometryService.cs",
-      "bytes": 11613,
-      "sha256": "f08a1b2b2c0f31c86eea79c42ca856962f3dbacd76be01a2b41a8052dee4fbe7"
+      "bytes": 11659,
+      "sha256": "13260783d0e9b41808e1a687a8b0dceba1bf80293d3415ca0bf2bf2117bc48cd"
     },
     {
       "path": "v27/StairRules.cs",

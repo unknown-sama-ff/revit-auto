@@ -568,6 +568,12 @@ Test("opening native profile readback compares edges not an unordered vertex bag
  if(!OpeningRules.EdgesMatch(points,edges.Reverse().Select(e=>(e.Item2,e.Item1)).ToArray(),1))throw new Exception("Native edge order/reversal incorrectly rejected");
  var wrong=new[]{(points[0],points[2]),(points[2],points[1]),(points[1],points[3]),(points[3],points[0])};if(OpeningRules.EdgesMatch(points,wrong,1))throw new Exception("Same vertex set certified crossed geometry");
  if(OpeningRules.EdgesMatch(points,edges[..3],1)||OpeningRules.EdgesMatch(points,edges,double.NaN))throw new Exception("Missing edges or unknown tolerance accepted");
+ // Sketched stair landing boundary with run-split collinear edges must normalize cleanly while bent edges still fail
+ OpeningPoint[] landingRect=[new(60,6120,0),new(3940,6120,0),new(3940,8050,0),new(60,8050,0)];
+ var splitEdges=new[]{(new OpeningPoint(60,6120,0),new OpeningPoint(1890,6120,0)),(new OpeningPoint(1890,6120,0),new OpeningPoint(2110,6120,0)),(new OpeningPoint(2110,6120,0),new OpeningPoint(3940,6120,0)),(new OpeningPoint(3940,6120,0),new OpeningPoint(3940,8050,0)),(new OpeningPoint(3940,8050,0),new OpeningPoint(60,8050,0)),(new OpeningPoint(60,8050,0),new OpeningPoint(60,6120,0))};
+ if(!OpeningRules.EdgesMatch(landingRect,OpeningRules.SimplifyCollinearLoop(splitEdges,20),20))throw new Exception("Collinear split landing edges incorrectly rejected");
+ var notchedEdges=new[]{(new OpeningPoint(60,6120,0),new OpeningPoint(1890,6120,0)),(new OpeningPoint(1890,6120,0),new OpeningPoint(2110,6300,0)),(new OpeningPoint(2110,6300,0),new OpeningPoint(3940,6120,0)),(new OpeningPoint(3940,6120,0),new OpeningPoint(3940,8050,0)),(new OpeningPoint(3940,8050,0),new OpeningPoint(60,8050,0)),(new OpeningPoint(60,8050,0),new OpeningPoint(60,6120,0))};
+ if(OpeningRules.EdgesMatch(landingRect,OpeningRules.SimplifyCollinearLoop(notchedEdges,20),20))throw new Exception("Genuinely notched landing edge incorrectly simplified away");
 });
 Test("opening floor shaft profiles preserve explicit direction level scope and safe existing native IDs",()=>{
  var floor=Json("""{"operationType":"create_opening","openingKind":"floor_profile","hostElementId":10,"boundary":[{"xMm":0,"yMm":0,"zMm":3000},{"xMm":100,"yMm":0,"zMm":3000},{"xMm":100,"yMm":100,"zMm":3000},{"xMm":0,"yMm":100,"zMm":3000}],"cutDirection":"vertical","hostToleranceMm":1}""");OpeningRules.Validate(floor);

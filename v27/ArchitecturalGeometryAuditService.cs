@@ -47,8 +47,11 @@ internal static class ArchitecturalGeometryAuditService
         }
 
         var columns = new List<AuditColumnGeometry>();
+        var structuralMembers = new List<AuditStructuralMemberFamily>();
         foreach (var col in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType())
         {
+            if (col is FamilyInstance colInst && colInst.Symbol is { } colSym)
+                structuralMembers.Add(new AuditStructuralMemberFamily(col.Id.Value, "OST_StructuralColumns", colSym.FamilyName, colSym.Name));
             var bb = col.get_BoundingBox(null);
             if (bb is null) continue;
             var minX = Mm(bb.Min.X); var maxX = Mm(bb.Max.X);
@@ -58,10 +61,25 @@ internal static class ArchitecturalGeometryAuditService
                 (minX + maxX) * 0.5, (minY + maxY) * 0.5,
                 Math.Max(1.0, (maxX - minX) * 0.5), Math.Max(1.0, (maxY - minY) * 0.5)));
         }
+        foreach (var beam in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming).WhereElementIsNotElementType().OfType<FamilyInstance>())
+        {
+            if (beam.Symbol is { } beamSym)
+                structuralMembers.Add(new AuditStructuralMemberFamily(beam.Id.Value, "OST_StructuralFraming", beamSym.FamilyName, beamSym.Name));
+        }
 
         var stairsAndRailings = new List<AuditStairOrRailingGeometry>();
+        var stairRuns = new List<AuditStairRunMetric>();
         foreach (var stair in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Stairs).WhereElementIsNotElementType())
         {
+            if (stair is Stairs st)
+            {
+                var treadMm = Mm(st.ActualTreadDepth);
+                foreach (var runId in st.GetStairsRuns())
+                {
+                    if (doc.GetElement(runId) is StairsRun run)
+                        stairRuns.Add(new AuditStairRunMetric(st.Id.Value, run.Id.Value, Mm(run.ActualRunWidth), treadMm));
+                }
+            }
             var bb = stair.get_BoundingBox(null);
             if (bb is null) continue;
             stairsAndRailings.Add(new AuditStairOrRailingGeometry(
@@ -80,19 +98,44 @@ internal static class ArchitecturalGeometryAuditService
         }
 
         var doors = new List<AuditDoorGeometry>();
+        var openings = new List<AuditOpeningGeometry>();
         foreach (var door in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType().OfType<FamilyInstance>())
         {
             if (door.Location is not LocationPoint pt) continue;
             var hostId = door.Host?.Id.Value ?? -1;
             var baseZMm = doc.GetElement(door.LevelId) is Level lvl ? Mm(lvl.ProjectElevation) : Mm(pt.Point.Z);
             doors.Add(new AuditDoorGeometry(door.Id.Value, hostId, baseZMm, Mm(pt.Point.X), Mm(pt.Point.Y)));
+            openings.Add(new AuditOpeningGeometry(door.Id.Value, "OST_Doors", hostId, baseZMm, Mm(pt.Point.X), Mm(pt.Point.Y), ReadOpeningWidthMm(door, 900.0)));
         }
 
-        var windowCount = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType().GetElementCount();
+        var windowCount = 0;
+        foreach (var win in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType().OfType<FamilyInstance>())
+        {
+            windowCount++;
+            if (win.Location is not LocationPoint pt) continue;
+            var hostId = win.Host?.Id.Value ?? -1;
+            var baseZMm = doc.GetElement(win.LevelId) is Level lvl ? Mm(lvl.ProjectElevation) : Mm(pt.Point.Z);
+            openings.Add(new AuditOpeningGeometry(win.Id.Value, "OST_Windows", hostId, baseZMm, Mm(pt.Point.X), Mm(pt.Point.Y), ReadOpeningWidthMm(win, 1000.0)));
+        }
         var hasNativeTopography =
             new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Toposolid).WhereElementIsNotElementType().GetElementCount() > 0 ||
             new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Topography).WhereElementIsNotElementType().GetElementCount() > 0;
 
-        return ArchitecturalGeometryAuditRules.Analyze(walls, surfaces, columns, stairsAndRailings, doors.Count, windowCount, doors, hasNativeTopography);
+        return ArchitecturalGeometryAuditRules.Analyze(walls, surfaces, columns, stairsAndRailings, doors.Count, windowCount, doors, hasNativeTopography, structuralMembers, openings, stairRuns);
+    }
+
+    private static double ReadOpeningWidthMm(FamilyInstance instance, double fallbackMm)
+    {
+        BuiltInParameter[] candidates = [BuiltInParameter.DOOR_WIDTH, BuiltInParameter.WINDOW_WIDTH, BuiltInParameter.FAMILY_WIDTH_PARAM];
+        foreach (var bip in candidates)
+        {
+            var p = instance.get_Parameter(bip) ?? instance.Symbol?.get_Parameter(bip);
+            if (p is { HasValue: true, StorageType: StorageType.Double })
+            {
+                var mm = Mm(p.AsDouble());
+                if (double.IsFinite(mm) && mm > 50.0) return mm;
+            }
+        }
+        return fallbackMm;
     }
 }

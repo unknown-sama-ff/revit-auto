@@ -2,7 +2,7 @@
 
 RevitAuto connects an MCP client to a local Revit add-in. An agent reads the active document, resolves native types and hosts, previews explicit operations, obtains the authorization required by the user's own policy, executes the same plan once, and verifies the native result. It exposes controlled modeling operations rather than arbitrary C# execution.
 
-This is source-available development source, provided under the **RevitAuto Noncommercial Source License 1.0** (free for personal and noncommercial use; commercial use, enterprise production, paid services, or repackaged resale requires separate paid or written commercial authorization — see [LICENSE](LICENSE) and [LICENSING.md](LICENSING.md)). It targets **Windows, Revit 2027.3 (27.3.x), .NET SDK 10, and Node.js 20.11 or later**. Both Revit API assemblies must come from the same 2027.3 installation. Autodesk software/API assemblies, models and families are not distributed.
+This is development source, provided under the **Apache License 2.0** (see [LICENSE](LICENSE) and [LICENSING.md](LICENSING.md)). It targets **Windows, Revit 2027.3 (27.3.x), .NET SDK 10, and Node.js 20.11 or later**. Both Revit API assemblies must come from the same 2027.3 installation. Autodesk software/API assemblies, models and families are not distributed.
 
 ## 一句话让 AI Agent 一键安装并导入 Revit 2027（One-Prompt Agent Install）
 
@@ -103,4 +103,4 @@ An optional [native DWG exporter](docs/native-dwg-export.md) uses an already ins
 
 For future publication, use a newly prepared clean source output from the development checkout's `tools/prepare-agent-source.mjs`. **Do not publish the original development root or its Git history.** A `.gitignore` does not remove private files already tracked by Git. The exporter prepares files only; it never stages, commits or pushes. If creating a new public repository, initialize it in the reviewed clean output and review the staged file list there before publishing.
 
-See [LICENSE](LICENSE), [LICENSING.md](LICENSING.md), [NOTICE](NOTICE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), `licensing/Apache-2.0.txt`, and `third_party/licenses/`. Personal and noncommercial use is free; commercial use or repackaged commercial distribution requires separate commercial authorization from `unknown-sama-ff`. Third-party dependencies retain their own licenses; Autodesk software and user assets are outside this project's grant.
+See [LICENSE](LICENSE), [LICENSING.md](LICENSING.md), [NOTICE](NOTICE), and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and `third_party/licenses/`. Original project code and documentation are licensed under Apache-2.0. Third-party dependencies retain their own licenses; Autodesk software and user assets are outside this project's grant.

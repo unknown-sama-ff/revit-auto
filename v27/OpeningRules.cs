@@ -41,6 +41,53 @@ internal static class OpeningRules
             ValidatePolygon(boundary.EnumerateArray().Select(Point).ToArray(),kind=="shaft"||JsonDefaults.String(op,"cutDirection")=="vertical");
         }
     }
+    public static (OpeningPoint Start,OpeningPoint End)[] SimplifyCollinearLoop((OpeningPoint Start,OpeningPoint End)[] actual,double toleranceMm)
+    {
+        if(actual.Length<3||!double.IsFinite(toleranceMm)||toleranceMm<=0)return actual;
+        static double Dist(OpeningPoint a,OpeningPoint b)=>Math.Sqrt((a.X-b.X)*(a.X-b.X)+(a.Y-b.Y)*(a.Y-b.Y)+(a.Z-b.Z)*(a.Z-b.Z));
+        static bool Same(OpeningPoint a,OpeningPoint b,double tol)=>Dist(a,b)<=Math.Max(tol,1e-3);
+        var remaining=actual.ToList();
+        var chain=new List<(OpeningPoint Start,OpeningPoint End)>{remaining[0]};
+        remaining.RemoveAt(0);
+        while(remaining.Count>0)
+        {
+            var tail=chain[^1].End;
+            var nextIdx=remaining.FindIndex(e=>Same(e.Start,tail,toleranceMm)||Same(e.End,tail,toleranceMm));
+            if(nextIdx<0)return actual;
+            var seg=remaining[nextIdx];remaining.RemoveAt(nextIdx);
+            chain.Add(Same(seg.Start,tail,toleranceMm)?seg:(seg.End,seg.Start));
+        }
+        if(!Same(chain[^1].End,chain[0].Start,toleranceMm))return actual;
+        var verts=chain.Select(e=>e.Start).ToList();
+        static bool IsCollinearBetween(OpeningPoint a,OpeningPoint b,OpeningPoint c,double tol)
+        {
+            var abx=b.X-a.X;var aby=b.Y-a.Y;var abz=b.Z-a.Z;
+            var bcx=c.X-b.X;var bcy=c.Y-b.Y;var bcz=c.Z-b.Z;
+            if(abx*bcx+aby*bcy+abz*bcz<=0)return false;
+            var acx=c.X-a.X;var acy=c.Y-a.Y;var acz=c.Z-a.Z;
+            var acLen=Math.Sqrt(acx*acx+acy*acy+acz*acz);
+            if(acLen<1e-6)return false;
+            var cx=aby*acz-abz*acy;var cy=abz*acx-abx*acz;var cz=abx*acy-aby*acx;
+            var perpDist=Math.Sqrt(cx*cx+cy*cy+cz*cz)/acLen;
+            return perpDist<=tol;
+        }
+        var changed=true;
+        while(changed&&verts.Count>3)
+        {
+            changed=false;
+            for(int i=0;i<verts.Count&&verts.Count>3;i++)
+            {
+                var prev=verts[(i+verts.Count-1)%verts.Count];
+                var curr=verts[i];
+                var next=verts[(i+1)%verts.Count];
+                if(IsCollinearBetween(prev,curr,next,toleranceMm))
+                {
+                    verts.RemoveAt(i);changed=true;break;
+                }
+            }
+        }
+        return verts.Select((v,i)=>(v,verts[(i+1)%verts.Count])).ToArray();
+    }
     public static bool EdgesMatch(OpeningPoint[] expected,(OpeningPoint Start,OpeningPoint End)[] actual,double toleranceMm)
     {
         if(actual.Length!=expected.Length||!double.IsFinite(toleranceMm)||toleranceMm<=0)return false;
