@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "reusable-agent-source",
-  "generatedAtUtc": "2026-11-26T09:32:34.064Z",
+  "generatedAtUtc": "2026-11-26T09:53:59.323Z",
   "publicationPerformed": false,
   "counts": {
     "files": 327,
@@ -51,8 +51,8 @@
     {
       "path": "docs/agent-modeling-guide.md",
       "source": "public-docs/agent-modeling-guide.md",
-      "bytes": 16374,
-      "sha256": "0036b5ed5d25e22c73064d8838147e4853da3641e62b762516583596d14d09ee"
+      "bytes": 17134,
+      "sha256": "ca636cd9a2b9d3e42c494341a03cf8fbeae95fbd66b4b5337d886e2d82fe1fb4"
     },
     {
       "path": "docs/annotation-creation.md",
@@ -790,8 +790,8 @@
     {
       "path": "skills/revit-cad-auto-modeling/SKILL.md",
       "source": "skills/revit-cad-auto-modeling/SKILL.md",
-      "bytes": 16460,
-      "sha256": "66ab3a1ed16293993d266cc6b572835760bba70dce975b45cc24128a8db75948"
+      "bytes": 17257,
+      "sha256": "d0d6de891b9d85f5f10e7f19512ac2073a48ddcbfc585cf85d45ed29eac64b69"
     },
     {
       "path": "tests/CoreTests/AnnotationCreationRulesTests.cs",
