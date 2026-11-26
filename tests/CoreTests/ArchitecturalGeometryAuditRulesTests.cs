@@ -193,5 +193,47 @@ internal static class ArchitecturalGeometryAuditRulesTests
             if (clean.WallToWallEndpointGapTotalCount != 0 || clean.HasIssues)
                 throw new Exception($"Expected 0 wall-to-wall gaps after closing Z-jog, got {clean.WallToWallEndpointGapTotalCount}.");
         });
+
+        test("geometry audit detects uncovered structural beams, uncapped rooftop enclosures, and interior partition walls exposed on roofs/perimeters", () =>
+        {
+            var podiumRoof = new AuditHorizontalSurface(8001, "Roof", 3, 9900, 10233, 0, 0, 30000, 20000);
+            var mainParapet = new AuditWallGeometry(8002, 3, 9900, 11100, 200, 0, 0, 30000, 0, "Generic - 200mm");
+            var coveredBeam = new AuditBeamGeometry(8101, 2000, 10000, 8000, 10000, 9900, "Concrete_350x750");
+            var exposedBeam = new AuditBeamGeometry(8102, 2000, 24000, 8000, 24000, 9900, "Concrete_350x750");
+
+            // Uncapped rooftop exhaust shaft using interior partition wall type
+            var shaftWalls = new AuditWallGeometry[]
+            {
+                new(8201, 3, 9900, 11900, 100, 10000, 10000, 11000, 10000, "Interior - Partition 100mm"),
+                new(8202, 3, 9900, 11900, 100, 11000, 10000, 11000, 12000, "Interior - Partition 100mm"),
+                new(8203, 3, 9900, 11900, 100, 11000, 12000, 10000, 12000, "Interior - Partition 100mm"),
+                new(8204, 3, 9900, 11900, 100, 10000, 12000, 10000, 10000, "Interior - Partition 100mm")
+            };
+
+            var bad = ArchitecturalGeometryAuditRules.Analyze(
+                [mainParapet, .. shaftWalls], [podiumRoof], [], [], 2, 2,
+                null, true, null, null, null, [coveredBeam, exposedBeam]);
+            if (bad.UncoveredStructuralBeamTotalCount != 1 || bad.UncoveredStructuralBeams[0].BeamId != 8102)
+                throw new Exception($"Expected 1 uncovered beam (8102), got {bad.UncoveredStructuralBeamTotalCount}.");
+            if (bad.UncappedRooftopEnclosureTotalCount != 1)
+                throw new Exception($"Expected 1 uncapped rooftop enclosure, got {bad.UncappedRooftopEnclosureTotalCount}.");
+            if (bad.ExteriorInteriorPartitionWallTotalCount != 4)
+                throw new Exception($"Expected 4 exposed interior partition walls on rooftop, got {bad.ExteriorInteriorPartitionWallTotalCount}.");
+
+            // Fix: extend roof over beam 8102, cap shaft at 11900, replace shaft walls with exterior/generic 200mm walls
+            var extendedRoof = new AuditHorizontalSurface(8001, "Roof", 3, 9900, 10233, 0, 0, 30000, 26000);
+            var shaftCap = new AuditHorizontalSurface(8009, "Floor", 3, 11750, 11900, 9900, 9900, 11100, 12100);
+            var fixedShaftWalls = shaftWalls.Select(w => w with { ThicknessMm = 200, TypeName = "Generic - 200mm" }).ToArray();
+            var clean = ArchitecturalGeometryAuditRules.Analyze(
+                [mainParapet, .. fixedShaftWalls], [extendedRoof, shaftCap], [], [], 2, 2,
+                null, true, null, null, null, [coveredBeam, exposedBeam]);
+            if (clean.UncoveredStructuralBeamTotalCount != 0 ||
+                clean.UncappedRooftopEnclosureTotalCount != 0 ||
+                clean.ExteriorInteriorPartitionWallTotalCount != 0 ||
+                clean.HasIssues)
+            {
+                throw new Exception($"Expected 0 blind-spot issues after fixes, got beams={clean.UncoveredStructuralBeamTotalCount}, uncapped={clean.UncappedRooftopEnclosureTotalCount}, extInt={clean.ExteriorInteriorPartitionWallTotalCount}.");
+            }
+        });
     }
 }

@@ -23,7 +23,8 @@ internal static class ArchitecturalGeometryAuditService
             walls.Add(new AuditWallGeometry(
                 wall.Id.Value, baseLevelId,
                 Mm(bb.Min.Z), Mm(bb.Max.Z), Mm(wall.Width),
-                Mm(start.X), Mm(start.Y), Mm(end.X), Mm(end.Y)));
+                Mm(start.X), Mm(start.Y), Mm(end.X), Mm(end.Y),
+                wall.WallType?.Name ?? string.Empty));
         }
 
         var surfaces = new List<AuditHorizontalSurface>();
@@ -61,10 +62,20 @@ internal static class ArchitecturalGeometryAuditService
                 (minX + maxX) * 0.5, (minY + maxY) * 0.5,
                 Math.Max(1.0, (maxX - minX) * 0.5), Math.Max(1.0, (maxY - minY) * 0.5)));
         }
+        var beams = new List<AuditBeamGeometry>();
         foreach (var beam in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming).WhereElementIsNotElementType().OfType<FamilyInstance>())
         {
             if (beam.Symbol is { } beamSym)
                 structuralMembers.Add(new AuditStructuralMemberFamily(beam.Id.Value, "OST_StructuralFraming", beamSym.FamilyName, beamSym.Name));
+            if (beam.Location is LocationCurve bLoc && bLoc.Curve is Line bLine && bLine.IsBound)
+            {
+                var p0 = bLine.GetEndPoint(0);
+                var p1 = bLine.GetEndPoint(1);
+                var zMm = Mm((p0.Z + p1.Z) * 0.5);
+                beams.Add(new AuditBeamGeometry(
+                    beam.Id.Value, Mm(p0.X), Mm(p0.Y), Mm(p1.X), Mm(p1.Y), zMm,
+                    beam.Symbol?.Name ?? string.Empty));
+            }
         }
 
         var stairsAndRailings = new List<AuditStairOrRailingGeometry>();
@@ -121,7 +132,7 @@ internal static class ArchitecturalGeometryAuditService
             new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Toposolid).WhereElementIsNotElementType().GetElementCount() > 0 ||
             new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Topography).WhereElementIsNotElementType().GetElementCount() > 0;
 
-        return ArchitecturalGeometryAuditRules.Analyze(walls, surfaces, columns, stairsAndRailings, doors.Count, windowCount, doors, hasNativeTopography, structuralMembers, openings, stairRuns);
+        return ArchitecturalGeometryAuditRules.Analyze(walls, surfaces, columns, stairsAndRailings, doors.Count, windowCount, doors, hasNativeTopography, structuralMembers, openings, stairRuns, beams);
     }
 
     private static double ReadOpeningWidthMm(FamilyInstance instance, double fallbackMm)

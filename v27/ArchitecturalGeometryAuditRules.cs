@@ -2,7 +2,20 @@ namespace RevitAutoV27;
 
 internal readonly record struct AuditWallGeometry(
     long ElementId, long BaseLevelId, double BaseZMm, double TopZMm, double ThicknessMm,
-    double StartXMm, double StartYMm, double EndXMm, double EndYMm);
+    double StartXMm, double StartYMm, double EndXMm, double EndYMm, string TypeName = "");
+
+internal readonly record struct AuditBeamGeometry(
+    long ElementId, double StartXMm, double StartYMm, double EndXMm, double EndYMm,
+    double ZMm, string TypeName = "");
+
+internal readonly record struct UncoveredBeamFinding(
+    long BeamId, double MidXMm, double MidYMm, double ZMm, string TypeName);
+
+internal readonly record struct UncappedRooftopEnclosureFinding(
+    long[] WallIds, double MinXMm, double MinYMm, double MaxXMm, double MaxYMm, double TopZMm);
+
+internal readonly record struct ExteriorInteriorWallFinding(
+    long WallId, string TypeName, double BaseZMm, double HeightMm, string Reason);
 
 internal readonly record struct AuditHorizontalSurface(
     long ElementId, string Kind, long LevelId, double BaseZMm, double TopZMm,
@@ -100,6 +113,12 @@ internal sealed record ArchitecturalGeometryAuditReport(
     int UndersizedStairTotalCount,
     WallToWallEndpointGapFinding[] WallToWallEndpointGaps,
     int WallToWallEndpointGapTotalCount,
+    UncoveredBeamFinding[] UncoveredStructuralBeams,
+    int UncoveredStructuralBeamTotalCount,
+    UncappedRooftopEnclosureFinding[] UncappedRooftopEnclosures,
+    int UncappedRooftopEnclosureTotalCount,
+    ExteriorInteriorWallFinding[] ExteriorInteriorPartitionWalls,
+    int ExteriorInteriorPartitionWallTotalCount,
     bool HasIssues);
 
 // Pure geometric self-audit rules (zero Revit API dependencies; unit-tested in CoreTests).
@@ -127,7 +146,8 @@ internal static class ArchitecturalGeometryAuditRules
         bool hasNativeTopography = false,
         IReadOnlyList<AuditStructuralMemberFamily>? structuralMembers = null,
         IReadOnlyList<AuditOpeningGeometry>? openings = null,
-        IReadOnlyList<AuditStairRunMetric>? stairRuns = null)
+        IReadOnlyList<AuditStairRunMetric>? stairRuns = null,
+        IReadOnlyList<AuditBeamGeometry>? beams = null)
     {
         var roofs = floorsAndRoofs.Where(s => string.Equals(s.Kind, "Roof", StringComparison.OrdinalIgnoreCase)).ToArray();
         var floors = floorsAndRoofs.Where(s => string.Equals(s.Kind, "Floor", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -262,20 +282,21 @@ internal static class ArchitecturalGeometryAuditRules
             if (!hasSiteGround && walls.Count >= 20 && roofs.Length > 0)
                 envelopeAndSiteWarnings.Add("missing_site_ground_or_terrain");
 
-            return BuildReport(walls, floors, roofs, columns, stairsAndRailings, doorCount, windowCount,
+            return BuildReport(walls, floors, roofs, floorsAndRoofs, columns, stairsAndRailings, doorCount, windowCount,
                 verticalGaps, roofProtrusions, wallColumnGaps, roofsMissingParapets,
-                groundFloorExteriorDoorCount, hasSiteGround, envelopeAndSiteWarnings, structuralMembers, openings, stairRuns);
+                groundFloorExteriorDoorCount, hasSiteGround, envelopeAndSiteWarnings, structuralMembers, openings, stairRuns, beams);
         }
 
-        return BuildReport(walls, floors, roofs, columns, stairsAndRailings, doorCount, windowCount,
+        return BuildReport(walls, floors, roofs, floorsAndRoofs, columns, stairsAndRailings, doorCount, windowCount,
             verticalGaps, roofProtrusions, wallColumnGaps, roofsMissingParapets,
-            groundFloorExteriorDoorCount, hasNativeTopography, envelopeAndSiteWarnings, structuralMembers, openings, stairRuns);
+            groundFloorExteriorDoorCount, hasNativeTopography, envelopeAndSiteWarnings, structuralMembers, openings, stairRuns, beams);
     }
 
     private static ArchitecturalGeometryAuditReport BuildReport(
         IReadOnlyList<AuditWallGeometry> walls,
         AuditHorizontalSurface[] floors,
         AuditHorizontalSurface[] roofs,
+        IReadOnlyList<AuditHorizontalSurface> floorsAndRoofs,
         IReadOnlyList<AuditColumnGeometry> columns,
         IReadOnlyList<AuditStairOrRailingGeometry> stairsAndRailings,
         int doorCount,
@@ -289,7 +310,8 @@ internal static class ArchitecturalGeometryAuditRules
         List<string> envelopeAndSiteWarnings,
         IReadOnlyList<AuditStructuralMemberFamily>? structuralMembers,
         IReadOnlyList<AuditOpeningGeometry>? openings,
-        IReadOnlyList<AuditStairRunMetric>? stairRuns)
+        IReadOnlyList<AuditStairRunMetric>? stairRuns,
+        IReadOnlyList<AuditBeamGeometry>? beams)
     {
         var openingWarnings = new List<string>();
         if (walls.Count >= 20 && doorCount == 0)
@@ -302,6 +324,9 @@ internal static class ArchitecturalGeometryAuditRules
         var (isolatedShortStubs, closeParallelWalls) = CheckWallStubsAndDoubleBoxes(walls, columns, openings);
         var wallToWallGaps = CheckWallToWallEndpointGaps(walls, columns);
         var undersizedStairs = CheckStairRunMetrics(stairRuns);
+        var uncoveredBeams = CheckUncoveredStructuralBeams(beams, floorsAndRoofs);
+        var uncappedRooftopEnclosures = CheckUncappedRooftopEnclosures(walls, floorsAndRoofs, roofs);
+        var exteriorInteriorWalls = CheckExteriorInteriorPartitionWalls(walls, roofs);
 
         if (floatingHostedWalls.Count > 0)
             openingWarnings.Add($"floating_hosted_walls_disconnected_at_both_ends (count={floatingHostedWalls.Count})");
@@ -315,11 +340,18 @@ internal static class ArchitecturalGeometryAuditRules
             envelopeAndSiteWarnings.Add($"wall_to_wall_endpoint_gaps (count={wallToWallGaps.Count})");
         if (undersizedStairs.Count > 0)
             envelopeAndSiteWarnings.Add($"undersized_stair_runs_below_1050mm (count={undersizedStairs.Count})");
+        if (uncoveredBeams.Count > 0)
+            envelopeAndSiteWarnings.Add($"uncovered_structural_beams_missing_slab_or_roof (count={uncoveredBeams.Count})");
+        if (uncappedRooftopEnclosures.Count > 0)
+            envelopeAndSiteWarnings.Add($"uncapped_rooftop_enclosures_or_shafts (count={uncappedRooftopEnclosures.Count})");
+        if (exteriorInteriorWalls.Count > 0)
+            envelopeAndSiteWarnings.Add($"interior_partition_walls_exposed_on_roof_or_perimeter (count={exteriorInteriorWalls.Count})");
 
         var hasIssues = verticalGaps.Count > 0 || roofProtrusions.Count > 0 || wallColumnGaps.Count > 0 ||
             roofsMissingParapets.Count > 0 || openingWarnings.Count > 0 || envelopeAndSiteWarnings.Count > 0 ||
             structuralFamilyMismatches.Count > 0 || floatingHostedWalls.Count > 0 || openingCollisions.Count > 0 ||
-            isolatedShortStubs.Count > 0 || closeParallelWalls.Count > 0 || wallToWallGaps.Count > 0 || undersizedStairs.Count > 0;
+            isolatedShortStubs.Count > 0 || closeParallelWalls.Count > 0 || wallToWallGaps.Count > 0 || undersizedStairs.Count > 0 ||
+            uncoveredBeams.Count > 0 || uncappedRooftopEnclosures.Count > 0 || exteriorInteriorWalls.Count > 0;
         return new ArchitecturalGeometryAuditReport(
             walls.Count, floors.Length, roofs.Length, columns.Count,
             stairsAndRailings.Count(s => s.Category == "OST_Stairs"),
@@ -348,6 +380,12 @@ internal static class ArchitecturalGeometryAuditRules
             undersizedStairs.Count,
             wallToWallGaps.Take(MaxFindingsPerKind).ToArray(),
             wallToWallGaps.Count,
+            uncoveredBeams.Take(MaxFindingsPerKind).ToArray(),
+            uncoveredBeams.Count,
+            uncappedRooftopEnclosures.Take(MaxFindingsPerKind).ToArray(),
+            uncappedRooftopEnclosures.Count,
+            exteriorInteriorWalls.Take(MaxFindingsPerKind).ToArray(),
+            exteriorInteriorWalls.Count,
             hasIssues);
     }
 
@@ -679,6 +717,172 @@ internal static class ArchitecturalGeometryAuditRules
 
         if (bestColId > 0)
             findings.Add(new WallColumnGapFinding(wall.ElementId, endpointName, bestColId, Math.Round(bestGap, 2)));
+    }
+
+    private static readonly string[] InteriorPartitionTypeMarkers =
+    [
+        "内部", "内墙", "隔墙", "Interior", "Partition", "Gypsum", "Drywall", "Plaster"
+    ];
+
+    private static readonly string[] ExteriorOrGenericWallMarkers =
+    [
+        "外墙", "Exterior", "Concrete", "混凝土", "Curtain", "幕墙", "店面", "Storefront"
+    ];
+
+    private static List<UncoveredBeamFinding> CheckUncoveredStructuralBeams(
+        IReadOnlyList<AuditBeamGeometry>? beams,
+        IReadOnlyList<AuditHorizontalSurface> floorsAndRoofs)
+    {
+        var findings = new List<UncoveredBeamFinding>();
+        if (beams is null || beams.Count == 0 || floorsAndRoofs.Count == 0) return findings;
+
+        foreach (var b in beams)
+        {
+            if (!double.IsFinite(b.StartXMm) || !double.IsFinite(b.StartYMm) ||
+                !double.IsFinite(b.EndXMm) || !double.IsFinite(b.EndYMm) || !double.IsFinite(b.ZMm))
+                continue;
+            // Skip ground/foundation-level tie beams (<= 500mm).
+            if (b.ZMm <= 500.0) continue;
+
+            var midX = (b.StartXMm + b.EndXMm) * 0.5;
+            var midY = (b.StartYMm + b.EndYMm) * 0.5;
+            var covered = floorsAndRoofs.Any(s =>
+                PointInBox(midX, midY, s, 300.0) &&
+                b.ZMm >= s.BaseZMm - 650.0 && b.ZMm <= s.TopZMm + 650.0);
+            if (!covered)
+                findings.Add(new UncoveredBeamFinding(b.ElementId, Math.Round(midX, 1), Math.Round(midY, 1), Math.Round(b.ZMm, 1), b.TypeName ?? string.Empty));
+        }
+        return findings;
+    }
+
+    private static List<UncappedRooftopEnclosureFinding> CheckUncappedRooftopEnclosures(
+        IReadOnlyList<AuditWallGeometry> walls,
+        IReadOnlyList<AuditHorizontalSurface> floorsAndRoofs,
+        AuditHorizontalSurface[] roofs)
+    {
+        var findings = new List<UncappedRooftopEnclosureFinding>();
+        if (walls.Count < 4 || roofs.Length == 0) return findings;
+
+        var roofWalls = walls.Where(w =>
+            FiniteWall(w) &&
+            w.BaseZMm >= MinUpperRoofParapetCheckZMm - 200.0 &&
+            (w.TopZMm - w.BaseZMm) >= 500.0 && (w.TopZMm - w.BaseZMm) <= 3200.0 &&
+            roofs.Any(r =>
+                r.BaseZMm >= MinUpperRoofParapetCheckZMm - 200.0 &&
+                (Math.Abs(w.BaseZMm - r.BaseZMm) <= 500.0 || Math.Abs(w.BaseZMm - r.TopZMm) <= 350.0) &&
+                PointInBox((w.StartXMm + w.EndXMm) * 0.5, (w.StartYMm + w.EndYMm) * 0.5, r, 350.0)))
+            .ToArray();
+
+        if (roofWalls.Length < 4) return findings;
+
+        var visited = new bool[roofWalls.Length];
+        for (int i = 0; i < roofWalls.Length; i++)
+        {
+            if (visited[i]) continue;
+            var cluster = new List<AuditWallGeometry>();
+            var queue = new Queue<int>();
+            visited[i] = true;
+            queue.Enqueue(i);
+            while (queue.Count > 0)
+            {
+                var cur = roofWalls[queue.Dequeue()];
+                cluster.Add(cur);
+                for (int j = 0; j < roofWalls.Length; j++)
+                {
+                    if (visited[j]) continue;
+                    var cand = roofWalls[j];
+                    if (Math.Abs(cand.BaseZMm - cur.BaseZMm) > 400.0) continue;
+                    if (WallsTouchOrOverlap(cur, cand, 350.0))
+                    {
+                        visited[j] = true;
+                        queue.Enqueue(j);
+                    }
+                }
+            }
+
+            if (cluster.Count < 4) continue;
+            var minX = cluster.Min(w => Math.Min(w.StartXMm, w.EndXMm));
+            var maxX = cluster.Max(w => Math.Max(w.StartXMm, w.EndXMm));
+            var minY = cluster.Min(w => Math.Min(w.StartYMm, w.EndYMm));
+            var maxY = cluster.Max(w => Math.Max(w.StartYMm, w.EndYMm));
+            var spanX = maxX - minX;
+            var spanY = maxY - minY;
+            var areaM2 = (spanX / 1000.0) * (spanY / 1000.0);
+            // Compact rooftop shafts / skylight monitors (0.16..35 m²), excluding full-building roof parapets.
+            if (spanX < 300.0 || spanY < 300.0 || spanX > 18000.0 || spanY > 18000.0 || areaM2 < 0.16 || areaM2 > 35.0)
+                continue;
+
+            var topZ = cluster.Max(w => w.TopZMm);
+            var cx = (minX + maxX) * 0.5;
+            var cy = (minY + maxY) * 0.5;
+            var hasCap = floorsAndRoofs.Any(s =>
+                PointInBox(cx, cy, s, 200.0) &&
+                s.TopZMm >= topZ - 350.0 && s.BaseZMm <= topZ + 350.0);
+            if (!hasCap)
+            {
+                findings.Add(new UncappedRooftopEnclosureFinding(
+                    cluster.Select(w => w.ElementId).ToArray(),
+                    Math.Round(minX, 1), Math.Round(minY, 1), Math.Round(maxX, 1), Math.Round(maxY, 1), Math.Round(topZ, 1)));
+            }
+        }
+        return findings;
+    }
+
+    private static List<ExteriorInteriorWallFinding> CheckExteriorInteriorPartitionWalls(
+        IReadOnlyList<AuditWallGeometry> walls,
+        AuditHorizontalSurface[] roofs)
+    {
+        var findings = new List<ExteriorInteriorWallFinding>();
+        if (walls.Count == 0) return findings;
+
+        var finiteWalls = walls.Where(FiniteWall).ToArray();
+        if (finiteWalls.Length == 0) return findings;
+        var globalMinX = finiteWalls.Min(w => Math.Min(w.StartXMm, w.EndXMm));
+        var globalMaxX = finiteWalls.Max(w => Math.Max(w.StartXMm, w.EndXMm));
+        var globalMinY = finiteWalls.Min(w => Math.Min(w.StartYMm, w.EndYMm));
+        var globalMaxY = finiteWalls.Max(w => Math.Max(w.StartYMm, w.EndYMm));
+
+        foreach (var w in finiteWalls)
+        {
+            var typeName = w.TypeName ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(typeName)) continue;
+            var isInteriorMarker = InteriorPartitionTypeMarkers.Any(m => typeName.Contains(m, StringComparison.OrdinalIgnoreCase));
+            var isExteriorMarker = ExteriorOrGenericWallMarkers.Any(m => typeName.Contains(m, StringComparison.OrdinalIgnoreCase));
+            if (!isInteriorMarker || isExteriorMarker) continue;
+
+            var height = w.TopZMm - w.BaseZMm;
+            var midX = (w.StartXMm + w.EndXMm) * 0.5;
+            var midY = (w.StartYMm + w.EndYMm) * 0.5;
+
+            var onRooftop = w.BaseZMm >= MinUpperRoofParapetCheckZMm - 200.0 &&
+                height >= 400.0 && height <= 2600.0 &&
+                roofs.Any(r =>
+                    r.BaseZMm >= MinUpperRoofParapetCheckZMm - 200.0 &&
+                    (Math.Abs(w.BaseZMm - r.BaseZMm) <= 450.0 || Math.Abs(w.BaseZMm - r.TopZMm) <= 350.0) &&
+                    PointInBox(midX, midY, r, 350.0));
+            if (onRooftop)
+            {
+                findings.Add(new ExteriorInteriorWallFinding(w.ElementId, typeName, Math.Round(w.BaseZMm, 1), Math.Round(height, 1), "interior_partition_type_on_rooftop"));
+                continue;
+            }
+
+            var isLowOuterBalustrade = finiteWalls.Length >= 8 &&
+                w.BaseZMm >= MinUpperRoofParapetCheckZMm - 200.0 &&
+                height >= 400.0 && height <= 1800.0 &&
+                (Math.Abs(midX - globalMinX) <= 300.0 || Math.Abs(midX - globalMaxX) <= 300.0 ||
+                 Math.Abs(midY - globalMinY) <= 300.0 || Math.Abs(midY - globalMaxY) <= 300.0);
+            if (isLowOuterBalustrade)
+                findings.Add(new ExteriorInteriorWallFinding(w.ElementId, typeName, Math.Round(w.BaseZMm, 1), Math.Round(height, 1), "interior_partition_type_on_exterior_perimeter"));
+        }
+        return findings;
+    }
+
+    private static bool WallsTouchOrOverlap(AuditWallGeometry a, AuditWallGeometry b, double tolMm)
+    {
+        return PointToSegmentDistMm(a.StartXMm, a.StartYMm, b.StartXMm, b.StartYMm, b.EndXMm, b.EndYMm) <= tolMm ||
+               PointToSegmentDistMm(a.EndXMm, a.EndYMm, b.StartXMm, b.StartYMm, b.EndXMm, b.EndYMm) <= tolMm ||
+               PointToSegmentDistMm(b.StartXMm, b.StartYMm, a.StartXMm, a.StartYMm, a.EndXMm, a.EndYMm) <= tolMm ||
+               PointToSegmentDistMm(b.EndXMm, b.EndYMm, a.StartXMm, a.StartYMm, a.EndXMm, a.EndYMm) <= tolMm;
     }
 
     private static bool PointInBox(double x, double y, AuditHorizontalSurface box, double toleranceMm) =>
