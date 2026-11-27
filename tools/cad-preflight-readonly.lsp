@@ -104,19 +104,186 @@
     (if (and (= (car item) 3) (/= (strcase (cdr item)) "MODEL"))
       (setq out (cons (cdr item) out))))
   (reverse out))
-(defun cp-write-lwpoly (gf qh ql d / closedFlag sep item)
+(defun cp-xform (pt bx by ix iy sx sy cs sn / lx ly)
+  (if (and (listp pt) (>= (length pt) 2)
+           (numberp (car pt)) (numberp (cadr pt)))
+    (progn
+      (setq lx (* (- (car pt) bx) sx)
+            ly (* (- (cadr pt) by) sy))
+      (list (+ ix (- (* lx cs) (* ly sn)))
+            (+ iy (+ (* lx sn) (* ly cs)))))
+    nil))
+(defun cp-write-lwpoly (gf qh ql d bx by ix iy sx sy cs sn fbJson /
+                        closedFlag item pts bulges curBulge hasBulge
+                        p xp sep b)
   (setq closedFlag
     (if (= (logand (if (numberp (cp-dxf 70 d)) (cp-dxf 70 d) 0) 1) 1)
-      "true" "false"))
-  (princ (strcat "{\"t\":\"LWPOLYLINE\",\"h\":" qh ",\"l\":" ql
-                 ",\"c\":" closedFlag ",\"pts\":[") gf)
-  (setq sep "")
+      "true" "false")
+    pts nil bulges nil curBulge 0.0 hasBulge nil)
   (foreach item d
-    (if (= (car item) 10)
-      (progn
-        (princ (strcat sep (cp-pt2 (cdr item))) gf)
-        (setq sep ","))))
-  (write-line "]}" gf))
+    (cond
+      ((= (car item) 10)
+       (if pts (setq bulges (cons curBulge bulges)))
+       (setq curBulge 0.0
+             p (cdr item)
+             xp (if ix (cp-xform p bx by ix iy sx sy cs sn) p))
+       (if xp (setq pts (cons xp pts))))
+      ((= (car item) 42)
+       (if (numberp (cdr item))
+         (progn
+           (setq curBulge (cdr item))
+           (if (> (abs curBulge) 1e-6) (setq hasBulge T)))))))
+  (if pts (setq bulges (cons curBulge bulges)))
+  (setq pts (reverse pts) bulges (reverse bulges))
+  (if (>= (length pts) 2)
+    (progn
+      (princ (strcat "{\"t\":\"LWPOLYLINE\",\"h\":" qh ",\"l\":" ql
+                     ",\"c\":" closedFlag fbJson ",\"pts\":[") gf)
+      (setq sep "")
+      (foreach p pts
+        (princ (strcat sep (cp-pt2 p)) gf)
+        (setq sep ","))
+      (if hasBulge
+        (progn
+          (princ "],\"b\":[" gf)
+          (setq sep "")
+          (foreach b bulges
+            (princ (strcat sep (cp-num4 b)) gf)
+            (setq sep ","))))
+      (write-line "]}" gf)
+      T)
+    nil))
+(defun cp-write-poly (gf qh ql e d bx by ix iy sx sy cs sn fbJson /
+                      closedFlag ve vd vtyp vflg p xp pts bulges
+                      bulge hasBulge sep b vc)
+  (setq closedFlag
+    (if (= (logand (if (numberp (cp-dxf 70 d)) (cp-dxf 70 d) 0) 1) 1)
+      "true" "false")
+    ve (entnext e) pts nil bulges nil hasBulge nil vc 0)
+  (while (and ve (< vc 5000))
+    (setq vd (entget ve) vtyp (if vd (cp-dxf 0 vd) nil))
+    (cond
+      ((or (null vd) (= vtyp "SEQEND")) (setq ve nil))
+      ((= vtyp "VERTEX")
+       (setq vflg (if (numberp (cp-dxf 70 vd)) (cp-dxf 70 vd) 0))
+       (if (= (logand vflg 16) 0)
+         (progn
+           (setq p (cp-dxf 10 vd)
+                 xp (if ix (cp-xform p bx by ix iy sx sy cs sn) p)
+                 bulge (if (numberp (cp-dxf 42 vd)) (cp-dxf 42 vd) 0.0))
+           (if xp
+             (progn
+               (setq pts (cons xp pts)
+                     bulges (cons bulge bulges))
+               (if (> (abs bulge) 1e-6) (setq hasBulge T))))))
+       (setq vc (1+ vc) ve (entnext ve)))
+      (t (setq ve (entnext ve)))))
+  (setq pts (reverse pts) bulges (reverse bulges))
+  (if (>= (length pts) 2)
+    (progn
+      (princ (strcat "{\"t\":\"POLYLINE\",\"h\":" qh ",\"l\":" ql
+                     ",\"c\":" closedFlag fbJson ",\"pts\":[") gf)
+      (setq sep "")
+      (foreach p pts
+        (princ (strcat sep (cp-pt2 p)) gf)
+        (setq sep ","))
+      (if hasBulge
+        (progn
+          (princ "],\"b\":[" gf)
+          (setq sep "")
+          (foreach b bulges
+            (princ (strcat sep (cp-num4 b)) gf)
+            (setq sep ","))))
+      (write-line "]}" gf)
+      T)
+    nil))
+(defun cp-expand-block (gf qh parentLayer bname qBname insPt sx sy rot
+                        depth / bdef be bp bx by ix iy cs sn bd btyp
+                        blay effLay qLay fbJson p1 p2 pc rr a1 a2
+                        subName subQ subPt subSx subSy subRot
+                        subIns subAng)
+  (if (and gf (< depth 4) (< geomCount 80000)
+           (listp insPt) (>= (length insPt) 2)
+           (not (wcmatch (strcase bname) "`*D*,`*MODEL_SPACE,`*PAPER_SPACE*")))
+    (progn
+      (setq bdef (tblsearch "BLOCK" bname))
+      (if bdef
+        (progn
+          (setq be (cp-dxf -2 bdef)
+                bp (cp-dxf 10 bdef)
+                bx (if (and (listp bp) (numberp (car bp))) (car bp) 0.0)
+                by (if (and (listp bp) (numberp (cadr bp))) (cadr bp) 0.0)
+                ix (car insPt) iy (cadr insPt)
+                cs (cos rot) sn (sin rot)
+                fbJson (strcat ",\"fb\":" qBname))
+          (while (and be (< geomCount 80000))
+            (if (= (logand geomCount 255) 0)
+              (cp-need (< (- (getvar "MILLISECS") started) budgetMs)
+                       "internal-time-budget-exceeded"))
+            (setq bd (entget be))
+            (if bd
+              (progn
+                (setq btyp (cp-dxf 0 bd)
+                      blay (if (eq (type (cp-dxf 8 bd)) 'STR) (cp-dxf 8 bd) "0")
+                      effLay (if (= blay "0") parentLayer blay)
+                      qLay (cdr (assoc effLay layQuotes)))
+                (if (not qLay)
+                  (setq qLay (cp-quote effLay)
+                        layQuotes (cons (cons effLay qLay) layQuotes)))
+                (if (not (member (strcase effLay) '("REBAR" "REIN" "HATCH" "PUB_HATCH")))
+                  (cond
+                    ((= btyp "LINE")
+                     (setq p1 (cp-xform (cp-dxf 10 bd) bx by ix iy sx sy cs sn)
+                           p2 (cp-xform (cp-dxf 11 bd) bx by ix iy sx sy cs sn))
+                     (if (and p1 p2)
+                       (progn
+                         (write-line (strcat "{\"t\":\"LINE\",\"h\":" qh
+                           ",\"l\":" qLay fbJson ",\"p1\":" (cp-pt2 p1)
+                           ",\"p2\":" (cp-pt2 p2) "}") gf)
+                         (setq geomCount (1+ geomCount)))))
+                    ((= btyp "LWPOLYLINE")
+                     (if (cp-write-lwpoly gf qh qLay bd bx by ix iy sx sy cs sn fbJson)
+                       (setq geomCount (1+ geomCount))))
+                    ((= btyp "POLYLINE")
+                     (if (cp-write-poly gf qh qLay be bd bx by ix iy sx sy cs sn fbJson)
+                       (setq geomCount (1+ geomCount))))
+                    ((= btyp "CIRCLE")
+                     (setq pc (cp-xform (cp-dxf 10 bd) bx by ix iy sx sy cs sn)
+                           rr (if (numberp (cp-dxf 40 bd))
+                                (* (cp-dxf 40 bd) (max (abs sx) (abs sy))) nil))
+                     (if (and pc rr)
+                       (progn
+                         (write-line (strcat "{\"t\":\"CIRCLE\",\"h\":" qh
+                           ",\"l\":" qLay fbJson ",\"p\":" (cp-pt2 pc)
+                           ",\"r\":" (cp-num4 rr) "}") gf)
+                         (setq geomCount (1+ geomCount)))))
+                    ((= btyp "ARC")
+                     (setq pc (cp-xform (cp-dxf 10 bd) bx by ix iy sx sy cs sn)
+                           rr (if (numberp (cp-dxf 40 bd))
+                                (* (cp-dxf 40 bd) (max (abs sx) (abs sy))) nil)
+                           a1 (if (numberp (cp-dxf 50 bd)) (+ (cp-dxf 50 bd) rot) 0.0)
+                           a2 (if (numberp (cp-dxf 51 bd)) (+ (cp-dxf 51 bd) rot) 0.0))
+                     (if (and pc rr)
+                       (progn
+                         (write-line (strcat "{\"t\":\"ARC\",\"h\":" qh
+                           ",\"l\":" qLay fbJson ",\"p\":" (cp-pt2 pc)
+                           ",\"r\":" (cp-num4 rr) ",\"a1\":" (cp-num4 a1)
+                           ",\"a2\":" (cp-num4 a2) "}") gf)
+                         (setq geomCount (1+ geomCount)))))
+                    ((= btyp "INSERT")
+                     (setq subName (cp-dxf 2 bd)
+                           subPt (cp-dxf 10 bd)
+                           subSx (if (numberp (cp-dxf 41 bd)) (cp-dxf 41 bd) 1.0)
+                           subSy (if (numberp (cp-dxf 42 bd)) (cp-dxf 42 bd) 1.0)
+                           subRot (if (numberp (cp-dxf 50 bd)) (cp-dxf 50 bd) 0.0)
+                           subIns (cp-xform subPt bx by ix iy sx sy cs sn)
+                           subAng (+ rot subRot))
+                     (if (and (eq (type subName) 'STR) subIns)
+                       (progn
+                         (setq subQ (cp-quote subName))
+                         (cp-expand-block gf qh effLay subName subQ subIns
+                           (* sx subSx) (* sy subSy) subAng (1+ depth)))))))))
+            (setq be (entnext be))))))))
 (defun cp-main (/ out geomOut gf geomCount before started budgetStr budgetMs f
                   lay layCount laySep layouts layName layQuotes qLayer qh
                   ss ssn n e d typ h layer skipGeom
@@ -224,11 +391,13 @@
           ((= typ "LWPOLYLINE")
            (setq polyCount (1+ polyCount))
            (if (and gf (not skipGeom))
-             (progn
-               (cp-write-lwpoly gf qh qLayer d)
+             (if (cp-write-lwpoly gf qh qLayer d 0.0 0.0 nil nil 1.0 1.0 1.0 0.0 "")
                (setq geomCount (1+ geomCount)))))
           ((= typ "POLYLINE")
-           (setq polyCount (1+ polyCount)))
+           (setq polyCount (1+ polyCount))
+           (if (and gf (not skipGeom))
+             (if (cp-write-poly gf qh qLayer e d 0.0 0.0 nil nil 1.0 1.0 1.0 0.0 "")
+               (setq geomCount (1+ geomCount)))))
           ((= typ "CIRCLE")
            (setq circleCount (1+ circleCount))
            (if (and gf (not skipGeom))
@@ -331,7 +500,10 @@
                             (cp-num4 (if sy sy 1.0)) "]"
                  ",\"r\":" (cp-num4 rot)
                  ",\"a\":" attJson "}") gf)
-               (setq geomCount (1+ geomCount)))))
+               (setq geomCount (1+ geomCount))
+               (if (eq (type bname) 'STR)
+                 (cp-expand-block gf qh layer bname qBname (cp-dxf 10 d)
+                   (if sx sx 1.0) (if sy sy 1.0) rot 0)))))
           (t (setq otherCount (1+ otherCount))))))
     (setq n (1+ n)))
   (if gf (progn (close gf) (setq gf nil)))

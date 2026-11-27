@@ -40,6 +40,8 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
     private readonly RoofCreationService roofCreations = new();
     private readonly AnnotationCreationService annotationCreations = new();
     private readonly ElectricalRunService electricalRuns = new();
+    private readonly GeometryJoinService geometryJoins = new();
+    internal object VerifyGeometryJoins(string phase) => geometryJoins.VerifyCompleted(Doc, phase);
     internal object VerifyWallFoundations(string phase) => wallFoundations.VerifyCompleted(Doc, phase);
     internal object VerifyRebarCreations(string phase) => rebarCreations.VerifyCompleted(Doc, phase);
     internal object VerifyCeilingCreations(string phase) => ceilingCreations.VerifyCompleted(Doc, phase);
@@ -145,8 +147,11 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         }
         if (category is (long)BuiltInCategory.OST_Doors or (long)BuiltInCategory.OST_Windows)
         {
-            if (symbol.Family.FamilyPlacementType != FamilyPlacementType.OneLevelBasedHosted || Check<Element>(op, "hostElementId") is not Wall)
-                throw Invalid("Controlled door/window point placement requires an existing wall host and OneLevelBasedHosted family.");
+            var hostWall = Check<Wall>(op, "hostElementId");
+            if (symbol.Family.FamilyPlacementType != FamilyPlacementType.OneLevelBasedHosted)
+                throw Invalid("Controlled door/window point placement requires a wall host and OneLevelBasedHosted family.");
+            if (hostWall is null && !Deferred(JsonDefaults.Get(op, "hostElementId")))
+                throw Invalid("Controlled door/window point placement requires an existing or earlier-created wall host and OneLevelBasedHosted family.");
         }
     }
     internal void ValidateArchitectureCopyPlan(IReadOnlyList<JsonElement> operations)
@@ -408,6 +413,17 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "create_footprint_roof": RoofCreationService.Validate(Doc, op); break;
             case "create_text_note": case "create_detail_line": AnnotationCreationService.Validate(Doc, op); break;
             case "create_cable_tray": case "create_conduit": ElectricalRunService.Validate(Doc, op); break;
+            case "join_geometry":
+            {
+                var firstEl = Check<Element>(op, "firstElementId");
+                var secondEl = Check<Element>(op, "secondElementId");
+                if (firstEl is null && JsonDefaults.String(op, "firstElementId") is { } fRef && fRef.StartsWith('@') && predicted.TryGetValue(fRef[1..], out var fType))
+                    GeometryJoinService.ValidatePredictedType(fType, "firstElementId");
+                if (secondEl is null && JsonDefaults.String(op, "secondElementId") is { } sRef && sRef.StartsWith('@') && predicted.TryGetValue(sRef[1..], out var sType))
+                    GeometryJoinService.ValidatePredictedType(sType, "secondElementId");
+                GeometryJoinService.ValidateExisting(Doc, op, firstEl, secondEl);
+                break;
+            }
             case "load_family": FamilyLibraryService.Validate(Doc, op); break;
             case "create_family_instance":
                 var symbol = Symbol(op); Level(op); var host = Check<Element>(op, "hostElementId", false);
@@ -525,7 +541,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                         var owners=connectionSides.Select(side=>Check<Element>(op,side+"ElementId")).ToArray();
                         if(owners.All(owner=>owner is not null))MultiportFittingReadbackService.ValidateInput(fittingKind,owners);
                         else foreach(var owner in owners.Where(owner=>owner is not null))
-                            if(owner is not (Pipe or FlexPipe or Duct or FlexDuct))throw Invalid("Multiport fittings require explicit pipe or duct curve owners.");
+                            if(owner is not (Pipe or FlexPipe or Duct or FlexDuct or CableTray or Conduit))throw Invalid("Multiport fittings require explicit pipe, duct, cable-tray, or conduit curve owners.");
                         // ValidateConnectorSelection above already proved every deferred owner is an explicit
                         // create_pipe/create_duct endpoint. Full native owner/domain proof occurs in CaptureInput.
                     }
@@ -684,6 +700,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
             case "create_footprint_roof": return roofCreations.Create(Doc, op);
             case "create_text_note": case "create_detail_line": return annotationCreations.Create(Doc, op);
             case "create_cable_tray": case "create_conduit": return electricalRuns.Create(Doc, op);
+            case "join_geometry": return geometryJoins.Apply(Doc, op, Required<Element>(op, "firstElementId"), Required<Element>(op, "secondElementId"));
             case "load_family": return FamilyLibraryService.Load(Doc, op);
             case "change_titleblock_type":
                 var titleBlockReceipt=TitleBlockChangeService.Apply(Doc,op);
@@ -762,10 +779,21 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                     if (topConstraintParam.IsReadOnly || !topConstraintParam.Set(wallTopLevel.Id)) throw Invalid("Revit refused wall topLevelId constraint.");
                     SetBuiltIn(createdWall, BuiltInParameter.WALL_TOP_OFFSET, Mm(wallTopOffsetMm));
                 }
-                if (JsonDefaults.Bool(op, "disallowJoin"))
+                var (disallowWallStart, disallowWallEnd) = GeometryJoinRules.ResolveEndDisallow(op);
+                if (disallowWallStart) WallUtils.DisallowWallJoinAtEnd(createdWall, 0);
+                if (disallowWallEnd) WallUtils.DisallowWallJoinAtEnd(createdWall, 1);
+                if (createdWall.Location is LocationCurve wallLocation)
                 {
-                    WallUtils.DisallowWallJoinAtEnd(createdWall, 0);
-                    WallUtils.DisallowWallJoinAtEnd(createdWall, 1);
+                    static JoinType ParseJoinType(string jt) => jt switch
+                    {
+                        "miter" => JoinType.Miter,
+                        "square_off" => JoinType.SquareOff,
+                        _ => JoinType.Abut
+                    };
+                    if (!disallowWallStart && JsonDefaults.String(op, "joinTypeStart") is { } jtStart)
+                        wallLocation.set_JoinType(0, ParseJoinType(jtStart));
+                    if (!disallowWallEnd && JsonDefaults.String(op, "joinTypeEnd") is { } jtEnd)
+                        wallLocation.set_JoinType(1, ParseJoinType(jtEnd));
                 }
                 created = createdWall;
                 break;
@@ -910,6 +938,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                     var multiInput=MultiportFittingReadbackService.CaptureInput(Doc,fittingKind,ports);
                     created=fittingKind=="tee"?Doc.Create.NewTeeFitting(ports[0],ports[1],ports[2]):Doc.Create.NewCrossFitting(ports[0],ports[1],ports[2],ports[3]);
                     if(created is not FamilyInstance multiFitting)throw Invalid("Revit did not return the requested native multiport fitting.");
+                    foreach(var port in ports)if(port.Owner is CableTray or Conduit)electricalRuns.MarkConnectedByFitting(port.Owner.Id.Value);
                     multiportFittingExpected=MultiportFittingReadbackService.Bind(Doc,multiFitting,multiInput);
                     break;
                 }
@@ -921,6 +950,8 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
                     "elbow" => Doc.Create.NewElbowFitting(a, b), "union" => Doc.Create.NewUnionFitting(a, b), "transition" => Doc.Create.NewTransitionFitting(a, b), _ => throw Invalid("Supported fittings: elbow, union, transition.")
                 };
                 if (created is not FamilyInstance nativeFitting) throw Invalid("Revit did not return a native fitting instance.");
+                if (a.Owner is CableTray or Conduit) electricalRuns.MarkConnectedByFitting(a.Owner.Id.Value);
+                if (b.Owner is CableTray or Conduit) electricalRuns.MarkConnectedByFitting(b.Owner.Id.Value);
                 fittingExpected = FittingConnectionReadbackService.Bind(Doc, nativeFitting, fittingInput);
                 break;
             }
@@ -1040,7 +1071,7 @@ internal sealed class ModelExecutor(UIApplication app, Dictionary<string, Elemen
         var reference=JsonDefaults.String(op,prefix+"ElementId")![1..];
         if(!op.TryGetProperty(prefix+"Connector",out var criteria))throw Invalid("New elements require connector criteria, not predicted connector IDs.");
         var owner=predictedOperations[reference];
-        if(JsonDefaults.String(owner,"operationType") is not ("create_pipe" or "create_duct"))throw Invalid("Deferred connector criteria support explicitly created straight pipes/ducts only.");
+        if(JsonDefaults.String(owner,"operationType") is not ("create_pipe" or "create_duct" or "create_cable_tray" or "create_conduit"))throw Invalid("Deferred connector criteria support explicitly created straight pipes, ducts, cable trays, or conduits only.");
         var endpoint=ConnectionPortReservationRules.NewCurveEndpoint(owner,criteria);
 
         if(JsonDefaults.String(owner,"operationType")!="create_pipe")return null;

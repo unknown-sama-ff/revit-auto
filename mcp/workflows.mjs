@@ -22,7 +22,7 @@ import {connectionPrefixes,validateConnectionTopology} from './mep-connection-co
 
 export const OPERATIONS = new Set([
   'move_lighting_fixtures','create_family_instance','duplicate_type','duplicate_architecture_type','set_parameter','delete_element','load_family',
-  'create_level','create_grid','create_structural_column','create_structural_beam','create_isolated_foundation','create_wall_foundation','create_rebar_set','create_rebar_stirrup','create_ceiling','create_wall','create_floor','create_opening','create_room','create_stair','create_material','duplicate_material','create_footprint_roof','assign_material',
+  'create_level','create_grid','create_structural_column','create_structural_beam','create_isolated_foundation','create_wall_foundation','create_rebar_set','create_rebar_stirrup','create_ceiling','create_wall','create_floor','create_opening','create_room','create_stair','create_material','duplicate_material','create_footprint_roof','assign_material','join_geometry',
   'create_circuit','create_wire','create_cable_tray','create_conduit','create_view_plan','create_sheet','create_schedule',
   'create_panel_schedule','configure_view','place_viewport','move_drawing_placement','move_viewport_label','change_titleblock_type','create_pipe','create_duct','connect_elements','create_fitting','create_tag','create_dimension','create_text_note','create_detail_line'
 ]);
@@ -65,7 +65,7 @@ export function validateConnectorSelection(op,prefix){
  if(Object.hasOwn(op,id)){if(!Number.isSafeInteger(op[id])||op[id]<0||op[id]>2147483647)throw new Error('Connector IDs must be nonnegative 32-bit integers.');return;}
  const c=op[selection];
  if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).length!==4||Object.keys(c).some(k=>!['domain','shape','point','toleranceMm'].includes(k)))throw new Error('Connector criteria require exactly domain, shape, point and toleranceMm.');
- if(!['DomainPiping','DomainHvac','DomainElectrical'].includes(c.domain)||!['Round','Rectangular','Oval','Invalid'].includes(c.shape))throw new Error('Unknown connector domain or shape.');
+ if(!['DomainPiping','DomainHvac','DomainElectrical','DomainCableTrayConduit'].includes(c.domain)||!['Round','Rectangular','Oval','Invalid'].includes(c.shape))throw new Error('Unknown connector domain or shape.');
  if(!c.point||typeof c.point!=='object'||Array.isArray(c.point)||Object.keys(c.point).length!==3||Object.keys(c.point).some(k=>!['xMm','yMm','zMm'].includes(k)))throw new Error('Connector point requires full XYZ in millimeters.');
  point(c.point);number(c.point,'zMm');
  if(typeof c.toleranceMm!=='number'||!Number.isFinite(c.toleranceMm)||c.toleranceMm<=0||c.toleranceMm>10000)throw new Error('Connector tolerance must be finite in (0,10000] mm.');
@@ -76,9 +76,10 @@ function validatePortReservations(operations){
   if(['connect_elements','create_fitting'].includes(op.operationType))for(const prefix of connectionPrefixes(op)){
    const owner=op[prefix+'ElementId'],selector=op[prefix+'Connector'];let key;
    const curve=typeof owner==='string'&&owner.startsWith('@')?created.get(owner.slice(1)):null;
-   if(curve&&['create_pipe','create_duct'].includes(curve.operationType)){
-    if(!selector)throw new Error('New pipe/duct endpoint requires criteria; never predict port IDs.');
-    const domain=curve.operationType==='create_pipe'?'DomainPiping':'DomainHvac',shape=Object.hasOwn(curve,'diameterMm')?'Round':'Rectangular';
+   if(curve&&['create_pipe','create_duct','create_cable_tray','create_conduit'].includes(curve.operationType)){
+    if(!selector)throw new Error(curve.operationType==='create_pipe'||curve.operationType==='create_duct'?'New pipe/duct endpoint requires criteria; never predict port IDs.':'New cable-tray/conduit endpoint requires criteria; never predict port IDs.');
+    const domain=curve.operationType==='create_pipe'?'DomainPiping':curve.operationType==='create_duct'?'DomainHvac':'DomainCableTrayConduit';
+    const shape=curve.operationType==='create_cable_tray'?'Rectangular':curve.operationType==='create_conduit'?'Round':(Object.hasOwn(curve,'diameterMm')?'Round':'Rectangular');
     const endpoints=['start','end'].filter(end=>{
      const p=curve[end],q=selector.point;const distance=(p.xMm-q.xMm)**2+(p.yMm-q.yMm)**2+((p.zMm??0)-q.zMm)**2;
      return selector.domain===domain&&selector.shape===shape&&distance<=selector.toleranceMm**2;
@@ -136,6 +137,16 @@ export function validateOperations(operations) {
       case 'create_ceiling': validateCeilingCreation(op); break;
       case 'create_material': case 'duplicate_material': validateMaterialCreation(op); break;
       case 'assign_material': validateMaterialAssignment(op); break;
+      case 'join_geometry': {
+        const allowedJoin = new Set(['operationType','id','dependencies','firstElementId','secondElementId','action','ignoreAlreadyJoined','skipIfUnjoinable']);
+        if (Object.keys(op).some(k => !allowedJoin.has(k))) throw new Error('join_geometry contains unsupported fields.');
+        requireField(op,'firstElementId'); requireField(op,'secondElementId');
+        if (String(op.firstElementId) === String(op.secondElementId)) throw new Error('join_geometry requires two distinct elements.');
+        if (op.action !== undefined && !['join','unjoin','switch_order'].includes(op.action)) throw new Error('join_geometry action must be join, unjoin, or switch_order.');
+        if (op.ignoreAlreadyJoined !== undefined && typeof op.ignoreAlreadyJoined !== 'boolean') throw new Error('join_geometry ignoreAlreadyJoined must be a boolean.');
+        if (op.skipIfUnjoinable !== undefined && typeof op.skipIfUnjoinable !== 'boolean') throw new Error('join_geometry skipIfUnjoinable must be a boolean.');
+        break;
+      }
       case 'create_footprint_roof': validateRoofCreation(op); break;
       case 'create_text_note': case 'create_detail_line': validateAnnotationCreation(op); break;
       case 'create_cable_tray': case 'create_conduit': validateElectricalRun(op); break;
@@ -150,7 +161,13 @@ export function validateOperations(operations) {
           } else {
             number(op,'heightMm',true);
           }
-          if (op.disallowJoin !== undefined && typeof op.disallowJoin !== 'boolean') throw new Error('create_wall: disallowJoin must be a boolean.');
+          for (const jf of ['disallowJoin','disallowJoinStart','disallowJoinEnd']) {
+            if (op[jf] !== undefined && typeof op[jf] !== 'boolean') throw new Error(`create_wall: ${jf} must be a boolean.`);
+          }
+          for (const jt of ['joinTypeStart','joinTypeEnd']) {
+            if (op[jt] !== undefined && !['abut','miter','square_off'].includes(op[jt])) throw new Error(`create_wall: ${jt} must be abut, miter, or square_off.`);
+          }
+          if (op.topologyPriority !== undefined) number(op,'topologyPriority');
         }
         if (op.operationType === 'create_pipe') { requireField(op,'pipeTypeId'); requireField(op,'systemTypeId'); number(op,'diameterMm',true); }
         if (op.operationType === 'create_duct') { requireField(op,'ductTypeId'); requireField(op,'systemTypeId'); validateDuctDimensions(op); }
@@ -277,11 +294,14 @@ export function workflowOperations(name, input = {}) {
     add(input.sheets,'create_sheet','sheet');
     add(input.viewports,'place_viewport','viewport');
   } else if (name === 'structure.build') {
-    if(Object.keys(input).some(key=>!['beams','isolatedFoundations','wallFoundations','documentIdentity','expectedRevision'].includes(key)))throw new Error('structure.build accepts only beams, isolatedFoundations and wallFoundations with optional matching document pins.');
-    for(const key of ['beams','isolatedFoundations','wallFoundations'])if(input[key]!==undefined&&(!Array.isArray(input[key])||input[key].length>1000))throw new Error(key+' requires a bounded array.');
+    if(Object.keys(input).some(key=>!['columns','beams','isolatedFoundations','wallFoundations','floors','joins','documentIdentity','expectedRevision'].includes(key)))throw new Error('structure.build accepts only columns, beams, isolatedFoundations, wallFoundations, floors and joins with optional matching document pins.');
+    for(const key of ['columns','beams','isolatedFoundations','wallFoundations','floors','joins'])if(input[key]!==undefined&&(!Array.isArray(input[key])||input[key].length>1000))throw new Error(key+' requires a bounded array.');
+    add(input.columns,'create_structural_column','column');
     add(input.beams,'create_structural_beam','beam');
     add(input.isolatedFoundations,'create_isolated_foundation','foundation');
     add(input.wallFoundations,'create_wall_foundation','wallFoundation');
+    add(input.floors,'create_floor','slab');
+    add(input.joins,'join_geometry','join');
   } else if (name === 'structure.reinforcement') {
     if(Object.keys(input).some(key=>!['rebarSets','stirrups','documentIdentity','expectedRevision'].includes(key)))throw new Error('structure.reinforcement accepts only rebarSets and stirrups with optional matching document pins.');
     for(const key of ['rebarSets','stirrups'])if(input[key]!==undefined&&(!Array.isArray(input[key])||input[key].length>1000))throw new Error(key+' requires a bounded array.');
@@ -304,15 +324,17 @@ export function workflowOperations(name, input = {}) {
     add(input.textNotes, 'create_text_note', 'textNote');
     add(input.detailLines, 'create_detail_line', 'detailLine');
   } else if (name === 'mep.electrical_runs') {
-    if (Object.keys(input).some(key => !['cableTrays', 'conduits', 'documentIdentity', 'expectedRevision'].includes(key))) throw new Error('mep.electrical_runs accepts only cableTrays and conduits with optional matching document pins.');
-    for (const key of ['cableTrays', 'conduits']) if (input[key] !== undefined && (!Array.isArray(input[key]) || input[key].length > 1000)) throw new Error(`${key} requires a bounded array.`);
+    if (Object.keys(input).some(key => !['cableTrays', 'conduits', 'fittings', 'connections', 'documentIdentity', 'expectedRevision'].includes(key))) throw new Error('mep.electrical_runs accepts only cableTrays, conduits, fittings and connections with optional matching document pins.');
+    for (const key of ['cableTrays', 'conduits', 'fittings', 'connections']) if (input[key] !== undefined && (!Array.isArray(input[key]) || input[key].length > 1000)) throw new Error(`${key} requires a bounded array.`);
     add(input.cableTrays, 'create_cable_tray', 'cableTray');
     add(input.conduits, 'create_conduit', 'conduit');
+    add(input.fittings, 'create_fitting', 'fitting');
+    add(input.connections, 'connect_elements', 'connection');
   } else if (name === 'architecture.build') {
     ops.push(...architectureTypeCopyOperations({typeCopies:input.typeCopies}));
     add(input.levels,'create_level','level'); add(input.grids,'create_grid','grid');
     add(input.columns,'create_structural_column','column');
-    add(input.walls,'create_wall','wall'); add(input.floors,'create_floor','floor');
+    add(input.walls,'create_wall','wall'); add(input.joins,'join_geometry','join'); add(input.floors,'create_floor','floor');
     architecturePlacements(input.doors,'door','OST_Doors'); architecturePlacements(input.windows,'window','OST_Windows');
     add(input.rooms,'create_room','room'); add(input.views,'create_view_plan','view');
     add(input.schedules,'create_schedule','schedule'); add(input.sheets,'create_sheet','sheet'); add(input.viewports,'place_viewport','viewport');

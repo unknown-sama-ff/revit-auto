@@ -77,6 +77,9 @@ internal readonly record struct UndersizedStairFinding(
 internal readonly record struct WallToWallEndpointGapFinding(
     long WallId, string Endpoint, long NearestWallId, double ClearGapMm);
 
+internal readonly record struct BeamEndpointGapFinding(
+    long BeamId, string Endpoint, string NearestTargetKind, long NearestTargetId, double ClearGapMm);
+
 internal sealed record ArchitecturalGeometryAuditReport(
     int ScannedWallCount,
     int ScannedFloorCount,
@@ -119,7 +122,10 @@ internal sealed record ArchitecturalGeometryAuditReport(
     int UncappedRooftopEnclosureTotalCount,
     ExteriorInteriorWallFinding[] ExteriorInteriorPartitionWalls,
     int ExteriorInteriorPartitionWallTotalCount,
-    bool HasIssues);
+    bool HasIssues,
+    int ScannedBeamCount = 0,
+    BeamEndpointGapFinding[]? BeamEndpointGaps = null,
+    int BeamEndpointGapTotalCount = 0);
 
 // Pure geometric self-audit rules (zero Revit API dependencies; unit-tested in CoreTests).
 internal static class ArchitecturalGeometryAuditRules
@@ -325,6 +331,7 @@ internal static class ArchitecturalGeometryAuditRules
         var wallToWallGaps = CheckWallToWallEndpointGaps(walls, columns);
         var undersizedStairs = CheckStairRunMetrics(stairRuns);
         var uncoveredBeams = CheckUncoveredStructuralBeams(beams, floorsAndRoofs);
+        var beamEndpointGaps = CheckBeamEndpointGaps(beams, columns);
         var uncappedRooftopEnclosures = CheckUncappedRooftopEnclosures(walls, floorsAndRoofs, roofs);
         var exteriorInteriorWalls = CheckExteriorInteriorPartitionWalls(walls, roofs);
 
@@ -342,6 +349,8 @@ internal static class ArchitecturalGeometryAuditRules
             envelopeAndSiteWarnings.Add($"undersized_stair_runs_below_1050mm (count={undersizedStairs.Count})");
         if (uncoveredBeams.Count > 0)
             envelopeAndSiteWarnings.Add($"uncovered_structural_beams_missing_slab_or_roof (count={uncoveredBeams.Count})");
+        if (beamEndpointGaps.Count > 0)
+            envelopeAndSiteWarnings.Add($"structural_beam_endpoint_gaps (count={beamEndpointGaps.Count})");
         if (uncappedRooftopEnclosures.Count > 0)
             envelopeAndSiteWarnings.Add($"uncapped_rooftop_enclosures_or_shafts (count={uncappedRooftopEnclosures.Count})");
         if (exteriorInteriorWalls.Count > 0)
@@ -351,7 +360,7 @@ internal static class ArchitecturalGeometryAuditRules
             roofsMissingParapets.Count > 0 || openingWarnings.Count > 0 || envelopeAndSiteWarnings.Count > 0 ||
             structuralFamilyMismatches.Count > 0 || floatingHostedWalls.Count > 0 || openingCollisions.Count > 0 ||
             isolatedShortStubs.Count > 0 || closeParallelWalls.Count > 0 || wallToWallGaps.Count > 0 || undersizedStairs.Count > 0 ||
-            uncoveredBeams.Count > 0 || uncappedRooftopEnclosures.Count > 0 || exteriorInteriorWalls.Count > 0;
+            uncoveredBeams.Count > 0 || beamEndpointGaps.Count > 0 || uncappedRooftopEnclosures.Count > 0 || exteriorInteriorWalls.Count > 0;
         return new ArchitecturalGeometryAuditReport(
             walls.Count, floors.Length, roofs.Length, columns.Count,
             stairsAndRailings.Count(s => s.Category == "OST_Stairs"),
@@ -386,7 +395,10 @@ internal static class ArchitecturalGeometryAuditRules
             uncappedRooftopEnclosures.Count,
             exteriorInteriorWalls.Take(MaxFindingsPerKind).ToArray(),
             exteriorInteriorWalls.Count,
-            hasIssues);
+            hasIssues,
+            beams?.Count ?? 0,
+            beamEndpointGaps.Take(MaxFindingsPerKind).ToArray(),
+            beamEndpointGaps.Count);
     }
 
     private static List<WallToWallEndpointGapFinding> CheckWallToWallEndpointGaps(
@@ -751,6 +763,89 @@ internal static class ArchitecturalGeometryAuditRules
                 b.ZMm >= s.BaseZMm - 650.0 && b.ZMm <= s.TopZMm + 650.0);
             if (!covered)
                 findings.Add(new UncoveredBeamFinding(b.ElementId, Math.Round(midX, 1), Math.Round(midY, 1), Math.Round(b.ZMm, 1), b.TypeName ?? string.Empty));
+        }
+        return findings;
+    }
+
+    private static List<BeamEndpointGapFinding> CheckBeamEndpointGaps(
+        IReadOnlyList<AuditBeamGeometry>? beams,
+        IReadOnlyList<AuditColumnGeometry> columns)
+    {
+        var findings = new List<BeamEndpointGapFinding>();
+        if (beams is null || beams.Count == 0) return findings;
+
+        foreach (var b in beams)
+        {
+            if (!double.IsFinite(b.StartXMm) || !double.IsFinite(b.StartYMm) ||
+                !double.IsFinite(b.EndXMm) || !double.IsFinite(b.EndYMm) || !double.IsFinite(b.ZMm))
+                continue;
+            var dx = b.EndXMm - b.StartXMm;
+            var dy = b.EndYMm - b.StartYMm;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 200.0) continue;
+            var ux = dx / len;
+            var uy = dy / len;
+
+            foreach (var (endpoint, ex, ey, outUx, outUy) in new[]
+            {
+                ("start", b.StartXMm, b.StartYMm, -ux, -uy),
+                ("end", b.EndXMm, b.EndYMm, ux, uy)
+            })
+            {
+                // Skip if already anchored inside a column or touching another beam at the same elevation.
+                var anchoredCol = columns.Any(c =>
+                    FiniteColumn(c) &&
+                    c.BaseZMm <= b.ZMm + 400.0 && c.TopZMm >= b.ZMm - 900.0 &&
+                    Math.Abs(ex - c.CenterXMm) <= c.HalfWidthXMm + 20.0 &&
+                    Math.Abs(ey - c.CenterYMm) <= c.HalfWidthYMm + 20.0);
+                if (anchoredCol) continue;
+
+                var anchoredBeam = beams.Any(ob =>
+                    ob.ElementId != b.ElementId &&
+                    Math.Abs(ob.ZMm - b.ZMm) <= 600.0 &&
+                    PointToSegmentDistMm(ex, ey, ob.StartXMm, ob.StartYMm, ob.EndXMm, ob.EndYMm) <= 20.0);
+                if (anchoredBeam) continue;
+
+                double bestGap = double.PositiveInfinity;
+                string bestKind = string.Empty;
+                long bestTargetId = 0;
+
+                foreach (var c in columns)
+                {
+                    if (!FiniteColumn(c)) continue;
+                    if (c.BaseZMm > b.ZMm + 400.0 || c.TopZMm < b.ZMm - 900.0) continue;
+                    var rx = c.CenterXMm - ex;
+                    var ry = c.CenterYMm - ey;
+                    var along = rx * outUx + ry * outUy;
+                    var perp = Math.Abs(-rx * outUy + ry * outUx);
+                    var colAlongHalf = Math.Abs(outUx) * c.HalfWidthXMm + Math.Abs(outUy) * c.HalfWidthYMm;
+                    var colPerpHalf = Math.Abs(outUy) * c.HalfWidthXMm + Math.Abs(outUx) * c.HalfWidthYMm;
+                    if (perp > colPerpHalf + 250.0) continue;
+                    var gapToFace = along - colAlongHalf;
+                    if (gapToFace > MinWallColumnGapMm && gapToFace <= MaxWallColumnGapMm && gapToFace < bestGap)
+                    {
+                        bestGap = gapToFace;
+                        bestKind = "Column";
+                        bestTargetId = c.ElementId;
+                    }
+                }
+
+                foreach (var ob in beams)
+                {
+                    if (ob.ElementId == b.ElementId) continue;
+                    if (Math.Abs(ob.ZMm - b.ZMm) > 600.0) continue;
+                    var dist = PointToSegmentDistMm(ex, ey, ob.StartXMm, ob.StartYMm, ob.EndXMm, ob.EndYMm);
+                    if (dist > MinWallColumnGapMm && dist <= MaxWallColumnGapMm && dist < bestGap)
+                    {
+                        bestGap = dist;
+                        bestKind = "Beam";
+                        bestTargetId = ob.ElementId;
+                    }
+                }
+
+                if (bestTargetId > 0)
+                    findings.Add(new BeamEndpointGapFinding(b.ElementId, endpoint, bestKind, bestTargetId, Math.Round(bestGap, 2)));
+            }
         }
         return findings;
     }

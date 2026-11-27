@@ -36,7 +36,9 @@ internal sealed class FittingConnectionReadbackService
     {
         (long)BuiltInCategory.OST_PipeFitting => "OST_PipeFitting",
         (long)BuiltInCategory.OST_DuctFitting => "OST_DuctFitting",
-        _ => throw Invalid("The created instance is not a native pipe or duct fitting.")
+        (long)BuiltInCategory.OST_CableTrayFitting => "OST_CableTrayFitting",
+        (long)BuiltInCategory.OST_ConduitFitting => "OST_ConduitFitting",
+        _ => throw Invalid("The created instance is not a native pipe, duct, cable-tray, or conduit fitting.")
     };
     internal static FittingCreationBinding Bind(Document doc, FamilyInstance fitting, FittingCreationInput input)
     {

@@ -20,7 +20,7 @@ const INSUNITS_LABELS = {
 };
 
 export const CAD_PREFLIGHT_GUIDE = {
-  version: '2026-11-24',
+  version: '2026-11-27',
   priorityMainline: 'agent-driven-mcp-auto-modeling',
   apiIntegrationDeferred: true,
   mandatoryPreModelingGate: [
@@ -49,6 +49,38 @@ export const CAD_PREFLIGHT_GUIDE = {
       whenComplete: '向用户呈现完整性判断与拟建模范围，待用户明确选择「是，开始建模」后再进入 Revit MCP 自动建模。',
       whenIncomplete: '明确告知用户「图纸不完整」及具体缺项与影响，让用户二选一：「依旧进行建模」（确认缺项默认假设或跳过范围）或「进行图纸补充」（暂停建模，补图后复审）。',
       authorizationBoundary: 'project-authorization / AgentReview 仅在用户完成上述确认并选择开始建模后生效，绝不绕过 Skills 安装确认与 CAD 完整性双分支用户确认闸门。'
+    }
+  ],
+  mandatoryPreDeliveryAuditGate: [
+    {
+      dimension: 1,
+      id: 'xy_plan_geometry_and_topology',
+      title: '2D 平面几何与拓扑完整性（XY）',
+      rule: '逐层核对轴网对齐、原 CAD 双线墙（含斜墙）零漏建、墙端零断缝、内凹入口门廊真实轮廓、楼板/屋顶退台轮廓与全部挑空/楼梯井开洞、以及门窗幕墙 XY 位置与数量完整性。'
+    },
+    {
+      dimension: 2,
+      id: 'z_axis_elevation_and_construction',
+      title: '3D 竖向标高、高度与构造细节（Z）',
+      rule: '核对层高、板厚偏移（零水平通缝、零顶面露梁）、CAD 标高文字与门窗名义宽高（含高窗/百叶/落地窗/矮天窗井）、跨层楼梯 3D 路径与开洞/梯下墙避让、屋面全量构筑物与风井封顶、女儿墙及室外地坪踏步。'
+    },
+    {
+      dimension: 3,
+      id: 'material_family_consistency',
+      title: '材质、族类型与外观一致性',
+      rule: '核验结构族真实材质与截面（structuralFamilyMismatchTotalCount === 0），严禁室内薄隔墙类型外露于屋面风井或外立面栏板（exteriorInteriorPartitionWalls === 0），并核对立面门窗/幕墙/护栏视觉一致。'
+    },
+    {
+      dimension: 4,
+      id: 'native_audit_clash_and_visual_proof',
+      title: '原生几何自审、碰撞检查与多视角实图复核',
+      rule: '提交前必须运行 revit_audit_run（实证清零 uncoveredStructuralBeams、uncappedRooftopEnclosures、exteriorInteriorPartitionWalls、穿顶楼梯、墙缝与碰撞等告警，禁止未经局部 CAD 放大图核实口头归为误报），密集区辅以 revit_collision_check，并导出目视核验三维总图 + 四向立面 + 复杂节点近景，发现问题当场修完复检后再交付。'
+    },
+    {
+      dimension: 5,
+      id: 'completeness_schedules_and_hygiene',
+      title: '专业完整性、清单核对与交付收口',
+      rule: '核对楼层/房间/楼梯/井道/门窗清单无缺漏（含机电范围时同步查 revit_mep_disconnects / revit_electrical_audit），清除孤立或临时图元，汇报 5 维核对结论、自修清单、剩余假设与 revision，提示用户验收后手动保存（不自动保存）。'
     }
   ],
   recommendedSkills: ['revit-cad-auto-modeling', 'dwg-field-review', 'libredwg'],

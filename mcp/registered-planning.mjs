@@ -19,14 +19,14 @@ const INPUT_KEYS = {
   'electrical.circuit': ['parameterChanges','circuits','panelDistributionSystems','panelSchedules','tags','dimensions'],
   'electrical.wire': ['wires','wireDeletions','switchControls','tags','dimensions'],
   'electrical.sheet': ['titleBlockChanges','placementMoves','viewportLabelMoves','sheetChanges','viewChanges','views','viewConfigurations','schedules','panelSchedules','sheets','viewports','tags','dimensions'],
-  'architecture.build': ['typeCopies','columns','levels','grids','walls','floors','doors','windows','rooms','views','schedules','sheets','viewports','tags','dimensions'],
-  'structure.build': ['beams','isolatedFoundations','wallFoundations'],
+  'architecture.build': ['typeCopies','columns','levels','grids','walls','joins','floors','doors','windows','rooms','views','schedules','sheets','viewports','tags','dimensions'],
+  'structure.build': ['columns','beams','isolatedFoundations','wallFoundations','floors','joins'],
   'structure.reinforcement': ['rebarSets','stirrups'],
   'architecture.ceilings': ['ceilings'],
   'materials.create': ['materials', 'copies', 'assignments'],
   'architecture.roofs': ['roofs'],
   'documentation.annotations': ['textNotes', 'detailLines'],
-  'mep.electrical_runs': ['cableTrays', 'conduits'],
+  'mep.electrical_runs': ['cableTrays', 'conduits', 'fittings', 'connections'],
   'architecture.rooms': ['rooms','views','schedules','sheets','viewports','tags','dimensions'],
   'architecture.openings': ['typeCopies','doors','windows','schedules','sheets','viewports','tags','dimensions'],
   'architecture.documentation': ['titleBlockChanges','placementMoves','viewportLabelMoves','views','viewConfigurations','schedules','panelSchedules','sheets','viewports','tags','dimensions']
@@ -117,11 +117,25 @@ export async function previewRegisteredWriteWorkflow(args, workflow, call, signa
   if (before.document.isFamilyDocument === true) fail('project_document_required', 'This workflow requires a project, not a family document.');
   if (before.document.isReadOnly === true) fail('document_read_only', 'The active project cannot accept modeling changes.');
   const pinnedRevision = before.document.revision;
-  if(args.name==='structure.build')await requireStructuralHostFeature(call,signal,input.wallFoundations?.length?['controlled-wall-foundation']:[]);
+  if(args.name==='structure.build'){
+    const extra=[];
+    if(input.wallFoundations?.length)extra.push('controlled-wall-foundation');
+    if(input.columns?.length)extra.push('controlled-structural-columns');
+    if(input.joins?.length)extra.push('controlled-geometry-join');
+    await requireStructuralHostFeature(call,signal,extra);
+  }
   if(args.name==='structure.reinforcement')await requireRebarHostFeature(call,signal);
   if(args.name==='architecture.ceilings')await requireCeilingHostFeature(call,signal);
   if(args.name==='documentation.annotations')await requireAnnotationCreationHostFeature(call,signal);
-  if(args.name==='mep.electrical_runs')await requireElectricalRunHostFeature(call,signal);
+  if(args.name==='mep.electrical_runs'){
+    await requireElectricalRunHostFeature(call,signal);
+    if(input.fittings?.length||input.connections?.length){
+      const host=await call('revit.bridge.info',{},signal);
+      if(!Array.isArray(host?.features)||!host.features.includes('multi-discipline-topology-and-mep-fittings')){
+        throw Object.assign(new Error('The loaded Revit add-in does not provide multi-discipline-topology-and-mep-fittings for cable-tray/conduit fittings.'),{code:'electrical_runs_fitting_feature_unavailable'});
+      }
+    }
+  }
   let domainReview = args.name === 'electrical.wire' ? await inspectElectricalWireScope(input, call, signal) : args.name === 'electrical.circuit' ? await inspectElectricalCircuitScope(input, call, signal) : args.name === 'electrical.sheet' ? await inspectElectricalSheetScope(input, call, signal) : null;
   if(args.name==='architecture.documentation'){
     const placementReview=await inspectDrawingPlacementScope({placementMoves:input.placementMoves,viewportLabelMoves:input.viewportLabelMoves},call,signal);

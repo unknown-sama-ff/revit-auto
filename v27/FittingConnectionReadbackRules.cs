@@ -20,17 +20,23 @@ internal static class FittingConnectionReadbackRules
     internal static void RequireEndpoint(FittingEndpointBinding endpoint)
     {
         if (endpoint is null || !Id(endpoint.OwnerId) || string.IsNullOrWhiteSpace(endpoint.OwnerUniqueId) || endpoint.ConnectorId < 0 ||
-            endpoint.Domain is not ("DomainPiping" or "DomainHvac") || !Physical(endpoint.ConnectorType))
-            throw Invalid("A fitting endpoint must be a complete local physical pipe/duct connector.");
+            endpoint.Domain is not ("DomainPiping" or "DomainHvac" or "DomainCableTrayConduit") || !Physical(endpoint.ConnectorType))
+            throw Invalid("A fitting endpoint must be a complete local physical pipe/duct/cable-tray/conduit connector.");
     }
+    internal static bool CategoryMatchesDomain(string domain, string category) => domain switch
+    {
+        "DomainPiping" => category == "OST_PipeFitting",
+        "DomainHvac" => category == "OST_DuctFitting",
+        "DomainCableTrayConduit" => category is "OST_CableTrayFitting" or "OST_ConduitFitting",
+        _ => false
+    };
     internal static void Require(FittingCreationBinding expected, FittingConnectionReadback actual)
     {
         RequireEndpoint(expected.First); RequireEndpoint(expected.Second);
-        var category = expected.First.Domain == "DomainPiping" ? "OST_PipeFitting" : "OST_DuctFitting";
         if (!Kind(expected.FittingKind) || expected.First.OwnerId == expected.Second.OwnerId || expected.First.Domain != expected.Second.Domain ||
-            !Id(expected.FittingId) || !Id(expected.TypeId) || string.IsNullOrWhiteSpace(expected.UniqueId) || expected.Category != category ||
+            !Id(expected.FittingId) || !Id(expected.TypeId) || string.IsNullOrWhiteSpace(expected.UniqueId) || !CategoryMatchesDomain(expected.First.Domain, expected.Category) ||
             actual is null || actual.FittingId != expected.FittingId || actual.UniqueId != expected.UniqueId ||
-            actual.TypeId != expected.TypeId || actual.Category != category ||
+            actual.TypeId != expected.TypeId || actual.Category != expected.Category ||
             actual.First is null || actual.Second is null || actual.First.Endpoint != expected.First || actual.Second.Endpoint != expected.Second)
             throw Invalid("The created fitting or its reviewed endpoint identities changed; roll back.");
         if (actual.Ports is null || actual.Ports.Length != 2 || actual.Ports.Any(p => p is null || p.ConnectorId < 0 ||

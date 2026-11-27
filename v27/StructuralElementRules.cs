@@ -21,7 +21,7 @@ internal static class StructuralElementRules
         var kind = JsonDefaults.String(op, "operationType");
         if (kind is not ("create_structural_beam" or "create_isolated_foundation")) throw Invalid("Unsupported structural operationType.");
         var beam = IsBeam(op);
-        Shape(op, beam ? ["operationType", "id", "dependencies", "symbolId", "levelId", "start", "end", "rotationDegrees", "disallowJoin"] :
+        Shape(op, beam ? ["operationType", "id", "dependencies", "symbolId", "levelId", "start", "end", "rotationDegrees", "disallowJoin", "disallowJoinStart", "disallowJoinEnd", "topologyPriority"] :
             ["operationType", "id", "dependencies", "symbolId", "levelId", "point", "rotationDegrees"]);
         Id(op, "symbolId"); Id(op, "levelId");
         if (beam)
@@ -31,8 +31,10 @@ internal static class StructuralElementRules
             var projection = Math.Sqrt(dx * dx + dy * dy);
             if (!double.IsFinite(projection) || !double.IsFinite(dz) || !double.IsFinite(dx * dx + dy * dy + dz * dz) || projection < 1)
                 throw Invalid("Beam endpoints require a finite horizontal projection of at least 1 mm; vertical beams are unsupported.");
-            if (op.TryGetProperty("disallowJoin", out var dj) && dj.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-                throw Invalid("disallowJoin must be a boolean.");
+            foreach (var joinField in new[] { "disallowJoin", "disallowJoinStart", "disallowJoinEnd" })
+                if (op.TryGetProperty(joinField, out var dj) && dj.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                    throw Invalid($"{joinField} must be a boolean.");
+            if (op.TryGetProperty("topologyPriority", out _)) Number(op, "topologyPriority");
         }
         else Point(op, "point");
         if (op.TryGetProperty("rotationDegrees", out _) && Math.Abs(Number(op, "rotationDegrees")) > 360)

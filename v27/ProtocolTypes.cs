@@ -167,7 +167,7 @@ internal static class PlanRules
     {
         "move_lighting_fixtures",
         "create_family_instance", "duplicate_type", "duplicate_architecture_type", "set_parameter", "delete_element", "load_family",
-        "create_level", "create_grid", "create_structural_column", "create_structural_beam", "create_isolated_foundation", "create_wall_foundation", "create_rebar_set", "create_rebar_stirrup", "create_ceiling", "create_wall", "create_floor", "create_opening", "create_room", "create_stair", "create_material", "duplicate_material", "create_footprint_roof", "assign_material",
+        "create_level", "create_grid", "create_structural_column", "create_structural_beam", "create_isolated_foundation", "create_wall_foundation", "create_rebar_set", "create_rebar_stirrup", "create_ceiling", "create_wall", "create_floor", "create_opening", "create_room", "create_stair", "create_material", "duplicate_material", "create_footprint_roof", "assign_material", "join_geometry",
         "create_circuit", "create_wire", "create_cable_tray", "create_conduit", "create_view_plan", "create_sheet", "create_schedule",
         "create_panel_schedule", "configure_view", "place_viewport", "move_drawing_placement", "move_viewport_label", "change_titleblock_type", "create_pipe", "create_duct", "connect_elements", "create_fitting", "create_tag", "create_dimension", "create_text_note", "create_detail_line"
     };
@@ -220,12 +220,13 @@ internal static class PlanRules
                             if (JsonDefaults.Has(op, "topOffsetMm")) Number(op, "topOffsetMm");
                         }
                         else Positive(op, "heightMm");
-                        if (op.TryGetProperty("disallowJoin", out var dj) && dj.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-                            throw new BridgeException("invalid_operation", "create_wall disallowJoin must be a boolean.");
+                        GeometryJoinRules.ValidateWallJoinFields(op);
+                        if (op.TryGetProperty("topologyPriority", out _)) Number(op, "topologyPriority");
                     }
                     if (type == "create_pipe") { Require(op, "pipeTypeId"); Require(op, "systemTypeId"); Positive(op, "diameterMm"); }
                     if (type == "create_duct") { Require(op, "ductTypeId"); Require(op, "systemTypeId"); DuctDimensions(op); }
                     break;
+                case "join_geometry": GeometryJoinRules.Validate(op); break;
                 case "create_floor":
                     if (JsonDefaults.Array(op, "boundary").Count() < 3) throw new BridgeException("invalid_geometry", "Floor boundary needs 3+ points.");
                     foreach (var p in JsonDefaults.Array(op, "boundary")) Point(p); break;

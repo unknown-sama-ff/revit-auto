@@ -1,4 +1,5 @@
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Electrical;
 using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.DB.Plumbing;
 
@@ -11,14 +12,14 @@ internal sealed class MultiportFittingReadbackService
     private Document? document;
     private readonly List<MultiportFittingCreationBinding> bindings = [];
     private static BridgeException Invalid(string message) => new("invalid_fitting_readback", message);
-    private static bool PipeOrDuct(Element owner) => owner is Pipe or FlexPipe or Duct or FlexDuct;
+    private static bool MepCurveOwner(Element owner) => owner is Pipe or FlexPipe or Duct or FlexDuct or CableTray or Conduit;
     internal static void ValidateInput(string kind, IReadOnlyList<Element?> owners)
     {
         if (!MultiportFittingReadbackRules.Kind(kind))
             throw new BridgeException("invalid_operation", "Supported multiport fittings: tee and cross.");
         if (owners is null || owners.Count != MultiportFittingReadbackRules.EndpointCount(kind) ||
-            owners.Any(o => o is null || !o.IsValidObject || !PipeOrDuct(o)))
-            throw Invalid("A tee requires three, and a cross four, distinct explicit pipe/duct owners, including flex curves.");
+            owners.Any(o => o is null || !o.IsValidObject || !MepCurveOwner(o)))
+            throw Invalid("A tee requires three, and a cross four, distinct explicit pipe/duct/cable-tray/conduit owners.");
         var first = owners[0]!;
         if (!first.Document.IsValidObject || owners.Any(o => !o!.Document.Equals(first.Document)) ||
             owners.Select(o => o!.Id.Value).Distinct().Count() != owners.Count ||
@@ -28,8 +29,8 @@ internal sealed class MultiportFittingReadbackService
     private static FittingEndpointBinding Endpoint(Document doc, Connector connector)
     {
         if (connector is null || !connector.IsValidObject || connector.Owner is not { IsValidObject: true } owner ||
-            !PipeOrDuct(owner) || !owner.Document.Equals(doc))
-            throw Invalid("The reviewed pipe/duct endpoint is unavailable or belongs to another document.");
+            !MepCurveOwner(owner) || !owner.Document.Equals(doc))
+            throw Invalid("The reviewed MEP curve endpoint is unavailable or belongs to another document.");
         var endpoint = new FittingEndpointBinding(owner.Id.Value, owner.UniqueId, connector.Id,
             connector.Domain.ToString(), connector.ConnectorType.ToString());
         FittingConnectionReadbackRules.RequireEndpoint(endpoint);
@@ -55,7 +56,9 @@ internal sealed class MultiportFittingReadbackService
     {
         (long)BuiltInCategory.OST_PipeFitting => "OST_PipeFitting",
         (long)BuiltInCategory.OST_DuctFitting => "OST_DuctFitting",
-        _ => throw Invalid("The created instance is not a native pipe or duct fitting.")
+        (long)BuiltInCategory.OST_CableTrayFitting => "OST_CableTrayFitting",
+        (long)BuiltInCategory.OST_ConduitFitting => "OST_ConduitFitting",
+        _ => throw Invalid("The created instance is not a native pipe, duct, cable-tray, or conduit fitting.")
     };
     internal static MultiportFittingCreationBinding Bind(Document doc, FamilyInstance fitting, MultiportFittingCreationInput input)
     {
@@ -71,8 +74,8 @@ internal sealed class MultiportFittingReadbackService
     private static Connector Reacquire(Document doc, FittingEndpointBinding expected)
     {
         var owner = doc.GetElement(new ElementId(expected.OwnerId));
-        if (owner is null || !owner.IsValidObject || !PipeOrDuct(owner) || !owner.Document.Equals(doc) || owner.UniqueId != expected.OwnerUniqueId)
-            throw Invalid("A reviewed pipe/duct owner disappeared, changed or was replaced.");
+        if (owner is null || !owner.IsValidObject || !MepCurveOwner(owner) || !owner.Document.Equals(doc) || owner.UniqueId != expected.OwnerUniqueId)
+            throw Invalid("A reviewed MEP curve owner disappeared, changed or was replaced.");
         var connector = ConnectorResolutionService.ById(owner, expected.ConnectorId);
         if (Endpoint(doc, connector) != expected) throw Invalid("A reviewed native connector identity, domain or type changed.");
         return connector;

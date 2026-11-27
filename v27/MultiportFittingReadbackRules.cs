@@ -32,11 +32,11 @@ internal static class MultiportFittingReadbackRules
     {
         if (expected is null) throw Invalid("The created fitting binding is missing.");
         RequireInput(expected.FittingKind, expected.Endpoints);
-        var category = expected.Endpoints[0].Domain == "DomainPiping" ? "OST_PipeFitting" : "OST_DuctFitting";
         if (expected.FittingId <= 0 || expected.FittingId > MaxSafeId || expected.TypeId <= 0 || expected.TypeId > MaxSafeId ||
-            string.IsNullOrWhiteSpace(expected.UniqueId) || expected.Category != category ||
+            string.IsNullOrWhiteSpace(expected.UniqueId) ||
+            !FittingConnectionReadbackRules.CategoryMatchesDomain(expected.Endpoints[0].Domain, expected.Category) ||
             expected.Endpoints.Any(e => e.OwnerId == expected.FittingId || e.OwnerUniqueId == expected.UniqueId))
-            throw Invalid("The created fitting requires a distinct native identity, valid type and matching pipe/duct fitting category.");
+            throw Invalid("The created fitting requires a distinct native identity, valid type and matching MEP fitting category.");
     }
     internal static void Require(MultiportFittingCreationBinding expected, MultiportFittingConnectionReadback actual)
     {

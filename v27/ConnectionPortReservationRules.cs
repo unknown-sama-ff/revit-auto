@@ -21,7 +21,7 @@ internal static class ConnectionPortReservationRules
             if(kind is "connect_elements" or "create_fitting")foreach(var prefix in MepConnectionInputRules.Prefixes(op))
             {
                 var value=JsonDefaults.Get(op,prefix+"ElementId");var owner=value.ValueKind==JsonValueKind.String?value.GetString()!:value.GetRawText();string key;
-                if(created.TryGetValue(owner.TrimStart('@'),out var curve)&&owner.StartsWith('@')&&JsonDefaults.String(curve,"operationType") is "create_pipe" or "create_duct")
+                if(created.TryGetValue(owner.TrimStart('@'),out var curve)&&owner.StartsWith('@')&&JsonDefaults.String(curve,"operationType") is "create_pipe" or "create_duct" or "create_cable_tray" or "create_conduit")
                 {
                     if(!op.TryGetProperty(prefix+"Connector",out var selector))throw new BridgeException("invalid_connector","New curves require endpoint criteria, not predicted connector IDs.");
                     var endpoint=NewCurveEndpoint(curve,selector);key=owner+":endpoint:"+endpoint;
@@ -40,8 +40,20 @@ internal static class ConnectionPortReservationRules
     public static int NewCurveEndpoint(JsonElement curve,JsonElement selector)
     {
         var c=ConnectorSelectionRules.Criteria(selector);
-        var domain=JsonDefaults.String(curve,"operationType")=="create_pipe"?"DomainPiping":"DomainHvac";
-        var shape=JsonDefaults.Has(curve,"diameterMm")?"Round":"Rectangular";
+        var kind=JsonDefaults.String(curve,"operationType");
+        var domain=kind switch
+        {
+            "create_pipe" => "DomainPiping",
+            "create_duct" => "DomainHvac",
+            "create_cable_tray" or "create_conduit" => "DomainCableTrayConduit",
+            _ => throw new BridgeException("invalid_connector","Deferred curve endpoint criteria support create_pipe, create_duct, create_cable_tray, or create_conduit only.")
+        };
+        var shape=kind switch
+        {
+            "create_cable_tray" => "Rectangular",
+            "create_conduit" => "Round",
+            _ => JsonDefaults.Has(curve,"diameterMm")?"Round":"Rectangular"
+        };
         var matches=new List<int>();var index=0;
         foreach(var name in new[]{"start","end"}){var p=JsonDefaults.Get(curve,name);if(ConnectorSelectionRules.Matches(new(index,domain,shape,PlanRules.Number(p,"xMm"),PlanRules.Number(p,"yMm"),JsonDefaults.Double(p,"zMm")??0),c))matches.Add(index);index++;}
         if(matches.Count!=1)throw new BridgeException("invalid_connector",$"New curve endpoint criteria matched {matches.Count} endpoints; no port was selected.");

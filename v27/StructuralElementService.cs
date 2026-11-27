@@ -70,11 +70,9 @@ internal sealed class StructuralElementService
         {
             using var line = Line.CreateBound(Point(StructuralElementRules.Point(op, "start")), Point(StructuralElementRules.Point(op, "end")));
             instance = doc.Create.NewFamilyInstance(line, symbol, level, StructuralType.Beam) ?? throw Invalid("Revit returned no structural beam.");
-            if (JsonDefaults.Bool(op, "disallowJoin"))
-            {
-                StructuralFramingUtils.DisallowJoinAtEnd(instance, 0);
-                StructuralFramingUtils.DisallowJoinAtEnd(instance, 1);
-            }
+            var (disallowStart, disallowEnd) = GeometryJoinRules.ResolveEndDisallow(op);
+            if (disallowStart) StructuralFramingUtils.DisallowJoinAtEnd(instance, 0);
+            if (disallowEnd) StructuralFramingUtils.DisallowJoinAtEnd(instance, 1);
             doc.Regenerate();
             SetAngle(instance, StructuralElementRules.Rotation(op));
         }

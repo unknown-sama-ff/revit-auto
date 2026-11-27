@@ -211,6 +211,17 @@ test('revit-custom MCP exposes revit_cad_preflight tool and cad-preflight-guide 
     const guide = JSON.parse(guideRes.contents[0].text);
     assert.equal(guide.apiIntegrationDeferred, true);
     assert.equal(guide.mandatoryPreModelingGate.length, 4);
+    assert.equal(guide.mandatoryPreDeliveryAuditGate.length, 5);
+    assert.deepEqual(
+      guide.mandatoryPreDeliveryAuditGate.map(item => item.id),
+      [
+        'xy_plan_geometry_and_topology',
+        'z_axis_elevation_and_construction',
+        'material_family_consistency',
+        'native_audit_clash_and_visual_proof',
+        'completeness_schedules_and_hygiene'
+      ]
+    );
 
     const callRes = await client.callTool({
       name: 'revit_cad_preflight',

@@ -20,7 +20,13 @@ internal sealed class ElectricalRunService
         ConduitInput? ConduitInput);
 
     private readonly List<Binding> completed = [];
+    private readonly HashSet<long> fittingConnectedIds = [];
     private Document? capturedDocument;
+
+    internal void MarkConnectedByFitting(long elementId)
+    {
+        if (elementId > 0) fittingConnectedIds.Add(elementId);
+    }
 
     private static BridgeException Invalid(string message) => ElectricalRunRules.Invalid(message);
     private static double Mm(double value) => UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters);
@@ -135,7 +141,7 @@ internal sealed class ElectricalRunService
             binding = new(conduit.Id.Value, conduit.UniqueId, kind, type.UniqueId, level.UniqueId, null, input);
         }
 
-        var evidence = Verify(doc, binding, "immediate-after-creation");
+        var evidence = Verify(doc, binding, "immediate-after-creation", allowFittingTrim: false);
         completed.Add(binding);
         return OperationReceipt.New(binding.ElementId) with { Evidence = evidence };
     }
@@ -144,7 +150,7 @@ internal sealed class ElectricalRunService
     {
         if (completed.Count == 0) return null;
         RequireDocument(doc, capture: true);
-        var elements = completed.Select(b => Verify(doc, b, phase)).ToArray();
+        var elements = completed.Select(b => Verify(doc, b, phase, allowFittingTrim: fittingConnectedIds.Contains(b.ElementId))).ToArray();
         return new
         {
             phase,
@@ -175,7 +181,7 @@ internal sealed class ElectricalRunService
         catch (Exception ex) { return new { supported = false, reason = ex.Message }; }
     }
 
-    private static object Verify(Document doc, Binding binding, string phase)
+    private static object Verify(Document doc, Binding binding, string phase, bool allowFittingTrim)
     {
         if (binding.Kind == "create_cable_tray")
         {
@@ -187,13 +193,14 @@ internal sealed class ElectricalRunService
             if (doc.GetElement(new ElementId(binding.ElementId)) is not CableTray { IsValidObject: true } tray)
                 throw Invalid("Created CableTray disappeared or became invalid before verification.");
             var actual = ReadCurve(tray);
-            ElectricalRunRules.RequireCableTray(input, binding.UniqueId, actual);
+            ElectricalRunRules.RequireCableTray(input, binding.UniqueId, actual, allowFittingTrim);
             return NativeReadSnapshot.Freeze(new
             {
                 phase,
                 elementId = actual.ElementId,
                 uniqueId = actual.UniqueId,
                 kind = binding.Kind,
+                trimmedBySamePlanFitting = allowFittingTrim,
                 native = actual,
                 nativeReadbackVerified = true,
                 routingAndClearanceVerified = false,
@@ -210,13 +217,14 @@ internal sealed class ElectricalRunService
             if (doc.GetElement(new ElementId(binding.ElementId)) is not Conduit { IsValidObject: true } conduit)
                 throw Invalid("Created Conduit disappeared or became invalid before verification.");
             var actual = ReadCurve(conduit);
-            ElectricalRunRules.RequireConduit(input, binding.UniqueId, actual);
+            ElectricalRunRules.RequireConduit(input, binding.UniqueId, actual, allowFittingTrim);
             return NativeReadSnapshot.Freeze(new
             {
                 phase,
                 elementId = actual.ElementId,
                 uniqueId = actual.UniqueId,
                 kind = binding.Kind,
+                trimmedBySamePlanFitting = allowFittingTrim,
                 native = actual,
                 nativeReadbackVerified = true,
                 routingAndClearanceVerified = false,

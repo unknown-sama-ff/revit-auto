@@ -117,33 +117,53 @@ internal static class ElectricalRunRules
         }
     }
 
-    public static void RequireCableTray(CableTrayInput input, string expectedUniqueId, ElectricalRunReadback actual)
+    public static void RequireCableTray(CableTrayInput input, string expectedUniqueId, ElectricalRunReadback actual, bool allowFittingTrim = false)
     {
-        RequireLinearGeometry("CableTray", input.CableTrayTypeId, input.LevelId, input.Start, input.End, expectedUniqueId, actual);
+        RequireLinearGeometry("CableTray", input.CableTrayTypeId, input.LevelId, input.Start, input.End, expectedUniqueId, actual, allowFittingTrim);
         if (actual.WidthMm is not double w || !double.IsFinite(w) || Math.Abs(w - input.WidthMm) > ToleranceMm ||
             actual.HeightMm is not double h || !double.IsFinite(h) || Math.Abs(h - input.HeightMm) > ToleranceMm)
             throw Invalid("Native CableTray cross-section width or height differs from the reviewed operation; roll back.");
     }
 
-    public static void RequireConduit(ConduitInput input, string expectedUniqueId, ElectricalRunReadback actual)
+    public static void RequireConduit(ConduitInput input, string expectedUniqueId, ElectricalRunReadback actual, bool allowFittingTrim = false)
     {
-        RequireLinearGeometry("Conduit", input.ConduitTypeId, input.LevelId, input.Start, input.End, expectedUniqueId, actual);
+        RequireLinearGeometry("Conduit", input.ConduitTypeId, input.LevelId, input.Start, input.End, expectedUniqueId, actual, allowFittingTrim);
         if (actual.DiameterMm is not double d || !double.IsFinite(d) || Math.Abs(d - input.DiameterMm) > ToleranceMm)
             throw Invalid("Native Conduit diameter differs from the reviewed operation; roll back.");
     }
 
     private static void RequireLinearGeometry(
         string label, long expectedTypeId, long expectedLevelId,
-        ElectricalRunPointMm start, ElectricalRunPointMm end, string expectedUniqueId, ElectricalRunReadback actual)
+        ElectricalRunPointMm start, ElectricalRunPointMm end, string expectedUniqueId, ElectricalRunReadback actual, bool allowFittingTrim)
     {
         if (actual.ElementId <= 0 || actual.UniqueId != expectedUniqueId ||
             actual.TypeId != expectedTypeId || actual.LevelId != expectedLevelId)
             throw Invalid($"Native {label} identity, type, or reference level differs from the reviewed operation; roll back.");
         var expectedLength = Distance(start, end);
+        if (allowFittingTrim)
+        {
+            if (!double.IsFinite(actual.LengthMm) || actual.LengthMm <= 0 || actual.LengthMm > expectedLength + ToleranceMm ||
+                !PointOnSegmentWithinTolerance(actual.StartMm, start, end, ToleranceMm) ||
+                !PointOnSegmentWithinTolerance(actual.EndMm, start, end, ToleranceMm))
+                throw Invalid($"Native {label} trimmed by a same-plan fitting moved off its reviewed axis or exceeded reviewed bounds; roll back.");
+            return;
+        }
         var forward = Distance(actual.StartMm, start) <= ToleranceMm && Distance(actual.EndMm, end) <= ToleranceMm;
         var reversed = Distance(actual.StartMm, end) <= ToleranceMm && Distance(actual.EndMm, start) <= ToleranceMm;
         if ((!forward && !reversed) || !double.IsFinite(actual.LengthMm) || Math.Abs(actual.LengthMm - expectedLength) > ToleranceMm)
             throw Invalid($"Native {label} endpoints or length differ from the reviewed geometry; roll back.");
+    }
+
+    private static bool PointOnSegmentWithinTolerance(ElectricalRunPointMm p, ElectricalRunPointMm a, ElectricalRunPointMm b, double tol)
+    {
+        var vx = b.XMm - a.XMm; var vy = b.YMm - a.YMm; var vz = b.ZMm - a.ZMm;
+        var len2 = vx * vx + vy * vy + vz * vz;
+        if (len2 < 1e-9) return Distance(p, a) <= tol;
+        var t = ((p.XMm - a.XMm) * vx + (p.YMm - a.YMm) * vy + (p.ZMm - a.ZMm) * vz) / len2;
+        var len = Math.Sqrt(len2);
+        if (t * len < -tol || (t - 1.0) * len > tol) return false;
+        var proj = new ElectricalRunPointMm(a.XMm + t * vx, a.YMm + t * vy, a.ZMm + t * vz);
+        return Distance(p, proj) <= tol;
     }
 
     internal static double Distance(ElectricalRunPointMm a, ElectricalRunPointMm b)

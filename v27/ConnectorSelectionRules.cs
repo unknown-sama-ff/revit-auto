@@ -5,7 +5,7 @@ internal sealed record ConnectorCriteria(string Domain, string Shape, double XMm
 internal sealed record ConnectorMatch(int Id, string Domain, string Shape, double XMm, double YMm, double ZMm);
 internal static class ConnectorSelectionRules
 {
-    private static readonly HashSet<string> Domains = new(StringComparer.Ordinal) { "DomainPiping", "DomainHvac", "DomainElectrical" };
+    private static readonly HashSet<string> Domains = new(StringComparer.Ordinal) { "DomainPiping", "DomainHvac", "DomainElectrical", "DomainCableTrayConduit" };
     private static readonly HashSet<string> Shapes = new(StringComparer.Ordinal) { "Round", "Rectangular", "Oval", "Invalid" };
     private static BridgeException Invalid(string message) => new("invalid_connector", message);
     public static ConnectorCriteria Criteria(JsonElement criteria)

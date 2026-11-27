@@ -13,7 +13,7 @@ const READONLY_NATIVE_METHODS = new Set([
   'revit.audit.run', 'revit.changes.get', 'revit.collision.check', 'revit.connector.resolve',
   'revit.context.get', 'revit.electrical.audit', 'revit.element.dependencies', 'revit.element.storage_schemas', 'revit.document.version_diff',
   'revit.family.library.get', 'revit.family.text_notes', 'revit.flow.diagnose', 'revit.inspect', 'revit.room.get', 'revit.material.quantities',
-  'revit.links.list', 'revit.links.elements', 'revit.schedule.data', 'revit.mep.disconnects',
+  'revit.links.list', 'revit.links.elements', 'revit.links.cad_geometry', 'revit.schedule.data', 'revit.mep.disconnects',
   'revit.saved.verify', 'revit.search', 'revit.sheet.layout', 'revit.stairs.connections', 'revit.type.resolve', 'revit.view.get'
 ]);
 const SAFE_READONLY_RETRY_METHODS = new Set([...READONLY_NATIVE_METHODS, 'revit.plan.get']);
@@ -38,6 +38,10 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[],i
     requiredFeatures=[...new Set([...requiredFeatures,'readonly-material-quantities'])];
   if(['revit.links.list','revit.links.elements'].includes(method))
     requiredFeatures=[...new Set([...requiredFeatures,'readonly-links-audit'])];
+  if(method==='revit.links.cad_geometry')
+    requiredFeatures=[...new Set([...requiredFeatures,'readonly-cad-link-geometry'])];
+  if(method==='revit.export.ifc')
+    requiredFeatures=[...new Set([...requiredFeatures,'controlled-ifc-export'])];
   if(method==='revit.schedule.data')
     requiredFeatures=[...new Set([...requiredFeatures,'readonly-schedule-data'])];
   if(method==='revit.mep.disconnects')
@@ -66,6 +70,8 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[],i
     const error=new Error(method==='revit.stairs.connections' ? 'The loaded Revit plugin lacks native-stair-connections. Load the separately approved stair-query build before using this read-only tool. No model write was requested.' : 'The running Revit plugin does not yet expose '+method+'. Save your work and restart Revit to load v0.4.0. No model write was requested.');
     error.code='feature_not_loaded';error.details={requiredFeatures:[requiredFeature],loadedVersion:info.version};throw error;
   }
+  if(method==='revit.connector.resolve'&&params.domain==='DomainCableTrayConduit')
+    requireFeatures(info,['multi-discipline-topology-and-mep-fittings']);
   if(method==='revit.family.text_notes'&&(Object.hasOwn(params,'afterNoteId')||Object.hasOwn(params,'boundsViewId')))
     requireFeatures(info,['family-text-pagination-view-bounds']);
   if(method==='revit.family.text_notes'&&params.familyName===''&&!info.features?.includes('family-text-known-empty-owner')){
@@ -87,6 +93,9 @@ export async function callRevit(method,params = {},signal,{requiredFeatures=[],i
     if(params.operations?.some(op=>op.operationType==='create_ceiling'))required.push('controlled-ceiling-creation');
     if(params.operations?.some(op=>op.operationType==='create_material'||op.operationType==='duplicate_material'))required.push('controlled-material-creation');
     if(params.operations?.some(op=>op.operationType==='assign_material'))required.push('controlled-material-assignment');
+    if(params.operations?.some(op=>op.operationType==='join_geometry'))required.push('controlled-geometry-join');
+    if(params.topologicalWallOrder===true||params.operations?.some(op=>['create_wall','create_structural_beam'].includes(op.operationType)&&['disallowJoinStart','disallowJoinEnd','joinTypeStart','joinTypeEnd','topologyPriority'].some(k=>Object.hasOwn(op,k))))required.push('wall-per-end-join-control');
+    if(params.topologicalBuildOrder===true||params.operations?.some(op=>op.operationType==='join_geometry'&&Object.hasOwn(op,'skipIfUnjoinable'))||params.operations?.some(op=>['connect_elements','create_fitting'].includes(op.operationType)&&['first','second','third','fourth'].some(side=>op[side+'Connector']?.domain==='DomainCableTrayConduit')))required.push('multi-discipline-topology-and-mep-fittings');
     if(params.operations?.some(op=>op.operationType==='create_footprint_roof'))required.push('controlled-roof-creation');
     if(params.operations?.some(op=>['create_text_note','create_detail_line'].includes(op.operationType)))required.push('controlled-2d-annotations');
     if(params.operations?.some(op=>['create_cable_tray','create_conduit'].includes(op.operationType)))required.push('controlled-electrical-runs');
